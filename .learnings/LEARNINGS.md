@@ -234,3 +234,24 @@ hf-mirror 对 Qwen/Qwen2.5-1.5B-Instruct 的分片文件名 (model-0000X-of-0000
 - Related Files: /root/acts3/, /workspace/analyze_mean.py
 - Tags: geometry, cross-size, 3b, rank-1
 ---
+
+## [LRN-20260830-008] 骨架+填充: 扩散精化的几何验证 + 纠偏行为 (wan特化收官)
+**Logged**: 2026-08-30T23:59:00+08
+**Priority**: high
+**Status**: resolved
+**Area**: backend
+
+### Summary
+骨架(粗稿) + 自回归填充 在激活空间模拟扩散去噪精化: cos(骨架,填充)=0.958 (骨架=流形锚点), cos(骨架,Δ)=-0.382 (填充=负向修正), cos(直接,填充)=0.984 (殊途同归). 行为上骨架是"纠偏器": 拉回跑题/模板题 (2^10模板→1024, 黑洞跑题→正确), 但干扰稳定生成 (7×8 56→44).
+
+### Details
+- 管线: 骨架文件(skeletons.jsonl, agent生成) → 3B精化版填充 → 几何分析(3B深层激活)
+- bridge(0.5B粗→精版) 当骨架生成器失败: 输出跑题选择题模板 + 不输出 <|draft|> 标签 (0.5B学行为过拟合模板)
+- wan特化三实验: A行为粗→精✅ / C掩码扩散直接生成❌(玩具规模复读) / C骨架+填充✅(几何成立)
+- 结论: 扩散式迭代精化在小模型上以"行为(A)+骨架纠偏(C修)"成立, 架构级扩散LLM需大模型大数据
+
+### Metadata
+- Source: experiment
+- Related Files: /workspace/bone_fill2.log, /workspace/skeletons.jsonl, /workspace/bone_fill_pipeline.py
+- Tags: skeleton-fill, diffusion, geometry, wan
+---

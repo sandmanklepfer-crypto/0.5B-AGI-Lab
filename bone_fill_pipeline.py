@@ -57,34 +57,29 @@ def get_act(model, tok, text, layer):
     return h[0].mean(0)  # (d)
 
 def main():
-    tok_sk = AutoTokenizer.from_pretrained(SKELETON, trust_remote_code=True)
-    sk = AutoModelForCausalLM.from_pretrained(SKELETON, trust_remote_code=True,
-                                              torch_dtype=torch.bfloat16).cuda().eval()
     tok_f = AutoTokenizer.from_pretrained(FILLER, trust_remote_code=True)
     fl = AutoModelForCausalLM.from_pretrained(FILLER, trust_remote_code=True,
                                               torch_dtype=torch.bfloat16).cuda().eval()
     n_layers = fl.config.num_hidden_layers
     layer_geom = n_layers - 2  # 深层
 
+    skel_map = {}
+    for line in open('/root/skeletons.jsonl', encoding='utf-8'):
+        r = json.loads(line)
+        skel_map[r['prompt']] = r['skeleton']
+
     results = []
     cos_list = []
     for p in PROMPTS:
-        # 1. 骨架生成 (bridge 粗->精输出, 取 draft 段)
-        bridge_out = gen(tok_sk, sk, p, 300, sample=True)
-        skeleton = extract_skeleton(bridge_out)
-        # 2. 直接生成 (3B 精化) vs 3. 骨架+填充 (3B 填充)
+        skeleton = skel_map.get(p, '')
+        # 1. 直接生成 (3B 精化) vs 2. 骨架+填充
         direct = gen(tok_f, fl, p, 250, sample=True)
-        if skeleton:
-            filled = gen(tok_f, fl, f"{p}\n以下是回答骨架：{skeleton}\n请把骨架扩写成完整回答：", 250, sample=True)
-        else:
-            filled = direct
-            skeleton = '(bridge未出骨架)'
-        # 4. 几何: 骨架激活 vs 直接/填充激活 (3B 深层)
+        filled = gen(tok_f, fl, f"{p}\n以下是回答骨架：{skeleton}\n请把骨架扩写成完整回答：", 250, sample=True)
+        # 3. 几何: 骨架激活 vs 直接/填充激活 (3B 深层)
         try:
             a_skel = get_act(fl, tok_f, skeleton, layer_geom)
             a_dir = get_act(fl, tok_f, direct, layer_geom)
             a_fill = get_act(fl, tok_f, filled, layer_geom)
-            # 填充增量方向: a_fill - a_skel
             delta = a_fill - a_skel
             cos_skel_fill = F.cosine_similarity(a_skel, a_fill, dim=-1).item()
             cos_skel_delta = F.cosine_similarity(a_skel, delta, dim=-1).item()
