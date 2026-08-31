@@ -1,0 +1,20 @@
+# 大目录/模型/私人内容
+ComfyUI/
+models/
+backups_a800/
+MiniGPT_FullKit/
+huixi/
+tianlei/
+dl3b/
+.dl3b/
+*.gguf
+*.pth
+*.tgz
+*.safetensors
+*.apk
+*.bin
+*.jar
+*.tar
+*.zip
+__pycache__/
+*.pyc
