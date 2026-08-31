@@ -1,0 +1,6 @@
+Loading weights:   0%|          | 0/410 [00:00<?, ?it/s]Loading weights: 100%|██████████| 410/410 [00:00<00:00, 12305.91it/s]
+=== 稀释深锚点后: 单输入 (应保留语义) ===
+Traceback (most recent call last):
+  File "<string>", line 27, in <module>
+  File "<string>", line 19, in gen_diluted
+RuntimeError: Inplace update to inference tensor outside InferenceMode is not allowed.You can make a clone to get a normal tensor before doing inplace update.See https://github.com/pytorch/rfcs/pull/17 for more details.

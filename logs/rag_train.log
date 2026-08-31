@@ -1,0 +1,25 @@
+[load] student + teacher...
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 12321.57it/s]
+Loading weights:   0%|          | 0/148 [00:00<?, ?it/s]Loading weights: 100%|██████████| 148/148 [00:00<00:00, 11634.47it/s]
+[model] teacher LFM2 layers=16 dim=2048 act_layer=12
+[model] student layers=24 dim=896 act_layer=22
+[data] 56 rows
+[proj] computing SVD projections...
+[proj] P_t=torch.Size([2048, 256]) P_s=torch.Size([896, 256])
+[ep1 s10] loss=0.968 ce=0.506 align=0.277 sym=0.003 rag=0.755
+[ep1 s20] loss=1.949 ce=1.467 align=0.288 sym=0.000 rag=0.792
+[ep1] avg=1.607
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  1.18it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  1.18it/s]
+[save] /root/autodl-tmp/distill_rag_v1
+[ep2 s30] loss=1.014 ce=0.549 align=0.294 sym=0.000 rag=0.754
+[ep2 s40] loss=0.621 ce=0.147 align=0.332 sym=0.000 rag=0.748
+[ep2 s50] loss=0.478 ce=0.024 align=0.297 sym=0.000 rag=0.730
+[ep2] avg=0.860
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  1.10it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  1.10it/s]
+[save] /root/autodl-tmp/distill_rag_v1
+[ep3 s60] loss=0.663 ce=0.180 align=0.315 sym=0.000 rag=0.776
+[ep3 s70] loss=0.615 ce=0.153 align=0.311 sym=0.000 rag=0.737
+[ep3 s80] loss=0.485 ce=0.045 align=0.223 sym=0.000 rag=0.746
+[ep3] avg=0.630
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  1.06it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  1.06it/s]
+[save] /root/autodl-tmp/distill_rag_v1

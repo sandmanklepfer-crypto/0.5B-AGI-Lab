@@ -1,0 +1,11 @@
+[kb] 56 docs
+Loading weights:   0%|          | 0/148 [00:00<?, ?it/s]Loading weights: 100%|██████████| 148/148 [00:00<00:00, 12194.18it/s]
+[lfm2-rag] loaded
+ * Serving Flask app 'lfm2_rag_server'
+ * Debug mode: off
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8081
+ * Running on http://172.17.0.10:8081
+[33mPress CTRL+C to quit[0m
+127.0.0.1 - - [28/Aug/2026 11:40:46] "POST /v1/rag HTTP/1.1" 200 -

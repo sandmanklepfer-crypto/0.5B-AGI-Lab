@@ -1,0 +1,32 @@
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+[model] student params=494M
+[r1] 175 samples
+[svd] (37069, 5120) → 前256主成分保留 0.9968
+[q7] 175 samples
+[svd] (43750, 3584) → 前256主成分保留 0.9963
+[gemma] 75 samples (text CE)
+[aug] 同义词 token 映射 72 条
+[aug] 语义不变增广 +296 样本 (G_sem 规范对称增强)
+[data] 总训练样本 721 (r1=175 q7=175 gemma=75 aug=296)
+[ep0 s30/180] loss=2.284 ce=1.437 align=0.8473
+[ep0 s60/180] loss=2.695 ce=2.007 align=0.6884
+[ep0 s90/180] loss=1.599 ce=0.982 align=0.6170
+[ep0 s120/180] loss=0.918 ce=0.918 align=0.0000
+[ep0 s150/180] loss=0.769 ce=0.769 align=0.0000
+[ep0 s180/180] loss=1.753 ce=1.120 align=0.6331
+[ep0] avg=1.664
+[ep1 s30/180] loss=0.629 ce=0.629 align=0.0000
+[ep1 s60/180] loss=0.356 ce=0.356 align=0.0000
+[ep1 s90/180] loss=0.791 ce=0.272 align=0.5191
+[ep1 s120/180] loss=0.916 ce=0.475 align=0.4418
+[ep1 s150/180] loss=0.702 ce=0.702 align=0.0000
+[ep1 s180/180] loss=0.120 ce=0.120 align=0.0000
+[ep1] avg=0.734
+[ep2 s30/180] loss=0.634 ce=0.155 align=0.4781
+[ep2 s60/180] loss=0.375 ce=0.375 align=0.0000
+[ep2 s90/180] loss=0.218 ce=0.218 align=0.0000
+[ep2 s120/180] loss=0.625 ce=0.190 align=0.4344
+[ep2 s150/180] loss=0.661 ce=0.284 align=0.3768
+[ep2 s180/180] loss=0.726 ce=0.232 align=0.4938
+[ep2] avg=0.503
+[save] /root/autodl-tmp/distill_mix_v3

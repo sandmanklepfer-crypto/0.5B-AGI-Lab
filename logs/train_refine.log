@@ -1,0 +1,13 @@
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  8.79it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  9.68it/s]
+[data] 120 samples
+[ep0 step10] loss=1.0903
+[ep0 step20] loss=1.1218
+[ep0 step30] loss=0.9747
+[ep0] avg=1.1372
+[ep1 step10] loss=0.8785
+[ep1 step20] loss=0.9027
+[ep1 step30] loss=0.9198
+[ep1] avg=0.8881
+[save] /root/autodl-tmp/distill_3b_refine
+REFINE_TRAIN_DONE

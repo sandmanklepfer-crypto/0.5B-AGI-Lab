@@ -1,0 +1,1 @@
+GGUF_LOAD_FAIL ValueError Unrecognized model in /root/autodl-tmp/r1-32b-gguf. Should have a `model_type` key in its config.json, or contain one of the following strings in its name: albert, align, altclip, aria, aria_text, aud

@@ -1,0 +1,14 @@
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+===== qwen15b 几何解剖 =====  28层 x 1536维  vocab=151936
+
+--- [1] 骨架几何 (30段语料 mean-pooled) ---
+[dims] 30 texts x 29 layers
+[adj-cos] 均值=+0.8959 逐层=['0.071', '0.177', '0.996', '1.000', '1.000', '1.000', '1.000', '1.000', '1.000', '1.000', '1.000', '1.000', '1.000', '1.000', '1.000', '1.000', '1.000', '1.000', '1.000', '1.000', '1.000', '1.000', '1.000', '1.000', '1.000', '1.000', '0.486', '0.355']
+[off-diag|cos|] 均值=0.7662
+[eff-dim@90%] Traceback (most recent call last):
+  File "/root/geometry_15b.py", line 206, in <module>
+    main()
+  File "/root/geometry_15b.py", line 109, in main
+    M = A[:, l].float().cpu().numpy()  # (n_texts, d)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Can't call numpy() on Tensor that requires grad. Use tensor.detach().numpy() instead.

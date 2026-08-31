@@ -1,0 +1,15 @@
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+[model] student vocab=151936 params=494M
+[vocab] teacher 152064 tokens, 映射成功 48426 (31.8%)
+[data] 247 samples
+[data] 有效样本 247
+[ep0 step20/41] loss=2.702 ce=2.697 kl=0.004
+[ep0 step40/41] loss=1.972 ce=1.965 kl=0.007
+[ep0] avg loss=2.307
+[ep1 step20/41] loss=2.404 ce=2.399 kl=0.005
+[ep1 step40/41] loss=2.183 ce=2.179 kl=0.004
+[ep1] avg loss=nan
+[ep2 step20/41] loss=1.632 ce=1.626 kl=0.006
+[ep2 step40/41] loss=0.575 ce=0.570 kl=0.005
+[ep2] avg loss=1.656
+[save] /root/autodl-tmp/distill_out
