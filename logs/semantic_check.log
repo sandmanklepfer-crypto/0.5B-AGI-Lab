@@ -1,0 +1,14 @@
+Loading weights:   0%|          | 0/410 [00:00<?, ?it/s]Loading weights: 100%|██████████| 410/410 [00:00<00:00, 12629.55it/s]
+Loading weights:   0%|          | 0/410 [00:00<?, ?it/s]Loading weights: 100%|██████████| 410/410 [00:00<00:00, 11640.51it/s]
+健康生成: ？\n
+死寂生成: 个答案答案
+=== 各层语义 cos (健康 vs 死寂, 同输入同步) ===
+  layer 0: cos=0.0143
+  layer 5: cos=0.1815
+  layer 10: cos=0.3473
+  layer 15: cos=0.2995
+  layer 20: cos=0.4165
+  layer 22: cos=0.3831
+  layer 25: cos=0.3367
+  layer 30: cos=0.5372
+  layer 33: cos=0.6743

@@ -1,0 +1,13 @@
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+[model] student vocab=151936 params=494M
+[data] 17 samples with activations
+[svd] 激活矩阵 (3561, 5120)
+[svd] 前256主成分保留能量 1.0000
+[data] 训练样本 17
+Traceback (most recent call last):
+  File "/root/autodl-tmp/distill_geom_train.py", line 193, in <module>
+    main()
+  File "/root/autodl-tmp/distill_geom_train.py", line 169, in main
+    ta_p = ta @ P_t                                # (n_g, 256)
+           ~~~^~~~~
+RuntimeError: expected mat1 and mat2 to have the same dtype, but got: float != c10::BFloat16

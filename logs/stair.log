@@ -1,0 +1,18 @@
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 12278.78it/s]
+[data] 31 decomp dumps
+== stair1: first 20 ==
+  [round] ce=14.928 den=0.046
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  1.18it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  1.18it/s]
+  understand: 0/8
+== stair2: +next 22 ==
+  [round] ce=14.660 den=0.028
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  1.67it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  1.67it/s]
+  understand: 1/8
+== stair3: all 42 ==
+  [round] ce=13.938 den=0.040
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  1.50it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  1.50it/s]
+  understand: 0/8
+[done] stair report saved
+  stair1: 0/8 {'错排数变体': False, 'LRU变体': False, '快速幂变体': False, 'TCP变体': False, '圆排列变体': False, 'RSA变体': False, 'B+树变体': False, '谓词逻辑变体': False}
+  stair2: 1/8 {'错排数变体': False, 'LRU变体': False, '快速幂变体': False, 'TCP变体': False, '圆排列变体': False, 'RSA变体': False, 'B+树变体': False, '谓词逻辑变体': True}
+  stair3: 0/8 {'错排数变体': False, 'LRU变体': False, '快速幂变体': False, 'TCP变体': False, '圆排列变体': False, 'RSA变体': False, 'B+树变体': False, '谓词逻辑变体': False}

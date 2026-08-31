@@ -1,0 +1,15 @@
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 12305.74it/s]
+===== qwen05b(原始) =====
+  22.self_attn.o_proj.weight: {'rank': 896, 'eff_rank': np.float64(649.6), 's1_ratio': 0.0053, 's1_s2': 1.16}
+  22.mlp.down_proj.weight: {'rank': 896, 'eff_rank': np.float64(853.1), 's1_ratio': 0.0021, 's1_s2': 1.042}
+  model.embed_tokens.weight: {'rank': 896, 'eff_rank': np.float64(856.9), 's1_ratio': 0.0156, 's1_s2': 4.701}
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 11210.48it/s]
+===== v4c(稳定) =====
+  22.self_attn.o_proj.weight: {'rank': 896, 'eff_rank': np.float64(650.5), 's1_ratio': 0.0053, 's1_s2': 1.16}
+  22.mlp.down_proj.weight: {'rank': 896, 'eff_rank': np.float64(853.1), 's1_ratio': 0.0021, 's1_s2': 1.042}
+  model.embed_tokens.weight: {'rank': 896, 'eff_rank': np.float64(856.5), 's1_ratio': 0.0157, 's1_s2': 4.705}
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 11543.92it/s]
+===== chain_v1(崩坏) =====
+  22.self_attn.o_proj.weight: {'rank': 896, 'eff_rank': np.float64(650.5), 's1_ratio': 0.0053, 's1_s2': 1.16}
+  22.mlp.down_proj.weight: {'rank': 896, 'eff_rank': np.float64(853.1), 's1_ratio': 0.0021, 's1_s2': 1.042}
+  model.embed_tokens.weight: {'rank': 896, 'eff_rank': np.float64(856.5), 's1_ratio': 0.0157, 's1_s2': 4.692}

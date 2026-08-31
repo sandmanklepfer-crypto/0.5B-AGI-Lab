@@ -1,0 +1,10 @@
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+[data] 167 samples
+[ep0 step20] loss=1.5625
+[ep0] avg=1.6100
+[ep1 step20] loss=1.2521
+[ep1] avg=1.3736
+[ep2 step20] loss=1.1978
+[ep2] avg=1.2717
+[save] /root/autodl-tmp/distill_05b_bridge
+BRIDGE_TRAIN_DONE

@@ -1,0 +1,19 @@
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  8.28it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  8.35it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  8.33it/s]
+trainable params: 59,867,136 || all params: 3,145,805,824 || trainable%: 1.9031
+[data] 491 texts
+[data] 381 有效样本
+[ep0 step20] loss=7.2716
+[ep0 step40] loss=4.3826
+[ep0 step60] loss=2.8055
+[ep0] avg=4.8652
+[ep1 step20] loss=3.2889
+[ep1 step40] loss=4.1657
+[ep1 step60] loss=1.9480
+[ep1] avg=3.3830
+[ep2 step20] loss=3.0768
+[ep2 step40] loss=3.1109
+[ep2 step60] loss=3.1914
+[ep2] avg=3.0236
+[save] /root/autodl-tmp/lora_3b_maskdiff
+MASKDIFF_TRAIN_DONE

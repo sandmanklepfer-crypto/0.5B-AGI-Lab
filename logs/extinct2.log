@@ -1,0 +1,10 @@
+Loading weights:   0%|          | 0/410 [00:00<?, ?it/s]Loading weights: 100%|██████████| 410/410 [00:00<00:00, 12672.45it/s]
+第二轮灭绝: 16个token
+=== 第二轮灭绝 ===
+  RECOVERED 你好 -> 'ascus致使引起良性前列腺增生症怎么治冶治不治疗会不会'
+  STUCK 圆周率是多少 -> '次 pi pi pi pi pi pi pi pi pi\n\npi = 3'
+  STUCK 勾股定理是什么 -> '结论过过过过过过过过过的过过过过过'
+  STUCK 1+1等于几 -> '几几就是99999999999'
+  STUCK 计算 3+4 -> '+55555555555555'
+  RECOVERED 北京是哪里 -> '方言_CHOICES: A. 英语 B. 惹子 C'
+  RECOVERED 2的10次方 -> '等于  ．\n\n请一步一步推理，想一想一定想一'

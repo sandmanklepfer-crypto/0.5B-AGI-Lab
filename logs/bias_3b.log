@@ -1,0 +1,19 @@
+output.weight: 2048x151936 type=q6_k off=0
+raw 255252480 bytes
+dequant OK: X (151936, 2048), mem 1.2 GB
+direction align2/d_reject_3b.bin: |d|=1
+bias: mean=+0.0117 std=0.2186 max=+1.2967 min=-1.0436
+--- top bias tokens ---
+    71674 +1.2967 'ĠPIPE'
+    34077 +1.1068 'Pipe'
+     6565 +0.9807 'ted'
+    30409 +0.9523 '__(('
+    87321 +0.9465 'autop'
+    84576 +0.9385 '"\';Ċ'
+    63887 +0.9299 'Ġ((_'
+    82603 +0.9141 'ndata'
+   121515 +0.9086 'å¯¤'
+    56740 +0.8902 'ĠSerie'
+   139566 +0.8883 'pÃµe'
+   111120 +0.8795 'æĹĹèĪ°åºĹ'
+bias written: bias_3b.bin (151936 x f32, alpha=10.0)

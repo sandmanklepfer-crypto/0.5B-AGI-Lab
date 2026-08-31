@@ -1,0 +1,3 @@
+r1l0 meas=ERR dec={'dir': '拒绝', 'strength': 31.5633097826866, 'layer': 58, 'temp': 1.0602685714819646, 'scale': 0.5216689306545271} score=-100.00
+r1l1 meas=ERR dec={'dir': '身份', 'strength': 28.862830364377096, 'layer': 58, 'temp': 0.46673706273890114, 'scale': 0.8302703180921441} score=-100.00
+r1l2 meas=ERR dec={'dir': '拒绝', 'strength': 46.890012067150536, 'layer': 60, 'temp': 1.0124496939749281, 'scale': 1.113383056425549} score=-100.00

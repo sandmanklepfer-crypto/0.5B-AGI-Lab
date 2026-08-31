@@ -1,0 +1,5 @@
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 12354.48it/s]
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 10485.22it/s]
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 10571.98it/s]
+[convert] /root/autodl-tmp/qwen05b -> /root/qwen_moe_v1 (experts: {0: 'from distill_calc_v1', 1: 'from distill_chain_v1'})
+[save] /root/qwen_moe_v1/moe_init.pt (795 tensors)

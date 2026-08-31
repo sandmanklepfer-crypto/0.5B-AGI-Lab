@@ -1,0 +1,8 @@
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 10252.95it/s]
+v4b: ctx=15/20 noctx=20/20 geom_rmse=0.5073 turing=0.927(base 0.813)
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 11777.19it/s]
+v4c: ctx=16/20 noctx=12/20 geom_rmse=0.5080 turing=0.927(base 0.799)
+
+=== SUMMARY ===
+           v4b: {'rag_ctx': 15, 'noctx': 20, 'geom_rmse': np.float32(0.5073), 'turing_sim': np.float32(0.927), 'turing_baseline': np.float32(0.813)}
+           v4c: {'rag_ctx': 16, 'noctx': 12, 'geom_rmse': np.float32(0.508), 'turing_sim': np.float32(0.927), 'turing_baseline': np.float32(0.799)}

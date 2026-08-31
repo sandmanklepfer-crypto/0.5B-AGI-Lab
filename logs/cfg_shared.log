@@ -1,0 +1,274 @@
+-- llama.cpp version: 0.1.2-dev
+CMAKE_BUILD_TYPE=Release
+fatal: not a git repository (or any parent up to mount point /root)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+fatal: not a git repository (or any parent up to mount point /root)
+Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).
+-- Warning: ccache not found - consider installing it for faster compilation or disable this warning with GGML_CCACHE=OFF
+-- CMAKE_SYSTEM_PROCESSOR: x86_64
+-- GGML_SYSTEM_ARCH: x86
+-- Including CPU backend
+-- x86 detected
+-- Adding CPU backend variant ggml-cpu: -march=native 
+-- ggml version: 0.20.2
+-- ggml commit:  unknown
+-- OpenSSL found: 3.0.2
+CMake Warning at common/CMakeLists.txt:33 (message):
+  Git repository not found; to enable automatic generation of build info,
+  make sure Git is installed and the project is a Git repository.
+
+
+-- Generating embedded license file for target: llama-app
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /root/autodl-tmp/llama.cpp/build
+Consolidate compiler generated dependencies of target llama-common-base
+Consolidate compiler generated dependencies of target vendor-hash
+Consolidate compiler generated dependencies of target llama-llava-cli
+Consolidate compiler generated dependencies of target llama-gemma3-cli
+Consolidate compiler generated dependencies of target llama-ui-embed
+Consolidate compiler generated dependencies of target llama-minicpmv-cli
+Consolidate compiler generated dependencies of target cpp-httplib
+Consolidate compiler generated dependencies of target llama-qwen2vl-cli
+Consolidate compiler generated dependencies of target ggml-base
+[  1%] Built target llama-common-base
+[  2%] Built target llama-llava-cli
+[  3%] Built target vendor-hash
+[  3%] Built target llama-minicpmv-cli
+[  3%] Built target llama-gemma3-cli
+[  3%] Built target llama-ui-embed
+[  3%] Built target cpp-httplib
+[  4%] Built target llama-qwen2vl-cli
+[  6%] Built target ggml-base
+[  7%] Provisioning UI assets
+-- UI: npm not found, skipping npm build
+-- UI: downloading from b0: https://huggingface.co/buckets/ggml-org/llama-ui/resolve/b0/dist.tar.gz
+Consolidate compiler generated dependencies of target ggml-cpu
+[ 10%] Built target ggml-cpu
+Consolidate compiler generated dependencies of target ggml
+[ 10%] Built target ggml
+Consolidate compiler generated dependencies of target llama-gguf-hash
+Consolidate compiler generated dependencies of target llama-gguf
+[ 10%] Built target llama-gguf-hash
+[ 11%] Built target llama-gguf
+Consolidate compiler generated dependencies of target llama
+[ 44%] Built target llama
+Consolidate compiler generated dependencies of target test-c
+Consolidate compiler generated dependencies of target llama-simple
+Consolidate compiler generated dependencies of target llama-simple-chat
+[ 44%] Built target test-c
+[ 45%] Built target llama-simple
+[ 45%] Built target llama-simple-chat
+Consolidate compiler generated dependencies of target llama-common
+Consolidate compiler generated dependencies of target mtmd
+[ 51%] Built target llama-common
+Consolidate compiler generated dependencies of target test-unicode
+Consolidate compiler generated dependencies of target test-sampling
+Consolidate compiler generated dependencies of target test-reasoning-budget
+Consolidate compiler generated dependencies of target test-grammar-parser
+Consolidate compiler generated dependencies of target test-recurrent-state-rollback
+Consolidate compiler generated dependencies of target test-llama-grammar
+Consolidate compiler generated dependencies of target test-grammar-integration
+Consolidate compiler generated dependencies of target test-batch-alloc
+Consolidate compiler generated dependencies of target test-json-schema-to-grammar
+Consolidate compiler generated dependencies of target test-tokenizer-0
+Consolidate compiler generated dependencies of target test-tokenizer-1-spm
+Consolidate compiler generated dependencies of target test-gbnf-validator
+Consolidate compiler generated dependencies of target test-tokenizer-1-bpe
+Consolidate compiler generated dependencies of target test-chat-auto-parser
+Consolidate compiler generated dependencies of target test-quantize-stats
+Consolidate compiler generated dependencies of target test-arg-parser
+Consolidate compiler generated dependencies of target test-thread-safety
+Consolidate compiler generated dependencies of target test-opt
+Consolidate compiler generated dependencies of target test-chat-peg-parser
+Consolidate compiler generated dependencies of target test-log
+Consolidate compiler generated dependencies of target test-llama-archs
+Consolidate compiler generated dependencies of target test-chat-template
+Consolidate compiler generated dependencies of target test-state-restore-fragmented
+Consolidate compiler generated dependencies of target test-jinja
+Consolidate compiler generated dependencies of target test-model-load-cancel
+[ 60%] Built target mtmd
+Consolidate compiler generated dependencies of target test-backend-ops
+Consolidate compiler generated dependencies of target test-quantize-fns
+Consolidate compiler generated dependencies of target test-save-load-state
+Consolidate compiler generated dependencies of target test-backend-sampler
+Consolidate compiler generated dependencies of target test-autorelease
+Consolidate compiler generated dependencies of target llama-batched
+Consolidate compiler generated dependencies of target test-col2im-1d
+Consolidate compiler generated dependencies of target test-model-resolution
+Consolidate compiler generated dependencies of target llama-debug
+Consolidate compiler generated dependencies of target gguf-model-data
+Consolidate compiler generated dependencies of target test-barrier
+Consolidate compiler generated dependencies of target test-quantize-perf
+Consolidate compiler generated dependencies of target test-gguf
+Consolidate compiler generated dependencies of target test-alloc
+Consolidate compiler generated dependencies of target test-rope
+Consolidate compiler generated dependencies of target llama-lookup
+Consolidate compiler generated dependencies of target test-peg-parser
+Consolidate compiler generated dependencies of target llama-speculative
+Consolidate compiler generated dependencies of target llama-gen-docs
+[ 61%] Built target test-unicode
+Consolidate compiler generated dependencies of target llama-idle
+Consolidate compiler generated dependencies of target llama-retrieval
+Consolidate compiler generated dependencies of target llama-lookup-stats
+Consolidate compiler generated dependencies of target llama-parallel
+Consolidate compiler generated dependencies of target llama-finetune
+[ 62%] Built target test-reasoning-budget
+Consolidate compiler generated dependencies of target llama-lookup-merge
+Consolidate compiler generated dependencies of target llama-passkey
+Consolidate compiler generated dependencies of target llama-speculative-simple
+[ 62%] Built target test-sampling
+Consolidate compiler generated dependencies of target llama-convert-llama2c-to-ggml
+Consolidate compiler generated dependencies of target llama-q8dot
+Consolidate compiler generated dependencies of target llama-embedding
+Consolidate compiler generated dependencies of target llama-eval-callback
+[ 63%] Built target test-grammar-parser
+Consolidate compiler generated dependencies of target llama-lookup-create
+Consolidate compiler generated dependencies of target llama-lookahead
+Consolidate compiler generated dependencies of target llama-diffusion
+Consolidate compiler generated dependencies of target llama-vdot
+Consolidate compiler generated dependencies of target llama-gguf-split
+Consolidate compiler generated dependencies of target llama-batched-bench-impl
+[ 63%] Built target test-grammar-integration
+[ 63%] Built target test-batch-alloc
+[ 63%] Built target test-recurrent-state-rollback
+[ 63%] Built target test-tokenizer-1-spm
+[ 63%] Built target test-llama-grammar
+[ 63%] Built target test-json-schema-to-grammar
+[ 63%] Built target test-gbnf-validator
+[ 64%] Built target test-tokenizer-1-bpe
+[ 64%] Built target test-quantize-stats
+[ 64%] Built target test-log
+[ 64%] Built target test-chat-auto-parser
+[ 64%] Built target test-tokenizer-0
+[ 65%] Built target test-llama-archs
+[ 65%] Built target test-arg-parser
+[ 66%] Built target test-chat-peg-parser
+[ 66%] Built target test-opt
+[ 67%] Built target test-model-load-cancel
+[ 67%] Built target test-jinja
+[ 68%] Built target test-state-restore-fragmented
+[ 68%] Built target test-thread-safety
+[ 68%] Built target test-autorelease
+[ 69%] Built target test-save-load-state
+[ 69%] Built target test-backend-ops
+[ 69%] Built target test-chat-template
+[ 69%] Built target test-backend-sampler
+[ 70%] Built target llama-debug
+[ 70%] Built target test-quantize-fns
+[ 71%] Built target gguf-model-data
+[ 71%] Built target llama-batched
+[ 73%] Built target test-model-resolution
+[ 73%] Built target test-gguf
+[ 75%] Built target test-peg-parser
+[ 75%] Built target test-quantize-perf
+[ 73%] Built target test-col2im-1d
+[ 75%] Built target llama-lookup-stats
+[ 73%] Built target test-rope
+[ 76%] Built target test-barrier
+[ 76%] Built target llama-parallel
+[ 76%] Built target llama-retrieval
+[ 76%] Built target llama-passkey
+[ 77%] Built target llama-lookup-merge
+[ 77%] Built target llama-speculative
+[ 77%] Built target llama-gen-docs
+[ 77%] Built target llama-finetune
+[ 77%] Built target llama-lookup
+[ 78%] Built target test-alloc
+[ 79%] Built target llama-q8dot
+[ 79%] Built target llama-idle
+[ 80%] Built target llama-embedding
+[ 81%] Built target llama-convert-llama2c-to-ggml
+[ 81%] Built target llama-speculative-simple
+[ 82%] Built target llama-gguf-split
+[ 82%] Built target llama-diffusion
+[ 83%] Built target llama-lookup-create
+[ 82%] Built target llama-lookahead
+[ 83%] Built target llama-eval-callback
+[ 83%] Built target llama-batched-bench-impl
+[ 83%] Built target llama-vdot
+Consolidate compiler generated dependencies of target test-mtmd-c-api
+Consolidate compiler generated dependencies of target test-mtmd-impl
+Consolidate compiler generated dependencies of target test-quant-type-selection
+Consolidate compiler generated dependencies of target llama-bench-impl
+Consolidate compiler generated dependencies of target llama-diffusion-cli
+Consolidate compiler generated dependencies of target test-gguf-model-data
+Consolidate compiler generated dependencies of target llama-batched-bench
+Consolidate compiler generated dependencies of target llama-imatrix
+Consolidate compiler generated dependencies of target llama-completion-impl
+Consolidate compiler generated dependencies of target llama-tokenize
+Consolidate compiler generated dependencies of target llama-perplexity-impl
+Consolidate compiler generated dependencies of target test-export-graph-ops
+Consolidate compiler generated dependencies of target llama-quantize-impl
+Consolidate compiler generated dependencies of target llama-debug-template-parser
+Consolidate compiler generated dependencies of target llama-fit-params-impl
+Consolidate compiler generated dependencies of target llama-tts
+Consolidate compiler generated dependencies of target llama-mtmd-debug
+Consolidate compiler generated dependencies of target server-context
+Consolidate compiler generated dependencies of target llama-mtmd-cli
+Consolidate compiler generated dependencies of target llama-results
+Consolidate compiler generated dependencies of target llama-cvector-generator
+Consolidate compiler generated dependencies of target llama-template-analysis
+Consolidate compiler generated dependencies of target llama-export-lora
+[ 84%] Built target test-mtmd-c-api
+[ 85%] Built target llama-export-lora
+[ 85%] Built target llama-quantize-impl
+[ 85%] Built target test-mtmd-impl
+[ 86%] Built target test-gguf-model-data
+[ 86%] Built target llama-diffusion-cli
+[ 87%] Built target test-quant-type-selection
+[ 87%] Built target llama-batched-bench
+[ 88%] Built target llama-mtmd-debug
+[ 88%] Built target llama-template-analysis
+[ 89%] Built target llama-debug-template-parser
+[ 89%] Built target llama-cvector-generator
+[ 89%] Built target llama-mtmd-cli
+[ 89%] Built target llama-results
+[ 92%] Built target llama-fit-params-impl
+[ 92%] Built target test-export-graph-ops
+[ 92%] Built target llama-tokenize
+[ 92%] Built target llama-completion-impl
+[ 93%] Built target llama-tts
+[ 93%] Built target llama-bench-impl
+[ 93%] Built target llama-imatrix
+[ 93%] Built target llama-perplexity-impl
+[ 95%] Built target server-context
+Consolidate compiler generated dependencies of target llama-quantize
+Consolidate compiler generated dependencies of target llama-fit-params
+Consolidate compiler generated dependencies of target llama-completion
+Consolidate compiler generated dependencies of target llama-bench
+Consolidate compiler generated dependencies of target llama-perplexity
+Consolidate compiler generated dependencies of target test-chat
+[ 95%] Built target llama-quantize
+[ 95%] Built target llama-fit-params
+[ 95%] Built target llama-completion
+[ 95%] Built target llama-bench
+[ 96%] Built target llama-perplexity
+[ 97%] Built target test-chat
+-- UI: download dist.tar.gz from b0 failed: "SSL connect error"
+-- UI: downloading from latest: https://huggingface.co/buckets/ggml-org/llama-ui/resolve/latest/dist.tar.gz
+-- UI: download dist.tar.gz from latest failed: "SSL connect error"
+-- UI: HF download failed
+CMake Warning at /root/autodl-tmp/llama.cpp/scripts/ui-assets.cmake:359 (message):
+  UI: no assets available - building without an embedded UI.  In a
+  disconnected environment, download the pre-built UI from a llama.cpp
+  release at https://github.com/ggml-org/llama.cpp/releases and extract to
+  tools/ui/dist.
+
+
+[ 97%] Built target llama-ui-assets
+Consolidate compiler generated dependencies of target llama-ui
+[ 97%] Built target llama-ui
+Consolidate compiler generated dependencies of target llama-server-impl
+[ 97%] Built target llama-server-impl
+Consolidate compiler generated dependencies of target llama-server
+Consolidate compiler generated dependencies of target llama-cli-impl
+[ 98%] Built target llama-server
+[ 99%] Built target llama-cli-impl
+Consolidate compiler generated dependencies of target llama-cli
+Consolidate compiler generated dependencies of target llama-app
+[ 99%] Built target llama-cli
+[100%] Building CXX object app/CMakeFiles/llama-app.dir/__/license.cpp.o
+[100%] Linking CXX executable ../bin/llama
+[100%] Built target llama-app
+SHARED_DONE
