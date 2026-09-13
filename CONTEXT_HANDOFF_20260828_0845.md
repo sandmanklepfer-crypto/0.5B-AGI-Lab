@@ -4,7 +4,7 @@
 A800 双卡上已跑通 R1/Qwen7B/Gemma 三源混合几何蒸馏，最新 v4（对称性损失版）概念锚定力达 7B+ 级；v4b 平衡版训练中。
 
 ## 服务器
-- `sshpass -p 'vUSYaqTH1J+B' ssh -o StrictHostKeyChecking=no -p 29589 root@connect.nma1.seetacloud.com`
+- `sshpass -p '<REDACTED>' ssh -o StrictHostKeyChecking=no -p <PORT> root@<SERVER>`
 - 2×A800 80GB + 1TB 内存；磁盘 50G 剩 ~3.4G（易满，随时清理旧版）
 - 欠费停机过 2 次（07:0x、08:3x），恢复后资产都在
 - python: /root/miniconda3/bin/python3（ssh 非交互 PATH 无 conda）

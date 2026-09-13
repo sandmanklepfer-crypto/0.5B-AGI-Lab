@@ -4,7 +4,7 @@
 验证容量墙: 1.5B 基座/蒸馏的深度维度(数学/知识/内化)是否随容量解锁。v4c 基准: 数学0.5B级(7×8=16错, 2^10崩), C-Eval 15%, 内化12/20≈基座。
 
 ## 服务器 (A800, 已恢复开机 2026-08-30 ~21:5x)
-- ssh: `sshpass -p 'vUSYaqTH1J+B' ssh -p 29589 root@connect.nma1.seetacloud.com`
+- ssh: `sshpass -p '<REDACTED>' ssh -p <PORT> root@<SERVER>`
 - A800 80GB 全空闲; autodl-tmp 99%满(611M); /root overlay 剩 ~4G
 - **坑**: pkill -f 自匹配杀 ssh 会话(255) → 必须用 [x] 技巧
 - **坑**: hf-mirror 对 Qwen/Qwen2.5-1.5B-Instruct 的分片 safetensors 404(官方是单文件 model.safetensors 3.09GB, 已下好)

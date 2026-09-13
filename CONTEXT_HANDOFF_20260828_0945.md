@@ -4,7 +4,7 @@
 v4c（模板修复版）定为当前最佳；几何蒸馏 v1 失败（坐标系不匹配）；LFM2-RAG 蒸馏数据 56 条已生成但 v1 过拟合；模板串扰已根治。
 
 ## 服务器
-- `sshpass -p 'vUSYaqTH1J+B' ssh -o StrictHostKeyChecking=no -p 29589 root@connect.nma1.seetacloud.com`
+- `sshpass -p '<REDACTED>' ssh -o StrictHostKeyChecking=no -p <PORT> root@<SERVER>`
 - 2×A800 80GB；**/root/autodl-tmp 只剩 611M（99% 满）**；/root(overlay) 剩 23G
 - 新环境: transformers 5.16.1 装在 **/root/venv_lfm2** (--target, 用 PYTHONPATH 引用; conda 环境仍是 4.49 不认识 LFM2)
 - pip 默认源 aliyun 挂掉 → 必须 `-i https://pypi.org/simple`

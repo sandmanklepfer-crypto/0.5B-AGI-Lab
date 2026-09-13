@@ -4,7 +4,7 @@
 **方法栈已上 A800 跑通 (CPU 版), GPU 版回调崩溃待修, 32B GGUF 下载中。**
 
 ## 服务器
-- `ssh -p 29589 root@connect.nma1.seetacloud.com` 密码 `vUSYaqTH1J+B`
+- `ssh -p <PORT> root@<SERVER>` 密码 `<REDACTED>`
 - A800 80GB + 1TB 内存 + 112核(2×56) + torch 2.8 + nvcc 12.8
 - 数据盘 /root/autodl-tmp (50G, 当前 ~5G 用)
 - pip 源: USTC `https://mirrors.ustc.edu.cn/pypi/simple` (清华/阿里 403!)
