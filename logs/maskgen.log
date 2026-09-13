@@ -1,0 +1,22 @@
+=== PROMPT: 7 × 8 等于多少? ===
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  8.57it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  9.72it/s]
+推理,,,,,推理,推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理推理
+
+[MASKDIFF] steps=32 unmask/step=6 生成长度=186字
+
+=== PROMPT: 黑洞是什么? ===
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  8.52it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  9.51it/s]
+黑洞什么?黑洞??黑洞?黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞黑洞,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+
+[MASKDIFF] steps=32 unmask/step=6 生成长度=158字
+
+=== PROMPT: 解释一下什么是递归。 ===
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  8.04it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  8.86it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  8.72it/s]
+它,,,,。它。,。。。,,。。,。。,。。。,。,,,,。,,,。。。,,,,,,,,,,,,,,,,,,,,,,,,,,,,,。,,,,,,,,。,,,,,。,,,,,,,,,,,,,,,
+
+[MASKDIFF] steps=32 unmask/step=6 生成长度=96字
+
+MASKGEN_DONE

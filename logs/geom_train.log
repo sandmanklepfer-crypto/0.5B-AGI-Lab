@@ -1,0 +1,28 @@
+[load] student = distill_rag_v1...
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 12199.59it/s]
+[data] rows=56 probes=96 D_t=torch.Size([96, 96]) mean=0.651
+[proj] student probe SVD...
+[proj] P_s=torch.Size([896, 96])
+[ep1 s8] loss=0.671 ce=0.095 geom=0.501 rag=0.752
+[ep1 s16] loss=1.060 ce=0.486 geom=0.505 rag=0.745
+[ep1 s24] loss=0.613 ce=0.023 geom=0.504 rag=0.777
+[ep1] avg=0.738
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  1.19it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  1.19it/s]
+[save] /root/autodl-tmp/distill_geom_v1
+[ep2 s32] loss=0.778 ce=0.196 geom=0.505 rag=0.759
+[ep2 s40] loss=0.601 ce=0.027 geom=0.504 rag=0.746
+[ep2 s48] loss=0.584 ce=0.003 geom=0.505 rag=0.758
+[ep2 s56] loss=0.645 ce=0.057 geom=0.506 rag=0.773
+[ep2] avg=0.697
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards:   0%|          | 0/1 [00:01<?, ?it/s]
+Traceback (most recent call last):
+  File "/root/distill_geom_v1.py", line 147, in <module>
+    main()
+  File "/root/distill_geom_v1.py", line 143, in main
+    stu.save_pretrained(args.out); tok.save_pretrained(args.out)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/venv_lfm2/lib/python3.12/site-packages/transformers/modeling_utils.py", line 3605, in save_pretrained
+    safe_save_file(shard_state_dict, filename, metadata=metadata)
+  File "/root/venv_lfm2/lib/python3.12/site-packages/safetensors/torch.py", line 323, in save_file
+    serialize_file(
+safetensors._safetensors_rust.SafetensorError: Error while serializing: I/O error: No space left on device (os error 28)

@@ -5,32 +5,44 @@
 *.jks
 *.keystore
 *credentials*
-*token*
 .env
 .netrc
 id_rsa*
 id_ed25519*
 
-# ============ 大文件（超GitHub限制）============
+# ============ 大文件 ============
 *.gguf
 *.life
-*.bin
-*.pt
+*.pth
+*.tgz
 *.safetensors
+*.apk
+*.bin
 *.zip
 *.tar.gz
 *.npy
 *.npz
 
-# ============ 第三方 ============
+# ============ 大目录/私人内容 ============
+ComfyUI/
+models/
+backups_a800/
+MiniGPT_FullKit/
+huixi/
+tianlei/
+dl3b/
+.dl3b/
+*.jar
+*.tar
+*.zip
+__pycache__/
+*.pyc
+
+# ============ 第三方/缓存 ============
 lcpp/
 llcpp/
 jieba-0.42.1/
 __pycache__/
 *.pyc
-
-# ============ 其他 ============
-*.png
-*.log
 crawl_cache/
 dl_cache/

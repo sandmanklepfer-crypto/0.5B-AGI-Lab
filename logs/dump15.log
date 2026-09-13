@@ -1,0 +1,11 @@
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+[dump15] 28层 x 1536维, 879 段
+  100/879
+  200/879
+  300/879
+  400/879
+  500/879
+  600/879
+  700/879
+  800/879
+done 879 texts

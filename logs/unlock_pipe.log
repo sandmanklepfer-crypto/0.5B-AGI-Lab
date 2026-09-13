@@ -1,0 +1,29 @@
+X: (40, 5120) (n=40, d=5120) layer=63 k=64
+SVD: k=64 保留能量 1.0000
+写出: align2/32b/rn/svd_rej_mean.bin ((5120,)) align2/32b/rn/svd_rej_Vk.bin ((5120, 40)) align2/32b/rn/svd_rej_targets.bin ((40, 40))
+pos (20, 5120) neg (20, 5120)
+Traceback (most recent call last):
+  File "/root/autodl-tmp/tools/lda_direction.py", line 49, in <module>
+    main()
+  File "/root/autodl-tmp/tools/lda_direction.py", line 37, in main
+    w = np.linalg.pinv(Sw + lam*np.eye(128)) @ (mp - mn)
+                       ~~~^~~~~~~~~~~~~~~~~
+ValueError: operands could not be broadcast together with shapes (40,40) (128,128) 
+output.weight: 5120x152064 type=q6_k off=0
+raw 638668800 bytes
+dequant OK: X (152064, 5120), mem 3.1 GB
+Traceback (most recent call last):
+  File "/root/autodl-tmp/tools/dump_bias.py", line 92, in <module>
+    main()
+  File "/root/autodl-tmp/tools/dump_bias.py", line 65, in main
+    d = np.fromfile(dir_path, dtype=np.float32)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'align2/32b/rn/d_reject.bin'
+Traceback (most recent call last):
+  File "/root/autodl-tmp/tools/extend_gguf.py", line 64, in <module>
+    main()
+  File "/root/autodl-tmp/tools/extend_gguf.py", line 20, in main
+    new_data = np.fromfile(data_f, dtype=np.float32)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'align2/32b/rn/bias_unlock_150.bin'
+PIPE_DONE

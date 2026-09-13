@@ -1,0 +1,4 @@
++ /root/miniconda3/bin/python3 /root/autodl-tmp/distill_train_15b.py
++ /root/miniconda3/bin/python3 /root/fix_template.py --mode both --out /root/autodl-tmp/distill_15b_v4c
++ echo ALL_PIPELINE_DONE
+ALL_PIPELINE_DONE

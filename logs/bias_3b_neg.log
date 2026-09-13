@@ -1,0 +1,21 @@
+output.weight: 2048x151936 type=q6_k off=0
+raw 255252480 bytes
+dequant OK: X (151936, 2048), mem 1.2 GB
+direction align2/d_reject_3b.bin: |d|=1
+bias: mean=-0.0117 std=0.2186 max=+1.0436 min=-1.2967
+--- top bias tokens ---
+    41610 +1.0436 'iscrim'
+    62859 +0.9914 'lux'
+    38160 +0.9509 'olia'
+     9296 +0.9428 'Host'
+    95277 +0.9284 'asu'
+    20738 +0.9264 'ĠRemote'
+    18930 +0.9013 'Fixture'
+    86445 +0.8946 'thrown'
+   121091 +0.8808 'ç¼ĳ'
+    96354 +0.8608 '[unit'
+    70934 +0.8485 'ĠWorkspace'
+    75858 +0.8449 'hof'
+bias written: bias_3b_neg.bin (151936 x f32, alpha=-10.0)
+wrote qwen3b_unlocked.gguf: tensors 435->436, new "output.bias" 151936xf32 @off=2098976768
+DONE

@@ -1,0 +1,4 @@
+Loading weights:   0%|          | 0/148 [00:00<?, ?it/s]Loading weights:  14%|█▎        | 20/148 [00:00<00:00, 177.90it/s]Loading weights:  41%|████      | 61/148 [00:00<00:00, 303.38it/s]Loading weights:  63%|██████▎   | 93/148 [00:00<00:00, 305.25it/s]Loading weights:  89%|████████▊ | 131/148 [00:00<00:00, 332.26it/s]Loading weights: 100%|██████████| 148/148 [00:00<00:00, 328.52it/s]
+loaded in 1.9 s
+PROMPT: <|startoftext|><|im_start|>user Use the following context to answer questions: 比特币是2008年由化名「中本聪」的人提出的去中心化数字货币，2009年正式运行。
+ANSWER: 比特币的总量上限为2100万个。比特币是由化名为“中本聪”的某人于2008年提出的。

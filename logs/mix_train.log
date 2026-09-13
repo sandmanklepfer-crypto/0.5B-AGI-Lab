@@ -1,0 +1,21 @@
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+[model] student params=494M
+[r1] 175 samples
+[svd] (37069, 5120) → 前256主成分保留 0.9968
+[q7] 175 samples
+[svd] (43750, 3584) → 前256主成分保留 0.9963
+[gemma] 75 samples (text CE)
+[data] 总训练样本 425 (r1=175 q7=175 gemma=75)
+[ep0 s30/106] loss=2.163 ce=1.686 align=0.9539
+[ep0 s60/106] loss=2.025 ce=1.592 align=0.8663
+[ep0 s90/106] loss=1.716 ce=1.313 align=0.8070
+[ep0] avg=1.994
+[ep1 s30/106] loss=1.069 ce=0.685 align=0.7685
+[ep1 s60/106] loss=0.935 ce=0.588 align=0.6951
+[ep1 s90/106] loss=1.206 ce=0.852 align=0.7093
+[ep1] avg=1.128
+[ep2 s30/106] loss=0.769 ce=0.412 align=0.7133
+[ep2 s60/106] loss=0.800 ce=0.435 align=0.7309
+[ep2 s90/106] loss=0.822 ce=0.466 align=0.7133
+[ep2] avg=0.740
+[save] /root/autodl-tmp/distill_mix_v1

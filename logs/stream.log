@@ -1,0 +1,11 @@
+[stream] window=7 rounds<=6 start=v4c
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 12258.24it/s]
+[r0] base v4c: n=41 {'math': True, 'math_hard': False, 'logic': True, 'code': False, 'know': True}
+[r1] window=7 bins=7
+Traceback (most recent call last):
+  File "/root/streaming_v5.py", line 167, in <module>
+    main()
+  File "/root/streaming_v5.py", line 153, in main
+    print(f'  [ep{ep}] ce={loss_ce.item():.3f} den={loss_den.item():.3f}', flush=True)
+                           ^^^^^^^
+UnboundLocalError: cannot access local variable 'loss_ce' where it is not associated with a value

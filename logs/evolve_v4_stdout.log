@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "/root/autodl-tmp/evolve_v4.py", line 174, in <module>
+    main()
+  File "/root/autodl-tmp/evolve_v4.py", line 142, in main
+    meas_a = srv.meas(MEAS_PROMPT, MEAS_LAYER)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/autodl-tmp/evolve_v4.py", line 70, in meas
+    out = self._send(f"MEAS\t{prompt}\t{layer}\n")
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/autodl-tmp/evolve_v4.py", line 60, in _send
+    line = self.proc.stdout.readline()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen codecs>", line 322, in decode
+UnicodeDecodeError: 'utf-8' codec can't decode bytes in position 190-191: invalid continuation byte

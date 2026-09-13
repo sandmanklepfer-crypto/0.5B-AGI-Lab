@@ -1,0 +1,15 @@
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+[model] student vocab=151936 params=494M
+[data] 224 samples with activations
+[svd] 激活矩阵 (48002, 5120)
+[svd] 前256主成分保留能量 0.9966 (共266个奇异值)
+[data] 训练样本 224
+[ep0 s30/56] loss=2.756 ce=2.023 align=0.7334
+[ep0] avg=2.417
+[ep1 s30/56] loss=1.068 ce=0.510 align=0.5585
+[ep1] avg=1.344
+[ep2 s30/56] loss=0.855 ce=0.347 align=0.5076
+[ep2] avg=0.924
+[ep3 s30/56] loss=0.705 ce=0.174 align=0.5302
+[ep3] avg=0.729
+[save] /root/autodl-tmp/distill_geom_out

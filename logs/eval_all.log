@@ -1,0 +1,17 @@
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 12058.57it/s]
+base_qwen05b: ctx=15/20 noctx=13/20 geom_rmse=0.4451 turing=0.931(base 0.827)
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 11524.67it/s]
+v4: ctx=17/20 noctx=18/20 geom_rmse=0.5013 turing=0.927(base 0.816)
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 10877.05it/s]
+v4b: ctx=15/20 noctx=20/20 geom_rmse=0.5073 turing=0.927(base 0.813)
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 11824.82it/s]
+rag_v1: ctx=12/20 noctx=8/20 geom_rmse=0.4986 turing=0.951(base 0.865)
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 11832.07it/s]
+geom_v1: ctx=12/20 noctx=5/20 geom_rmse=0.5052 turing=0.957(base 0.882)
+
+=== SUMMARY ===
+  base_qwen05b: {'rag_ctx': 15, 'noctx': 13, 'geom_rmse': np.float32(0.4451), 'turing_sim': np.float32(0.931), 'turing_baseline': np.float32(0.827)}
+            v4: {'rag_ctx': 17, 'noctx': 18, 'geom_rmse': np.float32(0.5013), 'turing_sim': np.float32(0.927), 'turing_baseline': np.float32(0.816)}
+           v4b: {'rag_ctx': 15, 'noctx': 20, 'geom_rmse': np.float32(0.5073), 'turing_sim': np.float32(0.927), 'turing_baseline': np.float32(0.813)}
+        rag_v1: {'rag_ctx': 12, 'noctx': 8, 'geom_rmse': np.float32(0.4986), 'turing_sim': np.float32(0.951), 'turing_baseline': np.float32(0.865)}
+       geom_v1: {'rag_ctx': 12, 'noctx': 5, 'geom_rmse': np.float32(0.5052), 'turing_sim': np.float32(0.957), 'turing_baseline': np.float32(0.882)}

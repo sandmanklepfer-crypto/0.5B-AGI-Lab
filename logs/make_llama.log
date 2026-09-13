@@ -1,0 +1,12 @@
+Consolidate compiler generated dependencies of target ggml-base
+[  3%] Built target ggml-base
+Consolidate compiler generated dependencies of target ggml-cpu
+[  7%] Built target ggml-cpu
+Consolidate compiler generated dependencies of target ggml-cuda
+[ 48%] Built target ggml-cuda
+Consolidate compiler generated dependencies of target ggml
+[ 48%] Built target ggml
+Consolidate compiler generated dependencies of target llama
+[ 48%] Building CXX object src/CMakeFiles/llama.dir/models/qwen2.cpp.o
+[ 48%] Linking CXX shared library ../bin/libllama.so
+[100%] Built target llama

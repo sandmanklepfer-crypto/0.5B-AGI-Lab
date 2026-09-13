@@ -1,0 +1,16 @@
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  7.76it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:00<00:00,  8.78it/s]
+[model] student vocab=151936 params=3086M
+[vocab] teacher 152064 tokens, 映射成功 48426 (31.8%)
+[data] 339 samples
+[data] 有效样本 339
+[ep0 step20/56] loss=2.819 ce=2.815 kl=0.004
+[ep0 step40/56] loss=2.115 ce=2.109 kl=0.006
+[ep0] avg loss=1.825
+[ep1 step20/56] loss=1.881 ce=1.874 kl=0.007
+[ep1 step40/56] loss=0.722 ce=0.718 kl=0.004
+[ep1] avg loss=nan
+[ep2 step20/56] loss=0.785 ce=0.779 kl=0.006
+[ep2 step40/56] loss=0.321 ce=0.316 kl=0.005
+[ep2] avg loss=0.877
+[save] /root/autodl-tmp/distill_out_3b

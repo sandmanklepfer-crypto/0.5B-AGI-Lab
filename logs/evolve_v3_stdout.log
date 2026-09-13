@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "/root/autodl-tmp/evolve_v3.py", line 173, in <module>
+    main()
+  File "/root/autodl-tmp/evolve_v3.py", line 118, in main
+    meas = srv.meas(MEAS_PROMPT, MEAS_LAYER)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/autodl-tmp/evolve_v3.py", line 72, in meas
+    out = self._send(c)
+          ^^^^^^^^^^^^^
+  File "/root/autodl-tmp/evolve_v3.py", line 60, in _send
+    line = self.proc.stdout.readline()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen codecs>", line 322, in decode
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0x96 in position 424: invalid start byte
