@@ -1,0 +1,54 @@
+# -*- coding: utf-8 -*-
+"""forall2.py: 注入缩小版range -> 脚本自身变快 -> 一次跑完"""
+import os,signal,glob,json,time,tempfile,sys,builtins
+import numpy as np
+sys.path.insert(0,'/workspace')
+def ok(f):
+    try: s=open(f,encoding='utf-8',errors='ignore').read(4000)
+    except: return False
+    if any(k in s for k in ['torch','gguf','requests','urllib','scipy','w.gguf','/root/autodl','qwen05b']): return False
+    return True
+files=[f for f in sorted(glob.glob('/workspace/*.py')) if ok(f)]
+files=[f for f in files if os.path.basename(f) not in ('runner.py','fastrun.py','forkrun.py','forall.py','forall2.py','say.py','np_tok.py','qwen_np.py')]
+
+CAP=int(os.environ.get('CAP','400'))     # 每个循环最多迭代次数
+def crange(*a):
+    if len(a)==1: st,sp,en=0,1,int(a[0])
+    elif len(a)==2: st,sp,en=int(a[0]),1,int(a[1])
+    else: st,sp,en=int(a[0]),int(a[2]),int(a[1])
+    en=min(en, st+sp*CAP)
+    return builtins.range(st,en,sp)
+
+PF='/workspace/_prog2.json'; RF='/workspace/_res2.jsonl'
+try: i=json.load(open(PF))['i']
+except: i=0
+t0=time.time(); BUD=0.5
+fo=open(RF,'a',encoding='utf-8')
+n0=i
+while i<len(files) and time.time()-t0<BUD:
+    path=files[i]; fd,tmp=tempfile.mkstemp()
+    pid=os.fork()
+    if pid==0:
+        try:
+            os.dup2(fd,1);os.dup2(fd,2);os.close(fd)
+            g={'__name__':'__main__','__file__':path,'range':crange}
+            exec(compile(open(path,encoding='utf-8',errors='ignore').read(),path,'exec'),g)
+        except BaseException: pass
+        os._exit(0)
+    os.close(fd); tt=time.time(); st='OK'
+    while True:
+        p,ss=os.waitpid(pid,os.WNOHANG)
+        if p==pid: break
+        if time.time()-tt>0.05:
+            try: os.kill(pid,signal.SIGKILL);os.waitpid(pid,0)
+            except: pass
+            st='CUT';break
+        time.sleep(0.0004)
+    try: b=open(tmp,encoding='utf-8',errors='ignore').read()[-400:]
+    except: b=''
+    try: os.unlink(tmp)
+    except: pass
+    fo.write(json.dumps({'name':os.path.basename(path),'st':st,'out':b},ensure_ascii=False)+'\n')
+    i+=1
+fo.close(); json.dump({'i':i},open(PF,'w'))
+print(f"进度 {n0} -> {i} / {len(files)}  ({time.time()-t0:.2f}s, CAP={CAP})")

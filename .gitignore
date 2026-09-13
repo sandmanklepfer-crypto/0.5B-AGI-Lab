@@ -1,0 +1,36 @@
+# ============ 凭据（绝不能提交）============
+.ssh/
+*.pem
+*.key
+*.jks
+*.keystore
+*credentials*
+*token*
+.env
+.netrc
+id_rsa*
+id_ed25519*
+
+# ============ 大文件（超GitHub限制）============
+*.gguf
+*.life
+*.bin
+*.pt
+*.safetensors
+*.zip
+*.tar.gz
+*.npy
+*.npz
+
+# ============ 第三方 ============
+lcpp/
+llcpp/
+jieba-0.42.1/
+__pycache__/
+*.pyc
+
+# ============ 其他 ============
+*.png
+*.log
+crawl_cache/
+dl_cache/
