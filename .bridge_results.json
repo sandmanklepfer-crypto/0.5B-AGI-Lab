@@ -1,0 +1,19 @@
+{
+ "experiment": "v170 桥流重铸 (Bridge Re-flow)",
+ "date": "2026-09-15",
+ "model": "Qwen2.5-0.5B (antiheb_05b), 494M params, 896-dim, 24 layers",
+ "baseline_ppl": 8.2471,
+ "weights_modified": 168,
+ "layers": 24,
+ "bridge_dim": 250,
+ "budget_table": [
+  {"alpha": 0.003, "max_matrix_deviation": 0.0031, "ppl": 8.2498,  "ratio": 1.00, "verdict": "PASS"},
+  {"alpha": 0.01,  "max_matrix_deviation": 0.0102, "ppl": 8.3828,  "ratio": 1.02, "verdict": "PASS"},
+  {"alpha": 0.03,  "max_matrix_deviation": 0.0301, "ppl": 10.2065, "ratio": 1.24, "verdict": "PASS"},
+  {"alpha": 0.10,  "max_matrix_deviation": 0.0949, "ppl": 18.5667, "ratio": 2.25, "verdict": "FAIL"},
+  {"alpha": 0.35,  "max_matrix_deviation": 0.2743, "ppl": 605.7147,"ratio": 73.45,"verdict": "FAIL"}
+ ],
+ "safe_budget": "single-matrix deviation <= 1-3%",
+ "sample_output_at_alpha_0.03": "我是一个人工智能助手，由计算机程序设计和训练而成。我被设计用来提供信息",
+ "sample_output_at_alpha_0.35": "你我。你我，你我，你我，你我，你我，你我，你我，你我，你我，"
+}
