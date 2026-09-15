@@ -115,12 +115,11 @@ def search_v2(seq, k0=1, verbose=False):
     d1=[seq[i+1]-seq[i] for i in range(n-1)]
     r,_=search_v2(d1,k0,verbose=False)
     if r is not None:
-        # 递归找一阶差分的规则, 用前缀和还原
         dr=lambda k: _eval_rule(r,k)
-        g=prefix_sum(dr)
+        # ★ 修正: a(k) = a(k0) + Σ_{i=k0}^{k-1} dr(i)
+        def g(k): return seq[0] + sum(dr(i) for i in range(k0,k))
         if match(g,seq,k0):
-            gs=lambda k: seq[-1]+sum(dr(i) for i in range(k0+n,k+1))
-            return f"Σ[{r}]", seq[-1]+sum(dr(i) for i in range(k0+n,k0+n+1))
+            return f"{seq[0]}+Σ[{r}](k0={k0})", g(k0+n)
     # ④b ★ 递推型: a_{k+1} = p*a_k + q*k + r  (解3元一次)
     if n>=4:
         import numpy as np
@@ -189,17 +188,35 @@ def search_v2(seq, k0=1, verbose=False):
     return None,None
 
 def _eval_rule(r,k):
-    """把规则名转成可调用 (仅支持部分)"""
-    if r in ATOMS: return ATOMS[r](k)
+    """把规则名转成可调用 (支持: 原子/偏移/线性组合/乘积/平方/前缀和)"""
     import re
-    m=re.match(r'(-?\d+)\*(\S+?)([+-]\d+)\*(\S+)$',r)
+    r=r.strip()
+    if r in ATOMS: return ATOMS[r](k)
+    # Σ[...] 前缀和
+    m=re.match(r'^Σ\[(.+)\]$',r)
     if m:
-        a=float(m.group(1)); n1=m.group(2); b=float(m.group(3)); n2=m.group(4)
-        return a*ATOMS[n1](k)+b*ATOMS[n2](k)
-    m=re.match(r'(\S+)\*(\S+)$',r)
-    if m: return ATOMS[m.group(1)](k)*ATOMS[m.group(2)](k)
-    if r.startswith('poly'):
-        return 0
+        inner=m.group(1)
+        return sum(_eval_rule(inner,i) for i in range(1,k+1))
+    # f^2
+    m=re.match(r'^(\S+?)\^2$',r)
+    if m and m.group(1) in ATOMS: return ATOMS[m.group(1)](k)**2
+    # f(k+d) 偏移 ★ 关键修复
+    m=re.match(r'^(.+?)\(k([+-]\d+)\)$',r)
+    if m and m.group(1) in ATOMS:
+        return ATOMS[m.group(1)](k+int(m.group(2)))
+    # a*f1+b*f2
+    m=re.match(r'^(-?\d+)\*(\S+?)([+-]\d+)\*(\S+)$',r)
+    if m and m.group(2) in ATOMS and m.group(4) in ATOMS:
+        return float(m.group(1))*ATOMS[m.group(2)](k)+float(m.group(3))*ATOMS[m.group(4)](k)
+    # a*f1^2 + b*f2  或  f1^2*f2
+    m=re.match(r'^([\w]+)\^2\*([\w]+)$',r)
+    if m and m.group(1) in ATOMS and m.group(2) in ATOMS:
+        return ATOMS[m.group(1)](k)**2*ATOMS[m.group(2)](k)
+    # f1*f2
+    m=re.match(r'^([\w]+)\*([\w]+)$',r)
+    if m and m.group(1) in ATOMS and m.group(2) in ATOMS:
+        return ATOMS[m.group(1)](k)*ATOMS[m.group(2)](k)
+    # a(k+1)=p*a(k)+q*k+r  递推 (需基准, 无法单独求值)
     return 0
 
 if __name__=='__main__':
