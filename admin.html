@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#241a15">
+<meta name="robots" content="noindex,nofollow">
+<title>管理后台 · 卤味小店</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body style="padding-bottom:20px;background:#f6efe8">
+
+<header class="admin-top">
+  <div class="wrap">
+    <div>
+      <h1>🍲 店铺管理后台</h1>
+      <div class="who" id="whoAmI">未连接</div>
+    </div>
+    <div class="row-actions">
+      <button class="mini" id="btnPublish" style="background:#1f9d55;color:#fff;border-color:#1f9d55">💾 保存并发布</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="tabs">
+    <button class="tab on" data-p="goods">商品 / 改价</button>
+    <button class="tab" data-p="coupons">优惠券</button>
+    <button class="tab" data-p="shop">店铺设置</button>
+    <button class="tab" data-p="orders">订单设置</button>
+    <button class="tab" data-p="conn">连接 GitHub</button>
+    <button class="tab" data-p="help">使用说明</button>
+  </div>
+
+  <div id="status" class="status info">正在加载…</div>
+
+  <!-- ============ 商品 ============ -->
+  <section class="panel on" id="p-goods">
+    <div class="card-panel">
+      <h3>商品列表 <span style="font-weight:400;color:var(--muted);font-size:12.5px">（改价后点右上角"保存并发布"）</span></h3>
+      <div class="tbl-wrap"><table id="tblGoods">
+        <thead><tr><th></th><th>名称</th><th>分类</th><th class="num">现价</th><th class="num">原价</th><th class="num">库存</th><th>上架</th><th>操作</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <div style="margin-top:12px" class="row-actions">
+        <button class="mini go" id="btnAddGoods">＋ 上架一个新商品</button>
+        <button class="mini" id="btnExport">导出数据备份</button>
+        <button class="mini" id="btnImport">导入数据</button>
+        <input type="file" id="fileImport" accept=".json" class="hidden">
+      </div>
+    </div>
+    <div class="card-panel">
+      <h3>分类</h3>
+      <div class="field"><input type="text" id="catInput" placeholder="用逗号分隔，例如：招牌荤菜,素菜卤味,套餐"></div>
+      <button class="mini" id="btnSaveCats">保存分类</button>
+    </div>
+  </section>
+
+  <!-- ============ 优惠券 ============ -->
+  <section class="panel" id="p-coupons">
+    <div class="card-panel">
+      <h3>优惠券</h3>
+      <div class="tbl-wrap"><table id="tblCoupons">
+        <thead><tr><th>优惠码</th><th>名称</th><th>力度</th><th class="num">门槛</th><th>有效期</th><th class="num">已用/总量</th><th>启用</th><th>操作</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <div style="margin-top:12px"><button class="mini go" id="btnAddCoupon">＋ 新建优惠券</button></div>
+    </div>
+  </section>
+
+  <!-- ============ 店铺设置 ============ -->
+  <section class="panel" id="p-shop">
+    <div class="card-panel">
+      <h3>基本信息</h3>
+      <div class="field"><label>店名</label><input type="text" id="s_shopName"></div>
+      <div class="field"><label>一句话介绍</label><input type="text" id="s_slogan"></div>
+      <div class="field"><label>公告（显示在顶部）</label><textarea id="s_notice"></textarea></div>
+      <div class="row2">
+        <div class="field"><label>电话</label><input type="tel" id="s_phone"></div>
+        <div class="field"><label>微信</label><input type="text" id="s_wechat"></div>
+      </div>
+      <div class="field"><label>营业时间</label><input type="text" id="s_hours" placeholder="10:00 - 20:00"></div>
+    </div>
+    <div class="card-panel">
+      <h3>配送与价格</h3>
+      <div class="row2">
+        <div class="field"><label>起送金额（元）</label><input type="number" id="s_minOrder" step="1"></div>
+        <div class="field"><label>配送费（元）</label><input type="number" id="s_deliveryFee" step="1"></div>
+      </div>
+      <div class="field"><label>满多少免配送费（0 = 不免）</label><input type="number" id="s_freeDeliveryOver" step="1"></div>
+      <div class="field"><label>配送范围说明</label><input type="text" id="s_deliveryArea"></div>
+      <div class="field"><label>可选送达时段（用逗号分隔）</label><input type="text" id="s_deliveryTimeOptions"></div>
+      <div class="field"><span class="switch"><input type="checkbox" id="s_acceptCash">允许"货到付款"</span></div>
+    </div>
+    <div class="card-panel">
+      <h3>收款码</h3>
+      <div class="row2">
+        <div class="field"><label>微信收款码</label><input type="file" id="qrWechat" accept="image/*"><img class="qr-prev hidden" id="qrWechatPrev"></div>
+        <div class="field"><label>支付宝收款码</label><input type="file" id="qrAlipay" accept="image/*"><img class="qr-prev hidden" id="qrAlipayPrev"></div>
+      </div>
+      <div class="field"><label>付款提示语</label><input type="text" id="s_payNote"></div>
+      <div class="hint" style="font-size:12px;color:var(--muted)">也可以直接填图片网址（相对路径），例如 <code>img/pay-wechat.jpg</code></div>
+      <div class="row2">
+        <div class="field"><input type="text" id="s_payQrWechat" placeholder="微信收款码路径/网址"></div>
+        <div class="field"><input type="text" id="s_payQrAlipay" placeholder="支付宝收款码路径/网址"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 订单设置 ============ -->
+  <section class="panel" id="p-orders">
+    <div class="card-panel">
+      <h3>订单怎么送到你手上</h3>
+      <div class="field">
+        <label>订单接收方式</label>
+        <select id="s_orderProvider">
+          <option value="none">不自动发送（顾客点"复制订单"发我微信）</option>
+          <option value="formsubmit">发到我的邮箱（FormSubmit，免注册）</option>
+          <option value="web3forms">发到我的邮箱（Web3Forms，需 access key）</option>
+        </select>
+      </div>
+      <div class="field" id="wrapEmail"><label>接收订单的邮箱</label><input type="email" id="s_orderEmail" placeholder="you@example.com">
+        <div class="hint">第一次会收到一封确认邮件，点一下确认就开始转发订单了</div>
+      </div>
+      <div class="field" id="wrapKey"><label>Web3Forms Access Key</label><input type="text" id="s_orderKey" placeholder="在 web3forms.com 用邮箱免费领取"></div>
+      <button class="mini go" id="btnTestOrder">测试发送一封测试订单</button>
+      <div id="testResult" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <!-- ============ 连接 ============ -->
+  <section class="panel" id="p-conn">
+    <details class="help" open>
+      <summary>怎么拿到 GitHub Token？（30 秒）</summary>
+      <ol>
+        <li>打开 <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens/new</a></li>
+        <li>Token name 随便填，例如 <code>luhuo-admin</code>；Expiration 选 90 天或自定义</li>
+        <li>Repository access 选 <b>Only select repositories</b> → 勾选你这个店铺仓库</li>
+        <li>Permissions → Repository permissions → 找到 <b>Contents</b> 选 <b>Read and write</b></li>
+        <li>点 Generate token，复制以 <code>github_pat_</code> 开头的字符串，粘到下面</li>
+      </ol>
+      <p style="color:#8a6100;background:#fdf5e3;padding:8px 10px;border-radius:8px">Token 只存在你自己手机的浏览器里，不会上传到任何地方。别把它发给别人。</p>
+    </details>
+    <div class="card-panel">
+      <h3>仓库连接</h3>
+      <div class="row2">
+        <div class="field"><label>用户名 / 组织</label><input type="text" id="g_owner" placeholder="例如 sandmanklepfer-crypto"></div>
+        <div class="field"><label>仓库名</label><input type="text" id="g_repo" placeholder="例如 luhuo"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>分支</label><input type="text" id="g_branch" placeholder="gh-pages"></div>
+        <div class="field"><label>网站子目录（没有就留空）</label><input type="text" id="g_path" placeholder="例如 shop"></div>
+      </div>
+      <div class="field"><label>Personal Access Token</label><input type="password" id="g_token" placeholder="github_pat_..."></div>
+      <div class="row-actions">
+        <button class="mini go" id="btnSaveConn">保存并测试连接</button>
+        <button class="mini" id="btnPull">从线上重新拉取</button>
+        <button class="mini danger" id="btnClearConn">清除 Token</button>
+      </div>
+    </div>
+    <div class="card-panel">
+      <h3>本地草稿</h3>
+      <p style="font-size:12.5px;color:var(--muted);margin:0 0 10px">没连上 GitHub 也能改，改动会先存在这台设备上，等连上了再"保存并发布"。</p>
+      <div class="row-actions">
+        <button class="mini" id="btnSaveDraft">保存草稿</button>
+        <button class="mini" id="btnLoadDraft">读取草稿</button>
+        <button class="mini danger" id="btnClearDraft">丢弃草稿</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 说明 ============ -->
+  <section class="panel" id="p-help">
+    <div class="card-panel">
+      <h3>日常怎么用</h3>
+      <p style="font-size:13.5px;line-height:1.9;margin:0">
+        1. 打开这个后台 → 改价 / 加菜 / 发券<br>
+        2. 点右上角 <b>💾 保存并发布</b><br>
+        3. 等 30 秒～1 分钟，顾客刷新页面就能看到新价格<br>
+        4. 顾客下单后，地址电话会按你设置的方式发给你；你也可以在微信里直接和他确认
+      </p>
+    </div>
+    <div class="card-panel">
+      <h3>关于"线上支付"</h3>
+      <p style="font-size:13.5px;line-height:1.9;margin:0">
+        现在用的是<b>收款码</b>方式：顾客下单 → 看到你的微信/支付宝收款码 → 扫码付款 → 把订单发给你。<br>
+        个人做卤货生意这个最常见也最省事（钱直接进你微信钱包，不用提现手续费）。<br>
+        <span style="color:var(--muted)">以后如果想做成"点一下就直接扣钱"，需要营业执照 + 微信支付/支付宝商户号，还要一台服务器，可以再升级。</span>
+      </p>
+    </div>
+    <div class="card-panel">
+      <h3>安全提醒</h3>
+      <p style="font-size:13.5px;line-height:1.9;margin:0">
+        · 这个后台网址别人也能打开，但<b>没有你的 Token 就改不了任何东西</b>，所以不用怕。<br>
+        · 第一次打开会让你设一个 4 位数字锁，只是防止别人拿你手机乱点。<br>
+        · 千万别把 Token 截图发出去。
+      </p>
+    </div>
+  </section>
+</div>
+
+<!-- ============ 编辑弹窗 ============ -->
+<div class="sheet-mask" id="mask"></div>
+<div class="sheet" id="modal" style="max-height:92vh">
+  <div class="head"><h2 id="modalTitle">编辑</h2><button class="close-x" id="modalClose">✕</button></div>
+  <div class="content" id="modalBody"></div>
+</div>
+
+<!-- ============ 数字锁 ============ -->
+<div id="lockScreen" style="position:fixed;inset:0;background:#241a15;color:#fff;z-index:200;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px">
+  <div style="font-size:40px">🔒</div>
+  <div style="font-size:15px">输入 4 位数字密码</div>
+  <input id="pinInput" type="password" inputmode="numeric" maxlength="4"
+         style="width:150px;text-align:center;font-size:26px;letter-spacing:10px;padding:10px;border-radius:12px;border:0;color:#241a15">
+  <div style="font-size:12px;opacity:.7">默认 1234，可在"店铺设置"里改</div>
+  <div style="font-size:12.5px;color:#ffb4a8" id="pinErr"></div>
+</div>
+
+<script src="js/store.js"></script>
+<script src="js/gh.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>

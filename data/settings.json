@@ -1,0 +1,23 @@
+{
+  "shopName": "阿香卤味",
+  "slogan": "老卤现捞 · 当天现做",
+  "notice": "每天 17:00 前下单，市区当天送到；17:00 后顺延到第二天。",
+  "phone": "",
+  "wechat": "",
+  "hours": "10:00 - 20:00",
+  "minOrder": 20,
+  "deliveryFee": 5,
+  "freeDeliveryOver": 50,
+  "deliveryArea": "市区三环内免谈，超出范围先联系客服确认",
+  "deliveryTimeOptions": ["尽快送到", "上午 10:00-12:00", "下午 14:00-17:00", "晚上 17:00-20:00"],
+  "payQrWechat": "",
+  "payQrAlipay": "",
+  "payNote": "扫码付款后请填一下付款留言里的几位数字，方便我们核对～",
+  "acceptCash": true,
+  "orderForm": {
+    "provider": "none",
+    "email": "",
+    "accessKey": ""
+  },
+  "adminPin": "1234"
+}

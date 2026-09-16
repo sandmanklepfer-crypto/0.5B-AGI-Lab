@@ -1,0 +1,56 @@
+{
+  "items": [
+    {
+      "code": "XINREN5",
+      "title": "新人立减 5 元",
+      "type": "amount",
+      "value": 5,
+      "min": 30,
+      "start": "",
+      "end": "2026-12-31",
+      "total": 200,
+      "used": 0,
+      "perUser": 1,
+      "on": true
+    },
+    {
+      "code": "MAN60JIAN10",
+      "title": "满 60 减 10",
+      "type": "amount",
+      "value": 10,
+      "min": 60,
+      "start": "",
+      "end": "2026-12-31",
+      "total": 100,
+      "used": 0,
+      "perUser": 1,
+      "on": true
+    },
+    {
+      "code": "ZHOUMO88",
+      "title": "周末 88 折（满 50 可用）",
+      "type": "percent",
+      "value": 88,
+      "min": 50,
+      "start": "",
+      "end": "2026-12-31",
+      "total": 50,
+      "used": 0,
+      "perUser": 1,
+      "on": true
+    },
+    {
+      "code": "MIANYUNFEI",
+      "title": "免配送费",
+      "type": "freeship",
+      "value": 0,
+      "min": 20,
+      "start": "",
+      "end": "2026-12-31",
+      "total": 100,
+      "used": 0,
+      "perUser": 1,
+      "on": true
+    }
+  ]
+}

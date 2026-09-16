@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#c0392b">
+<title>卤味小店 · 在线下单</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ============ 顶部 ============ -->
+<header class="hero">
+  <div class="wrap">
+    <h1 id="shopName">卤味小店</h1>
+    <p class="slogan" id="shopSlogan">老卤现捞 · 当天现做</p>
+    <div class="meta" id="shopMeta"></div>
+    <div class="notice hidden" id="shopNotice"></div>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- 分类 -->
+  <nav class="cats" id="cats"></nav>
+
+  <!-- 商品 -->
+  <div class="grid" id="grid"></div>
+  <div class="empty hidden" id="emptyBox"><span class="ic">🍲</span>今天还没有上架商品，晚点再来看看～</div>
+
+  <div class="footer" id="footer"></div>
+</div>
+
+<!-- ============ 底部条 ============ -->
+<div class="bottombar">
+  <div class="wrap">
+    <button class="cart-btn" id="btnCart">
+      <span class="ic">🛒</span><span>购物车</span>
+      <span class="badge hidden" id="cartBadge">0</span>
+    </button>
+    <div class="total-box">
+      <div class="t" id="barTotal">¥0</div>
+      <div class="s" id="barHint">还没选东西</div>
+    </div>
+    <button class="btn-primary" id="btnGoCart" disabled>去结算</button>
+  </div>
+</div>
+
+<!-- ============ 购物车抽屉 ============ -->
+<div class="sheet-mask" id="mask"></div>
+<div class="sheet" id="sheetCart">
+  <div class="head">
+    <h2>购物车</h2>
+    <button class="close-x" data-close>✕</button>
+  </div>
+  <div class="content" id="cartContent"></div>
+</div>
+
+<!-- ============ 结算抽屉 ============ -->
+<div class="sheet" id="sheetCheckout">
+  <div class="head">
+    <h2>填写配送信息</h2>
+    <button class="close-x" data-close>✕</button>
+  </div>
+  <div class="content">
+    <form id="orderForm" autocomplete="on">
+      <div class="field">
+        <label>收货人 <i>*</i></label>
+        <input type="text" name="name" required placeholder="怎么称呼您？" autocomplete="name">
+      </div>
+      <div class="field">
+        <label>手机号 <i>*</i></label>
+        <input type="tel" name="phone" required placeholder="11 位手机号，送货师傅打这个" inputmode="numeric" autocomplete="tel">
+      </div>
+      <div class="field">
+        <label>送到哪里 <i>*</i></label>
+        <textarea name="address" required placeholder="小区/写字楼 + 楼栋门牌，例如：幸福小区 3 栋 2 单元 601"></textarea>
+        <div class="hint" id="areaHint"></div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>送达时间</label>
+          <select name="time" id="timeSel"></select>
+        </div>
+        <div class="field">
+          <label>付款方式</label>
+          <select name="pay" id="paySel">
+            <option value="wechat">微信扫码付</option>
+            <option value="alipay">支付宝扫码付</option>
+            <option value="cash">货到付款</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>备注</label>
+        <input type="text" name="note" placeholder="不要辣 / 多要点卤汁 / 砍小块…">
+      </div>
+
+      <div class="sec-title">优惠券</div>
+      <div id="couponList"></div>
+      <div class="row2" style="margin-bottom:6px">
+        <input type="text" id="couponInput" placeholder="输入优惠码" style="padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#fff;outline:none;flex:1">
+        <button type="button" class="btn-ghost" id="btnApplyCoupon" style="flex:0 0 auto">使用</button>
+      </div>
+
+      <div class="sec-title">费用明细</div>
+      <div class="summary" id="checkoutSummary"></div>
+
+      <button type="submit" class="btn-primary btn-block" id="btnSubmit">提交订单</button>
+      <p class="hint" style="text-align:center;color:var(--muted);font-size:11.5px;margin-top:10px">
+        提交后请不要关闭页面，按提示完成付款即可
+      </p>
+    </form>
+  </div>
+</div>
+
+<!-- ============ 下单成功 ============ -->
+<div class="sheet" id="sheetDone">
+  <div class="head">
+    <h2>下单成功</h2>
+    <button class="close-x" data-close>✕</button>
+  </div>
+  <div class="content" id="doneContent"></div>
+</div>
+
+<!-- ============ 我的订单 ============ -->
+<div class="sheet" id="sheetMy">
+  <div class="head">
+    <h2>我的订单</h2>
+    <button class="close-x" data-close>✕</button>
+  </div>
+  <div class="content" id="myContent"></div>
+</div>
+
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
