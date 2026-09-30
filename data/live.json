@@ -1,15 +1,12 @@
 {
-  "on": true,
-  "title": "今晚现捞",
-  "notice": "直播中下单，满 50 免配送费；报「看直播来的」送卤蛋一个",
+  "on": false,
+  "title": "阿香卤味 · 现捞直播",
+  "notice": "",
   "mode": "hls",
-  "url": "https://x.com/s.m3u8",
+  "url": "",
   "cover": "",
   "startAt": "",
   "chatOn": true,
   "chatNeedName": true,
-  "bannedWords": [
-    "加微信",
-    "广告"
-  ]
+  "bannedWords": []
 }
