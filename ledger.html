@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#241a15">
+<meta name="robots" content="noindex,nofollow">
+<title>对账台 · 卤味小店</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  body{background:#f6efe8;padding-bottom:24px}
+  .recon{background:#fff;border-radius:16px;padding:16px;box-shadow:var(--shadow);margin-bottom:12px}
+  .recon h3{margin:0 0 4px;font-size:15px}
+  .recon .sub{font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.7}
+  .amt-in{
+    width:100%;font-size:32px;font-weight:800;text-align:center;letter-spacing:2px;
+    padding:12px;border:2px solid var(--line);border-radius:14px;color:var(--brand);
+    background:#fffdfc;outline:none;font-family:ui-monospace,Menlo,monospace;
+  }
+  .amt-in:focus{border-color:var(--brand)}
+  .quick{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .match{border-radius:14px;padding:13px;margin-top:12px;border:2px solid var(--line)}
+  .match.hit{border-color:var(--ok);background:#f2fbf5}
+  .match.miss{border-color:var(--warn);background:#fdf5e3}
+  .match .hd{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .match .no{font-family:ui-monospace,Menlo,monospace;font-weight:700;font-size:13.5px}
+  .match .money{font-size:19px;font-weight:800;color:var(--brand)}
+  .match .meta{font-size:12.5px;color:var(--muted);line-height:1.85;margin-top:6px}
+  .ord-card{background:#fff;border-radius:14px;padding:12px 14px;margin-bottom:9px;box-shadow:var(--shadow);border-left:4px solid var(--warn)}
+  .ord-card.paid{border-left-color:var(--ok);opacity:.72}
+  .tag{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:700}
+  .tag.w{background:#fdf5e3;color:#c98a00}
+  .tag.p{background:#e6f7ee;color:#1f9d55}
+  .mono{font-family:ui-monospace,Menlo,monospace;letter-spacing:1px}
+  .tabs{margin-top:4px}
+</style>
+</head>
+<body>
+
+<header class="admin-top">
+  <div class="wrap">
+    <div>
+      <h1>🧾 对账台</h1>
+      <div class="who" id="stat">—</div>
+    </div>
+    <div class="row-actions">
+      <button class="mini" id="btnExport">导出</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="recon">
+    <h3>① 收到钱了吗？输入金额</h3>
+    <div class="sub">
+      输微信/支付宝通知里的金额，<b>尾数就是那笔订单的身份</b>，自动帮你找出是哪一单。
+    </div>
+    <input type="text" class="amt-in" id="amtIn" inputmode="decimal" placeholder="56.89" autocomplete="off">
+    <div class="quick">
+      <button class="mini" data-add="-0.01">少1分</button>
+      <button class="mini" data-add="0.01">多1分</button>
+      <button class="mini" id="btnClear">清空</button>
+    </div>
+    <div id="matchBox"></div>
+  </div>
+
+  <div class="recon">
+    <h3>② 登记订单</h3>
+    <div class="sub">
+      顾客下单后会把订单发给你（或发到你邮箱）。把那段文字<b>整段粘贴</b>进来，自动读出来。
+    </div>
+    <textarea id="pasteIn" rows="4" placeholder="把顾客发来的订单整段粘贴到这里…" style="width:100%;padding:11px;border:1px solid var(--line);border-radius:12px;font-size:13px;outline:none"></textarea>
+    <div class="row-actions" style="margin-top:9px">
+      <button class="mini go" id="btnAdd">登记这一单</button>
+      <button class="mini" id="btnSample">看示例</button>
+    </div>
+    <div id="addMsg" style="margin-top:9px"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on" data-f="all">全部</button>
+    <button class="tab" data-f="wait">待收款</button>
+    <button class="tab" data-f="paid">已收款</button>
+  </div>
+
+  <div id="list" style="margin-top:10px"></div>
+</div>
+
+<script src="js/store.js"></script>
+<script src="js/order-id.js"></script>
+<script src="js/ledger.js"></script>
+</body>
+</html>

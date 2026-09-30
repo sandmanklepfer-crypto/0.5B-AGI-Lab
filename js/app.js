@@ -343,8 +343,16 @@
     const f = $('#orderForm');
     const el = n => f.elements[n];          // 注意：不能用 f.name（和表单自身属性冲突）
     const m = money_v2();
+    // 订单指纹：唯一订单号 + 唯一金额 + 指针码
+    const code = OrderID.makeOrderNo();
+    const ua = OrderID.uniqueAmount(m.total, code);
     return {
-      code: LH.orderCode(),
+      code,
+      pointer: OrderID.pointerOf(code),
+      payText: ua.display,          // 顾客实际要付的金额（含识别尾数）
+      payFen: ua.payFen,
+      tailText: ua.tailText,
+      baseText: LH.money(m.total),  // 原价
       time: new Date().toLocaleString('zh-CN'),
       name: el('name').value.trim(),
       phone: el('phone').value.trim(),
@@ -371,6 +379,8 @@
       '配送费：¥' + LH.money(o.fee),
       o.dis > 0 ? '优惠（' + o.coupon + '）：−¥' + LH.money(o.dis) : '',
       '合计应付：¥' + LH.money(o.total),
+      '★ 请支付：¥' + (o.payText || LH.money(o.total)) + '（尾数 ' + (o.tailText || '') + ' 是识别码，必须一分不差）',
+      '★ 订单指针：' + (o.pointer || (o.code ? OrderID.pointerOf(o.code) : '')),
       '——————',
       '收货人：' + o.name,
       '电话：' + o.phone,
@@ -539,11 +549,31 @@
     const qrSrc = o.pay === 'alipay' ? s.payQrAlipay
       : (o.pay === 'unionpay' ? s.payQrUnionpay : s.payQrWechat);
     let payBlock = '';
+    const payText = o.payText || LH.money(o.total);
+    const tail = o.tailText || '';
+    // 唯一金额提示：尾数是这笔订单的"身份"，一分不能差
+    const uniqBlock =
+      '<div class="uniq-pay">' +
+        '<div class="up-label">请支付</div>' +
+        '<div class="up-amount"><small>¥</small>' + LH.esc(payText) + '</div>' +
+        '<div class="up-tail">尾数 <b>' + LH.esc(tail) + '</b> 是这单的识别码，<b>请务必一分不差</b></div>' +
+        '<button type="button" class="up-copy" id="btnCopyAmt">📋 复制金额 ' + LH.esc(payText) + '</button>' +
+      '</div>' +
+      '<div class="ptr-row">' +
+        '<span>订单指针</span>' +
+        '<b id="ptrCode">' + LH.esc(o.pointer || '') + '</b>' +
+        '<button type="button" class="mini" id="btnCopyPtr">复制</button>' +
+      '</div>' +
+      '<div class="hint" style="text-align:center;font-size:12px;color:var(--muted);margin:-4px 0 10px">' +
+        '付款时输 <b>' + LH.esc(payText) + '</b>，商家一看尾数 <b>' + LH.esc(tail) + '</b> 就知道是你这一单，不会搞混' +
+      '</div>';
+
     if (o.pay === 'cash') {
       payBlock = '<div class="box">💵 已选择<b>货到付款</b>，送到时付给送货师傅就行。</div>';
     } else if (qrSrc) {
-      payBlock = '<div class="qr-box">' +
-        '<div style="font-weight:700">请用' + payMap[o.pay] + '扫码付款 <span style="color:var(--brand)">¥' + LH.money(o.total) + '</span></div>' +
+      payBlock = uniqBlock +
+        '<div class="qr-box">' +
+        '<div style="font-weight:700">用' + payMap[o.pay] + '扫码，<span style="color:var(--brand)">金额填 ¥' + LH.esc(payText) + '</span></div>' +
         '<img src="' + LH.esc(qrSrc) + '" alt="收款码">' +
         '<div style="font-size:12.5px;color:var(--muted)">' + LH.esc(s.payNote || '') + '</div></div>';
     } else {
@@ -576,6 +606,10 @@
       (s.wechat ? '💬 微信：' + LH.esc(s.wechat) + '<br>' : '') +
       (s.hours ? '🕙 营业时间 ' + LH.esc(s.hours) : '') +
       '</div>';
+    const bca = $('#btnCopyAmt');
+    if (bca) bca.onclick = async () => { await LH.copyText(payText); LH.toast('金额已复制，付款时粘贴 ✅'); };
+    const bcp = $('#btnCopyPtr');
+    if (bcp) bcp.onclick = async () => { await LH.copyText(o.pointer || ''); LH.toast('指针已复制 ✅'); };
     $('#btnCopyOrder').onclick = async () => { await LH.copyText(orderText(o)); LH.toast('已复制，粘贴给商家就行 ✅'); };
     $('#btnDoneContact').onclick = () => { closeAll(); setTimeout(openContact, 200); };
     $('#btnDoneClose').onclick = closeAll;
