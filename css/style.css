@@ -255,3 +255,46 @@ details.help summary{font-weight:600;cursor:pointer}
 details.help ol{padding-left:20px;margin:8px 0 0}
 details.help li{margin-bottom:5px;color:#5a4638}
 code{background:#f6ece3;padding:1px 5px;border-radius:5px;font-size:12.5px;word-break:break-all}
+
+/* ---------- 结算页：记住上次信息提示 ---------- */
+.me-tip{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:var(--brand-l);border:1px solid #f3c9c4;color:var(--brand-d);
+  border-radius:12px;padding:9px 12px;font-size:12.5px;margin-bottom:12px;
+}
+.me-tip button{
+  flex:0 0 auto;font-size:12px;color:var(--brand);font-weight:700;
+  border:1px solid var(--brand);border-radius:20px;padding:3px 12px;background:#fff;
+}
+
+/* ---------- 悬浮按钮：联系商家 ---------- */
+.fab{
+  position:fixed;right:14px;bottom:96px;z-index:60;
+  display:flex;align-items:center;gap:6px;
+  background:#07c160;color:#fff;font-weight:700;font-size:13.5px;
+  padding:10px 15px;border-radius:26px;
+  box-shadow:0 6px 18px rgba(7,193,96,.38);
+  transition:transform .15s;
+}
+.fab:active{transform:scale(.95)}
+.fab-ic{font-size:16px;line-height:1}
+
+/* ---------- 联系商家面板 ---------- */
+.ct-btn{
+  display:flex;align-items:center;gap:12px;
+  background:#fff;border:1px solid var(--line);border-radius:14px;
+  padding:13px 15px;margin-bottom:10px;text-decoration:none;color:inherit;
+  box-shadow:var(--shadow);
+}
+.ct-btn .ic{font-size:22px;line-height:1}
+.ct-btn b{display:block;font-size:15px}
+.ct-btn small{color:var(--muted);font-size:12.5px}
+.ct-btn > span:nth-child(2){flex:1}
+.ct-call{border-color:#c8e6d2;background:#f2fbf5}
+.ct-call b{color:#07c160}
+.ct-wx{border-color:#c8e6d2;background:#f2fbf5;cursor:pointer}
+.ct-wx b{color:#07c160}
+.ct-copy{
+  flex:0 0 auto;font-size:12px;font-weight:700;color:#07c160;
+  border:1px solid #07c160;border-radius:20px;padding:3px 12px;background:#fff;
+}

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#241a15">
+<meta name="robots" content="noindex,nofollow">
+<title>订单后台 · 卤味小店</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  body{background:#f6efe8;padding-bottom:20px}
+  .stat-row{display:flex;gap:10px;margin:12px 0}
+  .stat{flex:1;background:#fff;border-radius:14px;padding:12px;text-align:center;box-shadow:var(--shadow)}
+  .stat .n{font-size:22px;font-weight:800;color:var(--brand);line-height:1.2}
+  .stat .n.ok{color:var(--ok)}
+  .stat .n.warn{color:var(--warn)}
+  .stat .l{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .ord{background:#fff;border-radius:14px;padding:13px 14px;margin-bottom:10px;box-shadow:var(--shadow);border-left:4px solid var(--line)}
+  .ord.paid{border-left-color:var(--ok)}
+  .ord.pending{border-left-color:var(--warn)}
+  .ord.bad{border-left-color:var(--brand)}
+  .ord .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .ord .no{font-weight:700;font-size:13.5px;letter-spacing:.3px}
+  .badge{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:700;white-space:nowrap}
+  .badge.paid{background:#e6f7ee;color:#1f9d55}
+  .badge.pending{background:#fdf5e3;color:#c98a00}
+  .badge.bad{background:#fdeceb;color:#c0392b}
+  .ord .amt{font-size:19px;font-weight:800;color:var(--brand)}
+  .ord .meta{font-size:12.5px;color:var(--muted);line-height:1.8;margin-top:6px}
+  .ord .itm{font-size:13px;line-height:1.8}
+  .ord .ft{display:flex;gap:8px;margin-top:9px;flex-wrap:wrap}
+  .auto{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:6px;justify-content:flex-end}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block;animation:bl 1.4s infinite}
+  @keyframes bl{50%{opacity:.25}}
+  #lockScreen{position:fixed;inset:0;background:#241a15;color:#fff;z-index:200;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;padding:20px}
+</style>
+</head>
+<body>
+
+<header class="admin-top">
+  <div class="wrap">
+    <div>
+      <h1>🧾 订单后台</h1>
+      <div class="who" id="whoAmI">未连接</div>
+    </div>
+    <div class="row-actions">
+      <button class="mini" id="btnSet">⚙️ 店铺设置</button>
+      <button class="mini" id="btnRefresh">↻ 刷新</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="stat-row">
+    <div class="stat"><div class="n" id="stToday">0</div><div class="l">今日订单</div></div>
+    <div class="stat"><div class="n ok" id="stPaid">¥0</div><div class="l">今日已收</div></div>
+    <div class="stat"><div class="n warn" id="stPending">0</div><div class="l">待支付</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on" data-f="all">全部</button>
+    <button class="tab" data-f="PAID">已支付</button>
+    <button class="tab" data-f="PENDING">待支付</button>
+    <button class="tab" data-f="BAD">异常</button>
+  </div>
+
+  <div class="auto" id="autoTip"><span class="dot"></span> 每 5 秒自动刷新</div>
+
+  <div id="warnBox"></div>
+  <div id="list" style="margin-top:10px"></div>
+</div>
+
+<!-- ============ 店铺设置 ============ -->
+<div class="sheet-mask" id="mask"></div>
+<div class="sheet" id="sheetSet" style="max-height:92vh">
+  <div class="head"><h2>店铺设置</h2><button class="close-x" id="setClose">✕</button></div>
+  <div class="content" id="setBody"></div>
+</div>
+
+<div id="lockScreen">
+  <div style="font-size:38px">🔒</div>
+  <div style="font-size:14px">输入支付服务器的 ADMIN_TOKEN</div>
+  <input id="tokInput" type="password" placeholder="ADMIN_TOKEN"
+         style="width:min(320px,86vw);padding:11px 12px;border-radius:12px;border:0;font-size:14px;color:#241a15;text-align:center">
+  <button class="mini go" id="btnUnlock" style="padding:9px 22px">进入</button>
+  <div style="font-size:12px;color:#ffb4a8" id="lockErr"></div>
+</div>
+
+<script src="js/store.js"></script>
+<script src="js/orders.js"></script>
+</body>
+</html>

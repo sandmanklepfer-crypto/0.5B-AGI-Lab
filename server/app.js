@@ -163,6 +163,11 @@ async function handleNotify(req, res) {
 /* ---------------- 路由 ---------------- */
 const { Buffer: B } = require('buffer');
 
+function isAdmin(req) {
+  const auth = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  return !!(cfg.adminToken && auth === cfg.adminToken);
+}
+
 async function route(req, res) {
   const u = new URL(req.url, 'http://localhost');
   const p = u.pathname;
@@ -317,9 +322,63 @@ async function route(req, res) {
 
   /* --- 老板查订单（需要 ADMIN_TOKEN） --- */
   if (p === '/api/admin/orders' && method === 'GET') {
-    const auth = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-    if (!cfg.adminToken || auth !== cfg.adminToken) { json(res, 403, { ok: false, error: '无权限' }); return true; }
+    if (!isAdmin(req)) { json(res, 403, { ok: false, error: '无权限' }); return true; }
     json(res, 200, { ok: true, orders: await store.list() });
+    return true;
+  }
+
+  /* --- 老板改店铺设置（联系方式等，直接写服务器上的 settings.json） ---
+     这样不用 GitHub Token 也能改联系方式。 */
+  if (p === '/api/admin/settings' && method === 'GET') {
+    if (!isAdmin(req)) { json(res, 403, { ok: false, error: '无权限' }); return true; }
+    json(res, 200, { ok: true, settings: loadSettings() });
+    return true;
+  }
+  if (p === '/api/admin/settings' && method === 'POST') {
+    if (!isAdmin(req)) { json(res, 403, { ok: false, error: '无权限' }); return true; }
+    let body;
+    try { body = await readJson(req); } catch (e) { json(res, 400, { ok: false, error: e.message }); return true; }
+
+    // 只允许改这些"展示用"字段，避免改坏价格/库存
+    const ALLOW = ['shopName', 'slogan', 'notice', 'phone', 'wechat', 'hours',
+      'deliveryArea', 'deliveryFee', 'freeDeliveryOver', 'minOrder',
+      'deliveryTimeOptions', 'payNote', 'acceptCash'];
+    const file = path.join(cfg.SHOP_ROOT, 'data', 'settings.json');
+    let cur = {};
+    try { cur = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { cur = {}; }
+
+    const changed = [];
+    for (const k of ALLOW) {
+      if (body[k] === undefined) continue;
+      let v = body[k];
+      if (['deliveryFee', 'freeDeliveryOver', 'minOrder'].indexOf(k) >= 0) v = Number(v) || 0;
+      if (k === 'deliveryTimeOptions' && typeof v === 'string') {
+        v = v.split(/[,，]/).map(x => x.trim()).filter(Boolean);
+      }
+      if (k === 'acceptCash') v = !!v;
+      if (typeof v === 'string') v = v.trim();
+      cur[k] = v;
+      changed.push(k);
+    }
+
+    // 手机号做基本校验，避免填错导致顾客打不通
+    if (cur.phone && !/^[\d\-+() ]{5,20}$/.test(cur.phone)) {
+      json(res, 400, { ok: false, error: '电话号码格式看着不对' }); return true;
+    }
+    if (!cur.phone && !cur.wechat) {
+      json(res, 400, { ok: false, error: '电话和微信至少要填一个，不然顾客联系不上你' }); return true;
+    }
+
+    try {
+      const tmp = file + '.tmp';
+      fs.writeFileSync(tmp, JSON.stringify(cur, null, 2));
+      fs.renameSync(tmp, file);
+    } catch (e) {
+      json(res, 500, { ok: false, error: '保存失败：' + e.message });
+      return true;
+    }
+    console.log('[admin] 店铺设置已更新：' + changed.join(', '));
+    json(res, 200, { ok: true, settings: cur, changed });
     return true;
   }
 

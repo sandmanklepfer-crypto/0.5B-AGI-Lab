@@ -45,6 +45,11 @@
   </div>
 </div>
 
+<!-- ============ 悬浮：联系商家 ============ -->
+<button class="fab" id="btnContact">
+  <span class="fab-ic">💬</span><span class="fab-tx">联系商家</span>
+</button>
+
 <!-- ============ 购物车抽屉 ============ -->
 <div class="sheet-mask" id="mask"></div>
 <div class="sheet" id="sheetCart">
@@ -63,6 +68,10 @@
   </div>
   <div class="content">
     <form id="orderForm" autocomplete="on">
+      <div class="me-tip hidden" id="meTip">
+        <span>👋 已自动填入上次的信息，核对一下就行</span>
+        <button type="button" id="btnForgetMe">换一个</button>
+      </div>
       <div class="field">
         <label>收货人 <i>*</i></label>
         <input type="text" name="name" required placeholder="怎么称呼您？" autocomplete="name">
@@ -122,6 +131,15 @@
     <button class="close-x" data-close>✕</button>
   </div>
   <div class="content" id="doneContent"></div>
+</div>
+
+<!-- ============ 联系商家 ============ -->
+<div class="sheet" id="sheetContact">
+  <div class="head">
+    <h2>联系商家</h2>
+    <button class="close-x" data-close>✕</button>
+  </div>
+  <div class="content" id="contactContent"></div>
 </div>
 
 <!-- ============ 我的订单 ============ -->

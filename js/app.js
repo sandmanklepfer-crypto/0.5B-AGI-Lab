@@ -8,7 +8,9 @@
     cat: '全部',
     couponCode: '',
     lastOrder: null,
-    lastOrderSent: false
+    lastOrderSent: false,
+    payServer: null,                     // 探测到的支付服务器地址
+    payServerMock: false                 // 是否演示模式
   };
   const $ = s => document.querySelector(s);
   const $$ = s => Array.from(document.querySelectorAll(s));
@@ -32,6 +34,11 @@
     renderBar();
     buildTimeOptions();
     bindEvents();
+    // 探测支付服务器（异步，不影响首屏）
+    detectPayServer().then(() => {
+      buildPayOptions();
+      renderFooterLinks();
+    });
   }
 
   const findProduct = id => (S.products.items || []).find(p => p.id === id);
@@ -57,10 +64,24 @@
     if (Number(s.deliveryFee) > 0) f.push('配送费 ¥' + LH.money(s.deliveryFee));
     $('#footer').innerHTML =
       (f.length ? '<div>' + f.map(LH.esc).join(' · ') + '</div>' : '') +
-      '<div style="margin-top:6px"><a href="#" id="linkMyOrders">我的订单</a></div>' +
+      '<div style="margin-top:6px">' +
+      '<a href="#" id="linkMyOrders">我的订单</a>' +
+      '　|　<a href="#" id="linkContact">联系商家</a>' +
+      '<span id="footerExtra"></span></div>' +
       '<div style="margin-top:4px">© ' + LH.esc(s.shopName) + '</div>';
     const lk = $('#linkMyOrders');
     if (lk) lk.onclick = e => { e.preventDefault(); openMy(); };
+    const lc = $('#linkContact');
+    if (lc) lc.onclick = e => { e.preventDefault(); openContact(); };
+  }
+
+  // 探测到支付服务器后，再补上"支付方式"和后台入口
+  function renderFooterLinks() {
+    const el = $('#footerExtra');
+    if (!el) return;
+    el.innerHTML = S.payServer
+      ? '　|　<span style="color:var(--ok)">微信在线支付已开通</span>'
+      : '';
   }
 
   /* ================= 分类 ================= */
@@ -241,12 +262,45 @@
     if (opts.some(o => o.v === keep)) sel.value = keep;
   }
 
+  /* ================= 记住我的信息（免重复填表） ================= */
+  const ME_KEY = 'lh_me';
+  function saveMine() {
+    const f = $('#orderForm');
+    const v = n => (f.elements[n] ? f.elements[n].value.trim() : '');
+    if (!v('name') && !v('phone')) return;
+    LH.LS.set(ME_KEY, { name: v('name'), phone: v('phone'), address: v('address'), want: v('time') });
+  }
+  function fillMine() {
+    const me = LH.LS.get(ME_KEY, null);
+    if (!me) return false;
+    const f = $('#orderForm');
+    const set = (n, val) => { const el = f.elements[n]; if (el && !el.value && val) el.value = val; };
+    set('name', me.name); set('phone', me.phone); set('address', me.address);
+    if (me.want) {
+      const t = $('#timeSel');
+      if (t && Array.from(t.options).some(o => o.value === me.want)) t.value = me.want;
+    }
+    return !!(me.name || me.phone || me.address);
+  }
+
   function openCheckout() {
     if (!cartLines().length) { LH.toast('先选点东西吧'); return; }
     const min = Number(S.settings.minOrder) || 0;
     if (subtotal() < min) { LH.toast('满 ¥' + LH.money(min) + ' 才起送哦'); return; }
     renderCheckout();
+    const filled = fillMine();
+    const tip = $('#meTip');
+    if (tip) tip.classList.toggle('hidden', !filled);
     openSheet('#sheetCheckout');
+  }
+
+  // 点"换一个"清空表单（给家人代下单用）
+  function forgetMe() {
+    LH.LS.del(ME_KEY);
+    const f = $('#orderForm');
+    ['name', 'phone', 'address', 'note'].forEach(n => { if (f.elements[n]) f.elements[n].value = ''; });
+    const tip = $('#meTip'); if (tip) tip.classList.add('hidden');
+    LH.toast('已清空，重新填写');
   }
 
   function renderCoupons() {
@@ -368,8 +422,32 @@
   }
 
   /* ================= 在线支付（自建支付服务器） ================= */
-  const onlinePayOn = () => !!(S.settings.onlinePay && S.settings.payApiBase);
-  const apiBase = () => String(S.settings.payApiBase || '').replace(/\/+$/, '');
+  // 自动探测支付服务器：优先用后台配置的地址，其次直接用"当前同源"。
+  // 这样把整个网页交给支付服务器托管时，地址变了也不用改配置。
+  const apiBase = () => S.payServer || '';
+  const onlinePayOn = () => !!S.payServer;
+
+  async function detectPayServer() {
+    if (S.settings.onlinePay === false) { S.payServer = null; return; }
+    const cands = [];
+    const cfgBase = String(S.settings.payApiBase || '').replace(/\/+$/, '');
+    if (cfgBase) cands.push(cfgBase);
+    if (cands.indexOf(location.origin) < 0) cands.push(location.origin);
+    for (const c of cands) {
+      try {
+        const r = await fetch(c + '/api/health', { cache: 'no-store' });
+        const d = await r.json();
+        if (r.ok && d && d.ok) {
+          S.payServer = c;
+          S.payServerMock = String(d.mode || '').indexOf('MOCK') === 0;
+          console.log('[LH] 在线支付服务器：' + c + '（' + d.mode + '）');
+          return;
+        }
+      } catch (e) { /* 试下一个候选 */ }
+    }
+    S.payServer = null;
+    console.log('[LH] 没找到在线支付服务器，使用扫码/货到付款');
+  }
 
   // 把订单交给支付服务器，拿到收银台地址
   async function createOnlineOrder(o) {
@@ -399,6 +477,7 @@
     btn.disabled = true; btn.textContent = '正在提交…';
 
     const o = collectOrder();
+    saveMine();      // 记住这次填的信息，下次自动带出来
 
     /* ---- 走在线支付：交给支付服务器，跳转收银台 ---- */
     if (o.pay === 'online') {
@@ -486,14 +565,83 @@
       '<div style="height:14px"></div>' +
       '<button class="btn-primary btn-block" id="btnCopyOrder">📋 复制订单，发给商家</button>' +
       '<div style="height:8px"></div>' +
+      '<button class="btn-ghost btn-block" id="btnDoneContact">💬 联系商家（有问题点这里）</button>' +
+      '<div style="height:8px"></div>' +
       '<button class="btn-ghost btn-block" id="btnDoneClose">继续逛逛</button>' +
-      (s.wechat || s.phone
-        ? '<div class="hint" style="text-align:center;margin-top:12px;color:var(--muted)">' +
-        (s.wechat ? '微信：' + LH.esc(s.wechat) + '　' : '') + (s.phone ? '电话：' + LH.esc(s.phone) : '') + '</div>'
-        : '');
+      '<div class="hint" style="text-align:center;margin-top:14px;color:var(--muted);font-size:12.5px;line-height:1.9">' +
+      (s.phone ? '📞 ' + LH.esc(s.phone) + '<br>' : '') +
+      (s.wechat ? '💬 微信：' + LH.esc(s.wechat) + '<br>' : '') +
+      (s.hours ? '🕙 营业时间 ' + LH.esc(s.hours) : '') +
+      '</div>';
     $('#btnCopyOrder').onclick = async () => { await LH.copyText(orderText(o)); LH.toast('已复制，粘贴给商家就行 ✅'); };
+    $('#btnDoneContact').onclick = () => { closeAll(); setTimeout(openContact, 200); };
     $('#btnDoneClose').onclick = closeAll;
     openSheet('#sheetDone');
+  }
+
+  /* ================= 联系商家 ================= */
+  function hasContact() {
+    const s = S.settings;
+    return !!(s.phone || s.wechat);
+  }
+
+  function openContact() {
+    const s = S.settings || {};
+    const box = $('#contactContent');
+
+    if (!hasContact()) {
+      // 商家还没填 —— 顾客看得见，商家也看得见，逼着去填
+      box.innerHTML =
+        '<div class="box" style="border-color:#f3c9c4;background:#fdeceb;text-align:center;padding:22px">' +
+        '<div style="font-size:32px">📵</div>' +
+        '<div style="font-weight:700;color:var(--brand);margin-top:6px">商家还没留下联系方式</div>' +
+        '<div style="color:var(--muted);font-size:12.5px;margin-top:6px;line-height:1.8">' +
+        '如果您是店主：请到管理后台 →「店铺设置」填写<br>电话 和 微信号，保存发布后这里就会显示。</div>' +
+        '</div>';
+      openSheet('#sheetContact');
+      return;
+    }
+
+    const rows = [];
+
+    if (s.phone) {
+      rows.push(
+        '<a class="ct-btn ct-call" href="tel:' + LH.esc(s.phone) + '">' +
+        '<span class="ic">📞</span><span><b>打电话</b><small>' + LH.esc(s.phone) + '</small></span>' +
+        '</a>');
+    }
+    if (s.wechat) {
+      rows.push(
+        '<div class="ct-btn ct-wx" data-wx="' + LH.esc(s.wechat) + '">' +
+        '<span class="ic">💬</span><span><b>加微信</b><small>' + LH.esc(s.wechat) + '</small></span>' +
+        '<span class="ct-copy">复制</span>' +
+        '</div>' +
+        '<div class="hint" style="margin:-4px 0 10px;font-size:12px;color:var(--muted)">' +
+        '复制后打开微信 → 点右上角「＋」→ 添加朋友 → 粘贴搜索' +
+        '</div>');
+    }
+
+    box.innerHTML = rows.join('') +
+      '<div class="sec-title">店铺信息</div>' +
+      '<div class="box" style="font-size:13px;line-height:2">' +
+      '<div><b>' + LH.esc(s.shopName || '本店') + '</b></div>' +
+      (s.hours ? '<div>🕙 营业时间：' + LH.esc(s.hours) + '</div>' : '') +
+      (s.deliveryArea ? '<div>🛵 配送范围：' + LH.esc(s.deliveryArea) + '</div>' : '') +
+      (Number(s.minOrder) > 0 ? '<div>💰 起送：¥' + LH.money(s.minOrder) + '</div>' : '') +
+      (Number(s.deliveryFee) > 0 ? '<div>🚚 配送费：¥' + LH.money(s.deliveryFee) + '</div>' : '') +
+      (s.notice ? '<div style="color:var(--muted);font-size:12.5px;margin-top:6px">' + LH.esc(s.notice) + '</div>' : '') +
+      '</div>' +
+      '<div style="height:10px"></div>' +
+      '<button class="btn-ghost btn-block" data-close>关闭</button>';
+
+    const wx = box.querySelector('[data-wx]');
+    if (wx) wx.onclick = async () => {
+      await LH.copyText(wx.dataset.wx);
+      LH.toast('微信号已复制 ✅');
+    };
+    box.querySelectorAll('[data-close]').forEach(b => b.onclick = closeAll);
+
+    openSheet('#sheetContact');
   }
 
   /* ================= 我的订单 ================= */
@@ -558,6 +706,10 @@
       LH.toast('优惠券已使用 🎉');
     };
     $('#paySel').onchange = () => {};
+    const bf = $('#btnForgetMe');
+    if (bf) bf.onclick = forgetMe;
+    const bc = $('#btnContact');
+    if (bc) bc.onclick = openContact;
   }
 
   document.addEventListener('DOMContentLoaded', init);
