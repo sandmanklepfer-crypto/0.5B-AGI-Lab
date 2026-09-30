@@ -321,3 +321,22 @@ code{background:#f6ece3;padding:1px 5px;border-radius:5px;font-size:12.5px;word-
 }
 .ptr-row b{font-size:15px;letter-spacing:2px;color:var(--ink);font-family:ui-monospace,Menlo,monospace}
 .ptr-row button{margin-left:auto}
+
+/* ---------- 反诈提示（顾客端） ---------- */
+.warn-pay{
+  background:#fff8e6;border:1px solid #f0d9a0;color:#8a6100;
+  border-radius:12px;padding:10px 12px;font-size:12.5px;line-height:1.75;
+  margin:0 0 10px;
+}
+/* ---------- 反诈横幅（商家端） ---------- */
+.guard{
+  background:#fdeceb;border:2px solid #f3c9c4;border-radius:14px;
+  padding:13px 15px;margin-bottom:12px;
+}
+.guard h4{margin:0 0 6px;font-size:14px;color:var(--brand)}
+.guard ul{margin:6px 0 0;padding-left:18px;font-size:12.5px;line-height:1.9;color:#7a3226}
+.receipt{
+  background:#e6f7ee;border:1px solid #b7e4c9;border-radius:12px;
+  padding:10px 12px;margin-top:9px;font-size:12.5px;line-height:1.8;white-space:pre-wrap;
+  font-family:ui-monospace,Menlo,monospace;color:#14663a;
+}

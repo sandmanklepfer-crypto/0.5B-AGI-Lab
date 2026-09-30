@@ -17,6 +17,8 @@
   "acceptCash": true,
   "onlinePay": false,
   "payApiBase": "",
+  "recognizeBy": "note",
+  "payExpireMin": 30,
   "orderForm": {
     "provider": "none",
     "email": "",

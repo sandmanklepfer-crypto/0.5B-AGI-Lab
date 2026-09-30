@@ -51,12 +51,22 @@
 
 <div class="wrap">
 
+  <div class="guard">
+    <h4>🛡️ 收款铁律：只认你自己账上的钱</h4>
+    <ul>
+      <li><b>顾客发的截图 / 说的"我付过了"一律不算数</b> —— 订单在付款前就能生成，谁都能拿到</li>
+      <li>必须打开你自己的微信/支付宝，<b>看到那笔钱真的到了</b>，才点"已收款"</li>
+      <li>这里的「已收款」<b>永远要你手动点</b>，系统不会自动判定</li>
+      <li>发货前再确认一次；没确认收款就发货 = 自己承担损失</li>
+    </ul>
+  </div>
+
   <div class="recon">
-    <h3>① 收到钱了吗？输入金额</h3>
+    <h3>① 收到钱了吗？输入金额或指针</h3>
     <div class="sub">
-      输微信/支付宝通知里的金额，<b>尾数就是那笔订单的身份</b>，自动帮你找出是哪一单。
+      输微信通知里的<b>金额</b>，或顾客付款备注里的<b>指针码</b>，自动找出是哪一单。
     </div>
-    <input type="text" class="amt-in" id="amtIn" inputmode="decimal" placeholder="56.89" autocomplete="off">
+    <input type="text" class="amt-in" id="amtIn" inputmode="text" placeholder="56.47 或 KSQREJ" autocomplete="off">
     <div class="quick">
       <button class="mini" data-add="-0.01">少1分</button>
       <button class="mini" data-add="0.01">多1分</button>

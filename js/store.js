@@ -11,6 +11,8 @@ window.LH = (function () {
     payQrWechat: '', payQrAlipay: '', payNote: '', acceptCash: true,
     onlinePay: false,          // 是否启用微信在线支付（自建支付服务器）
     payApiBase: '',            // 支付服务器地址，例如 https://pay.example.com
+    recognizeBy: 'note',       // 对账识别方式：note=付款备注 / amount=金额尾数 / both=两者都要
+    payExpireMin: 30,          // 订单多少分钟未付款自动作废
     payQrUnionpay: '',         // 聚合收款码（线下扫码时展示）
     orderForm: { provider: 'none', email: '', accessKey: '' },
     adminPin: '1234'

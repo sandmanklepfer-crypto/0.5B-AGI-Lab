@@ -353,6 +353,7 @@
       payFen: ua.payFen,
       tailText: ua.tailText,
       baseText: LH.money(m.total),  // 原价
+      expireAt: Date.now() + (Number(S.settings.payExpireMin) || 30) * 60000,
       time: new Date().toLocaleString('zh-CN'),
       name: el('name').value.trim(),
       phone: el('phone').value.trim(),
@@ -549,23 +550,24 @@
     const qrSrc = o.pay === 'alipay' ? s.payQrAlipay
       : (o.pay === 'unionpay' ? s.payQrUnionpay : s.payQrWechat);
     let payBlock = '';
-    const payText = o.payText || LH.money(o.total);
-    const tail = o.tailText || '';
-    // 唯一金额提示：尾数是这笔订单的"身份"，一分不能差
+    const inst = OrderID.payInstruction(s.recognizeBy || 'note', o);
+    const payText = inst.amount;
+    // 识别码提示：让商家能从收款记录里认出是哪一单
     const uniqBlock =
       '<div class="uniq-pay">' +
         '<div class="up-label">请支付</div>' +
         '<div class="up-amount"><small>¥</small>' + LH.esc(payText) + '</div>' +
-        '<div class="up-tail">尾数 <b>' + LH.esc(tail) + '</b> 是这单的识别码，<b>请务必一分不差</b></div>' +
-        '<button type="button" class="up-copy" id="btnCopyAmt">📋 复制金额 ' + LH.esc(payText) + '</button>' +
+        '<div class="up-tail">' + LH.esc(inst.sub) + '</div>' +
+        '<button type="button" class="up-copy" id="btnCopyAmt">📋 ' + LH.esc(inst.copyHint) + '</button>' +
       '</div>' +
       '<div class="ptr-row">' +
         '<span>订单指针</span>' +
         '<b id="ptrCode">' + LH.esc(o.pointer || '') + '</b>' +
         '<button type="button" class="mini" id="btnCopyPtr">复制</button>' +
       '</div>' +
-      '<div class="hint" style="text-align:center;font-size:12px;color:var(--muted);margin:-4px 0 10px">' +
-        '付款时输 <b>' + LH.esc(payText) + '</b>，商家一看尾数 <b>' + LH.esc(tail) + '</b> 就知道是你这一单，不会搞混' +
+      '<div class="warn-pay">' +
+        '⚠️ 付款后请把订单号和指针发给商家。<b>商家在账上确认收到钱才会发货</b>，' +
+        '请不要相信任何"已付款"的截图。' +
       '</div>';
 
     if (o.pay === 'cash') {
@@ -607,7 +609,7 @@
       (s.hours ? '🕙 营业时间 ' + LH.esc(s.hours) : '') +
       '</div>';
     const bca = $('#btnCopyAmt');
-    if (bca) bca.onclick = async () => { await LH.copyText(payText); LH.toast('金额已复制，付款时粘贴 ✅'); };
+    if (bca) bca.onclick = async () => { await LH.copyText(inst.copyValue || payText); LH.toast('已复制 ✅'); };
     const bcp = $('#btnCopyPtr');
     if (bcp) bcp.onclick = async () => { await LH.copyText(o.pointer || ''); LH.toast('指针已复制 ✅'); };
     $('#btnCopyOrder').onclick = async () => { await LH.copyText(orderText(o)); LH.toast('已复制，粘贴给商家就行 ✅'); };

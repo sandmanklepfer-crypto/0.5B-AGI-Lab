@@ -185,6 +185,99 @@
     };
   }
 
+  /* ---------- 收款确认回执 ----------
+   * 只有商家的对账台能生成，顾客伪造不了（因为要商家核对完才能拿到）。
+   * 顾客说"我付过了"时，商家回这一条，就代表"我确实在账上看到了这笔钱"。
+   */
+  function receiptText(o) {
+    return [
+      '✅ 收款确认',
+      '订单号：' + o.code,
+      '金额：¥' + (o.payText || fmtFen(o.payFen || 0)),
+      '已收到款，马上为你安排～',
+    ].join('\n');
+  }
+
+  /* ---------- 订单是否已过期 ---------- */
+  function isExpired(o, now) {
+    if (!o || o.status === 'PAID') return false;
+    if (!o.expireAt) return false;
+    return (now || Date.now()) > o.expireAt;
+  }
+  function leftMinutes(o, now) {
+    if (!o || !o.expireAt) return null;
+    const ms = o.expireAt - (now || Date.now());
+    return ms <= 0 ? 0 : Math.ceil(ms / 60000);
+  }
+
+  /* ---------- 对账匹配：给一个"收到的金额/指针"找出订单 ----------
+   * 返回 { hits: [...], how: '指针码'|'金额'|'尾数'|'' }
+   * 优先级：指针码（最准）→ 完整金额 → 尾数（模糊，只找待收款）
+   */
+  function looksLikePointer(s) {
+    const t = String(s == null ? '' : s).trim().toUpperCase();
+    if (!/^[0-9A-HJKMNP-TV-Z]{6}$/.test(t)) return false;
+    if (/^\d{6}$/.test(t)) return false;    // 纯数字更像金额
+    return true;
+  }
+
+  function matchOrder(list, input) {
+    const arr = Array.isArray(list) ? list : [];
+    const raw = String(input == null ? '' : input).trim();
+    if (!raw) return { hits: [], how: '' };
+    const up = raw.toUpperCase();
+
+    if (looksLikePointer(up)) {
+      const h = arr.filter(o => String(o.pointer || '').toUpperCase() === up);
+      if (h.length) return { hits: h, how: '指针码' };
+    }
+    const fen = parsePaidAmount(raw);
+    if (fen) {
+      const h = arr.filter(o => Number(o.payFen) === fen);
+      if (h.length) return { hits: h, how: '金额' };
+    }
+    const digits = raw.replace(/\D/g, '');
+    if (digits.length <= 2) {
+      const t = tailOf(raw);
+      if (t) {
+        const h = arr.filter(o => Number(o.tailFen) === t && o.status === 'WAIT');
+        if (h.length) return { hits: h, how: '尾数' };
+      }
+    }
+    return { hits: [], how: '' };
+  }
+
+  /* ---------- 识别方式说明（给顾客看的） ---------- */
+  function payInstruction(recognizeBy, o) {
+    const ptr = o.pointer || '';
+    switch (recognizeBy) {
+      case 'amount':
+        return {
+          amount: o.payText,
+          title: '请支付 ¥' + o.payText,
+          sub: '尾数 ' + o.tailText + ' 是这单的识别码，请务必一分不差',
+          copyHint: '复制金额',
+          copyValue: o.payText,
+        };
+      case 'both':
+        return {
+          amount: o.payText,
+          title: '请支付 ¥' + o.payText,
+          sub: '付款备注填 ' + ptr + '（尾数也要对）',
+          copyHint: '复制备注',
+          copyValue: ptr,
+        };
+      default: // note
+        return {
+          amount: o.baseText || o.payText,
+          title: '请支付 ¥' + (o.baseText || o.payText),
+          sub: '在「添加备注」里填 ' + ptr + '，方便商家认出是你这一单',
+          copyHint: '复制备注 ' + ptr,
+          copyValue: ptr,
+        };
+    }
+  }
+
   /* 尾数显示：1 → "01"，100 → "00"（整元） */
   function tailText(fen) {
     const t = Math.round(Number(fen));
@@ -203,5 +296,7 @@
     AB, hash32, makeOrderNo, makeUniqueOrderNo, checkOrderNo, pointerOf,
     tailFen, uniqueAmount, tailFromPaidFen, fmtFen, tailText, group,
     parsePaidAmount, tailOf, parseOrderText,
+    receiptText, isExpired, leftMinutes, payInstruction,
+    looksLikePointer, matchOrder,
   };
 });

@@ -12,12 +12,37 @@
   /* 金额归一化 / 尾数 / 订单文本解析 —— 全部复用共享模块，保证与顾客端一致 */
   const parseAmount = s => OrderID.parsePaidAmount(s);
   const tailOf = s => OrderID.tailOf(s);
+  let expireMin = 30;
+  let recognizeBy = 'note';
+
   function parseOrder(text) {
     const o = OrderID.parseOrderText(text);
     if (!o) return null;
     o.at = Date.now();
     o.status = 'WAIT';
+    o.expireAt = Date.now() + expireMin * 60000;
     return o;
+  }
+
+  // 读店铺设置（识别方式、超时时间）
+  async function loadSettings() {
+    try {
+      const r = await fetch('data/settings.json?t=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) return;
+      const s = await r.json();
+      if (Number(s.payExpireMin) > 0) expireMin = Number(s.payExpireMin);
+      if (s.recognizeBy) recognizeBy = s.recognizeBy;
+    } catch (e) { /* 用默认值 */ }
+  }
+
+  // 超时的待收款单标记出来（不自动删，让商家自己决定）
+  function sweepExpired() {
+    let n = 0;
+    orders.forEach(o => {
+      if (o.status === 'WAIT' && OrderID.isExpired(o)) { o.expired = true; n++; }
+      else if (o.status === 'WAIT' && !OrderID.isExpired(o)) o.expired = false;
+    });
+    if (n) save();
   }
 
   /* ---------- 渲染 ---------- */
@@ -40,9 +65,12 @@
 
     $('#list').innerHTML = list.map((o, i) => {
       const idx = orders.indexOf(o);
+      const exp = o.status === 'WAIT' && OrderID.isExpired(o);
+      const mins = OrderID.leftMinutes(o);
       const st = o.status === 'PAID'
         ? '<span class="tag p">已收款</span>'
-        : '<span class="tag w">待收款</span>';
+        : (exp ? '<span class="tag w" style="background:#fdeceb;color:#c0392b">已超时</span>'
+               : '<span class="tag w">待收款' + (mins != null ? ' · 剩' + mins + '分' : '') + '</span>');
       return '<div class="ord-card ' + (o.status === 'PAID' ? 'paid' : '') + '">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">' +
           '<span class="no mono" style="font-weight:700">' + esc(o.code) + '</span>' + st +
@@ -56,10 +84,12 @@
           (o.address ? '📍 ' + esc(o.address) + '<br>' : '') +
           '🕐 ' + new Date(o.at).toLocaleString('zh-CN', { hour12: false }) +
         '</div>' +
+        (o.status === 'PAID' ? '<div class="receipt">' + esc(OrderID.receiptText(o)) + '</div>' : '') +
         '<div class="row-actions" style="margin-top:9px">' +
           (o.status === 'WAIT'
-            ? '<button class="mini go" data-paid="' + idx + '">✓ 已收到这笔钱</button>'
-            : '<button class="mini" data-undone="' + idx + '">撤销</button>') +
+            ? '<button class="mini go" data-paid="' + idx + '">✓ 已在账上确认收到</button>'
+            : '<button class="mini go" data-rcpt="' + idx + '">复制收款回执</button>' +
+              '<button class="mini" data-undone="' + idx + '">撤销</button>') +
           '<button class="mini" data-copy="' + idx + '">复制单号</button>' +
           '<button class="mini danger" data-del="' + idx + '">删除</button>' +
         '</div>' +
@@ -82,46 +112,52 @@
     $$('#list [data-copy]').forEach(b => b.onclick = async () => {
       await LH.copyText(orders[Number(b.dataset.copy)].code); LH.toast('已复制');
     });
+    $$('#list [data-rcpt]').forEach(b => b.onclick = async () => {
+      await LH.copyText(OrderID.receiptText(orders[Number(b.dataset.rcpt)]));
+      LH.toast('回执已复制，发给顾客 ✅');
+    });
   }
 
-  /* ---------- 金额匹配 ---------- */
+  /* ---------- 匹配：金额 或 指针码（复用共享逻辑，保证与顾客端一致） ---------- */
   function match() {
     const raw = $('#amtIn').value.trim();
     const box = $('#matchBox');
     if (!raw) { box.innerHTML = ''; return; }
 
-    const fen = parseAmount(raw);
-    const t = tailOf(raw);
-    let hits = [];
-
-    if (fen) hits = orders.filter(o => o.payFen === fen);
-    // 没精确命中：按尾数兜底
-    if (!hits.length && t) {
-      hits = orders.filter(o => (o.tailFen === t) && o.status === 'WAIT');
-      if (!hits.length) hits = orders.filter(o => o.tailFen === t);
-    }
+    const m = OrderID.matchOrder(orders, raw);
+    const hits = m.hits, how = m.how;
 
     if (!hits.length) {
       box.innerHTML = '<div class="match miss">' +
-        '<b>没找到匹配的订单</b>' +
-        '<div style="font-size:12.5px;color:var(--muted);margin-top:5px;line-height:1.8">' +
-        '可能原因：<br>· 这单还没登记（去上面②粘贴顾客的订单）<br>· 金额输错了<br>· 顾客付的金额不是约定金额' +
+        '<b>账上没有这一笔 —— 不要发货</b>' +
+        '<div style="font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.9">' +
+        '请按顺序检查：<br>' +
+        '① 打开你自己的微信/支付宝，<b>确认真的收到这笔钱</b><br>' +
+        '② 这单可能还没登记（去下面 ② 粘贴顾客的订单）<br>' +
+        '③ 金额或指针输错了<br>' +
+        '④ 顾客可能<b>根本没付款</b> —— 让他重发付款记录' +
         '</div></div>';
       return;
     }
 
     box.innerHTML = hits.map(o => {
       const idx = orders.indexOf(o);
+      const exp = OrderID.isExpired(o);
+      const expBadge = exp ? '<span class="tag w" style="background:#fdeceb;color:#c0392b">已超时</span>' : '';
       return '<div class="match hit">' +
         '<div class="hd"><span class="no">' + esc(o.code) + '</span>' +
         '<span class="money">¥' + esc(o.payText) + '</span></div>' +
+        (how ? '<div style="font-size:11.5px;color:var(--ok);margin-top:2px">按' + how + '匹配到</div>' : '') +
         '<div class="meta">' +
-          '指针 <b class="mono">' + esc(o.pointer) + '</b>　尾数 <b>' + esc(OrderID.tailText(o.tailFen)) + '</b><br>' +
+          '指针 <b class="mono">' + esc(o.pointer) + '</b>　尾数 <b>' + esc(OrderID.tailText(o.tailFen)) + '</b> ' + expBadge + '<br>' +
           (o.name ? '👤 ' + esc(o.name) + '　' : '') + (o.phone ? '📞 ' + esc(o.phone) : '') +
         '</div>' +
         (o.status === 'PAID'
-          ? '<div style="margin-top:8px;color:var(--ok);font-weight:700">这笔已经收过了</div>'
-          : '<button class="btn-primary btn-block" style="margin-top:9px" data-ok="' + idx + '">✓ 确认收到，标记这一单</button>') +
+          ? '<div style="margin-top:8px;color:var(--ok);font-weight:700">这笔已经收过了</div>' +
+            '<div class="receipt" id="rcpt' + idx + '">' + esc(OrderID.receiptText(o)) + '</div>' +
+            '<button class="mini" style="margin-top:7px" data-rcpt="' + idx + '">复制收款回执，发给顾客</button>'
+          : '<button class="btn-primary btn-block" style="margin-top:9px" data-ok="' + idx + '">' +
+            '✓ 我已在账上确认收到，标记这一单</button>') +
       '</div>';
     }).join('');
 
@@ -130,11 +166,18 @@
       orders[i].status = 'PAID'; orders[i].paidAt = Date.now();
       save(); render(); match(); LH.toast('对账完成 ✅');
     });
+    $$('#matchBox [data-rcpt]').forEach(b => b.onclick = async () => {
+      await LH.copyText(OrderID.receiptText(orders[Number(b.dataset.rcpt)]));
+      LH.toast('回执已复制，发给顾客让他放心 ✅');
+    });
 
     if (hits.length > 1) {
       box.insertAdjacentHTML('beforeend',
-        '<div style="font-size:12px;color:var(--warn);margin-top:8px">⚠️ 有 ' + hits.length +
-        ' 单金额相同，请核对顾客给的「指针码」再确认</div>');
+        '<div style="font-size:12.5px;color:var(--warn);margin-top:8px;line-height:1.8">' +
+        '⚠️ 有 ' + hits.length + ' 单金额相同，<b>请核对顾客给的指针码</b>再确认，别搞错了</div>');
+    } else if (how === '尾数') {
+      box.insertAdjacentHTML('beforeend',
+        '<div style="font-size:12px;color:var(--warn);margin-top:8px">只按尾数匹配的，建议让顾客把指针码发你再确认一次</div>');
     }
   }
 
@@ -179,5 +222,11 @@
     });
   }
 
-  document.addEventListener('DOMContentLoaded', () => { bind(); render(); });
+  document.addEventListener('DOMContentLoaded', async () => {
+    await loadSettings();
+    bind();
+    sweepExpired();
+    render();
+    setInterval(() => { sweepExpired(); render(); }, 60000);   // 每分钟刷新倒计时
+  });
 })();
