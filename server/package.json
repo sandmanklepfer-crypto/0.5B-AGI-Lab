@@ -1,0 +1,13 @@
+{
+  "name": "luhuo-pay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "卤味小店 · 微信支付服务器（零依赖，只用 Node 内置模块）",
+  "main": "index.js",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "MOCK=1 node index.js",
+    "test": "node test/smoke.js"
+  }
+}

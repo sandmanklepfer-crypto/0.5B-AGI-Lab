@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#c0392b">
+<title>微信支付 · 卤味小店</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  .pay-amount{font-size:40px;font-weight:800;color:var(--brand);text-align:center;letter-spacing:1px}
+  .pay-amount small{font-size:20px;font-weight:600}
+  .pay-num{text-align:center;color:var(--muted);font-size:12.5px;letter-spacing:.5px}
+  .qr-frame{background:#fff;border:1px solid var(--line);border-radius:20px;padding:14px;margin:14px auto;width:min(280px,80vw);box-shadow:var(--shadow)}
+  .qr-frame img{width:100%;height:auto;display:block;border-radius:8px}
+  .pay-tip{text-align:center;color:var(--muted);font-size:12.5px;line-height:1.8}
+  .big-ok{text-align:center;padding:26px 0}
+  .big-ok .ic{font-size:54px;line-height:1}
+  .spinner{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--brand);border-radius:50%;animation:sp .8s linear infinite;margin:18px auto}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .paytabs{display:flex;gap:10px;margin:6px 0 2px}
+  .paytabs button{flex:1;padding:11px;border-radius:12px;border:1px solid var(--line);background:#fff;font-weight:600;color:var(--muted)}
+  .paytabs button.on{background:var(--brand-l);border-color:var(--brand);color:var(--brand)}
+</style>
+</head>
+<body>
+
+<header class="hero" style="padding:14px 0 16px">
+  <div class="wrap">
+    <h1 id="shopName" style="font-size:19px">卤味小店</h1>
+    <p class="slogan">微信安全支付 · 支付后自动通知商家</p>
+  </div>
+</header>
+
+<div class="wrap" style="padding-top:14px">
+  <div id="root">
+    <div class="card-panel" style="text-align:center">
+      <div class="spinner"></div>
+      <div style="color:var(--muted);font-size:13px">正在读取订单…</div>
+    </div>
+  </div>
+</div>
+
+<script src="js/pay.js"></script>
+</body>
+</html>

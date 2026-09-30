@@ -104,6 +104,29 @@
         <div class="field"><input type="text" id="s_payQrWechat" placeholder="微信收款码路径/网址"></div>
         <div class="field"><input type="text" id="s_payQrAlipay" placeholder="支付宝收款码路径/网址"></div>
       </div>
+      <div class="row2">
+        <div class="field"><label>聚合收款码（银联/云闪付）</label>
+          <input type="file" id="qrUnionpay" accept="image/*">
+          <img class="qr-prev hidden" id="qrUnionpayPrev">
+          <input type="text" id="s_payQrUnionpay" placeholder="img/pay-unionpay.png" style="margin-top:6px">
+        </div>
+        <div class="field"></div>
+      </div>
+    </div>
+    <div class="card-panel">
+      <h3>微信在线支付（真正的支付 + 自动回调）</h3>
+      <p style="font-size:12.5px;color:var(--muted);margin:0 0 10px;line-height:1.7">
+        开启后顾客下单会跳到微信支付，付款成功系统自动收到微信回调并通知你，不用再人工核对。<br>
+        需要先按 <code>server/README.md</code> 把支付服务器跑起来（要营业执照 + 微信支付商户号）。
+      </p>
+      <div class="field"><span class="switch"><input type="checkbox" id="s_onlinePay">启用微信在线支付</span></div>
+      <div class="field">
+        <label>支付服务器地址</label>
+        <input type="text" id="s_payApiBase" placeholder="https://pay.example.com">
+        <div class="hint">填你部署好的支付服务器地址，例如 <code>https://pay.你的域名.com</code>，末尾不要带斜杠</div>
+      </div>
+      <div id="payServerStatus" class="hint"></div>
+      <div class="row-actions"><button class="mini" id="btnTestPayServer">测试支付服务器连接</button></div>
     </div>
   </section>
 

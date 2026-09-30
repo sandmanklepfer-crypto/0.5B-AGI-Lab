@@ -222,9 +222,23 @@
     $('#timeSel').innerHTML = (s.deliveryTimeOptions || ['尽快送到'])
       .map(t => '<option>' + LH.esc(t) + '</option>').join('');
     $('#areaHint').textContent = s.deliveryArea ? '配送范围：' + s.deliveryArea : '';
-    if (!s.acceptCash) {
-      Array.from($('#paySel').options).forEach(o => { if (o.value === 'cash') o.remove(); });
-    }
+    buildPayOptions();
+  }
+
+  // 根据商家设置动态生成付款方式
+  function buildPayOptions() {
+    const s = S.settings;
+    const opts = [];
+    if (onlinePayOn()) opts.push({ v: 'online', t: '微信在线支付（推荐）' });
+    if (s.payQrUnionpay) opts.push({ v: 'unionpay', t: '聚合码扫码付款' });
+    if (s.payQrWechat) opts.push({ v: 'wechat', t: '微信扫码付' });
+    if (s.payQrAlipay) opts.push({ v: 'alipay', t: '支付宝扫码付' });
+    if (s.acceptCash !== false) opts.push({ v: 'cash', t: '货到付款' });
+    if (!opts.length) opts.push({ v: 'wechat', t: '联系商家付款' });
+    const sel = $('#paySel');
+    const keep = sel.value;
+    sel.innerHTML = opts.map(o => '<option value="' + o.v + '">' + LH.esc(o.t) + '</option>').join('');
+    if (opts.some(o => o.v === keep)) sel.value = keep;
   }
 
   function openCheckout() {
@@ -284,7 +298,7 @@
       want: el('time').value,
       pay: el('pay').value,
       note: el('note').value.trim(),
-      items: cartLines().map(l => ({ name: l.p.name, unit: l.p.unit || '份', price: Number(l.p.price), qty: l.q, sum: l.sum })),
+      items: cartLines().map(l => ({ id: l.p.id, name: l.p.name, unit: l.p.unit || '份', price: Number(l.p.price), qty: l.q, sum: l.sum })),
       sub: m.sub, fee: m.fee, dis: m.dis, total: m.total,
       coupon: m.dis > 0 ? m.cp.code : '',
       shop: S.settings.shopName
@@ -292,7 +306,7 @@
   }
 
   function orderText(o) {
-    const payMap = { wechat: '微信扫码付', alipay: '支付宝扫码付', cash: '货到付款' };
+    const payMap = { online: '微信在线支付', wechat: '微信扫码付', alipay: '支付宝扫码付', unionpay: '聚合码扫码付', cash: '货到付款' };
     return [
       '【新订单】' + o.shop,
       '订单号：' + o.code,
@@ -353,6 +367,26 @@
     return false;
   }
 
+  /* ================= 在线支付（自建支付服务器） ================= */
+  const onlinePayOn = () => !!(S.settings.onlinePay && S.settings.payApiBase);
+  const apiBase = () => String(S.settings.payApiBase || '').replace(/\/+$/, '');
+
+  // 把订单交给支付服务器，拿到收银台地址
+  async function createOnlineOrder(o) {
+    const items = cartLines().map(l => ({ id: l.p.id, qty: l.q }));
+    const r = await fetch(apiBase() + '/api/orders/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: o.name, phone: o.phone, address: o.address, want: o.want,
+        note: o.note, coupon: o.coupon, items
+      })
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || !data.ok) throw new Error(data.error || ('服务器返回 ' + r.status));
+    return data;   // { outTradeNo, total, payUrl }
+  }
+
   /* ================= 提交订单 ================= */
   async function submitOrder(e) {
     e.preventDefault();
@@ -363,30 +397,65 @@
     if (g('address').value.trim().length < 5) { LH.toast('地址写详细一点，师傅才好找～'); g('address').focus(); return; }
     const btn = $('#btnSubmit');
     btn.disabled = true; btn.textContent = '正在提交…';
+
     const o = collectOrder();
+
+    /* ---- 走在线支付：交给支付服务器，跳转收银台 ---- */
+    if (o.pay === 'online') {
+      if (!onlinePayOn()) { LH.toast('商家还没开通在线支付，请选扫码付款'); btn.disabled = false; btn.textContent = '提交订单'; return; }
+      let data;
+      try {
+        data = await createOnlineOrder(o);
+      } catch (err) {
+        btn.disabled = false; btn.textContent = '提交订单';
+        if (confirm('在线支付暂时没连上（' + err.message + '）。\n要改用「扫码付款」吗？')) {
+          g('pay').value = 'wechat';
+        }
+        return;
+      }
+      o.code = data.outTradeNo;
+      o.total = Number(data.total);
+      o.paid = false;
+      recordOrder(o);
+      S.cart = {}; S.couponCode = ''; LH.LS.set('lh_cart', S.cart);
+      renderGrid(); renderBar(); updateCartUI();
+      btn.disabled = false; btn.textContent = '提交订单';
+      // 跳转到收银台
+      location.href = data.payUrl;
+      return;
+    }
+
+    /* ---- 线下扫码 / 货到付款：沿用原来的逻辑 ---- */
     const sent = await pushOrder(o);
     S.lastOrder = o; S.lastOrderSent = sent;
-    // 本地留档
-    const my = LH.LS.get('lh_orders', []);
-    my.unshift(o); LH.LS.set('lh_orders', my.slice(0, 30));
-    // 记录券已用
-    if (o.coupon) {
-      const used = LH.LS.get('lh_used_coupon', {});
-      used[o.coupon] = (used[o.coupon] || 0) + 1; LH.LS.set('lh_used_coupon', used);
-    }
+    recordOrder(o);
     btn.disabled = false; btn.textContent = '提交订单';
-    // 清空购物车
     S.cart = {}; S.couponCode = ''; LH.LS.set('lh_cart', S.cart);
     renderGrid(); renderBar();
     closeAll();
     setTimeout(() => openDone(o, sent), 200);
   }
 
+  // 本地留档 + 记券
+  function recordOrder(o) {
+    const my = LH.LS.get('lh_orders', []);
+    my.unshift(o); LH.LS.set('lh_orders', my.slice(0, 30));
+    if (o.coupon) {
+      const used = LH.LS.get('lh_used_coupon', {});
+      used[o.coupon] = (used[o.coupon] || 0) + 1; LH.LS.set('lh_used_coupon', used);
+    }
+  }
+  function updateCartUI() {
+    if ($('#sheetCart').classList.contains('on')) renderCart();
+    if ($('#sheetCheckout').classList.contains('on')) renderCheckout();
+  }
+
   /* ================= 下单成功 & 付款 ================= */
   function openDone(o, sent) {
     const s = S.settings;
-    const payMap = { wechat: '微信', alipay: '支付宝', cash: '货到付款' };
-    const qrSrc = o.pay === 'alipay' ? s.payQrAlipay : s.payQrWechat;
+    const payMap = { wechat: '微信', alipay: '支付宝', unionpay: '云闪付/微信/支付宝', cash: '货到付款' };
+    const qrSrc = o.pay === 'alipay' ? s.payQrAlipay
+      : (o.pay === 'unionpay' ? s.payQrUnionpay : s.payQrWechat);
     let payBlock = '';
     if (o.pay === 'cash') {
       payBlock = '<div class="box">💵 已选择<b>货到付款</b>，送到时付给送货师傅就行。</div>';
@@ -440,13 +509,21 @@
         '<div style="font-size:12.5px;color:var(--muted);line-height:1.7">' +
         o.items.map(k => LH.esc(k.name) + '×' + k.qty).join('、') + '<br>' +
         LH.esc(o.time) + ' · ' + LH.esc(o.want) + '</div>' +
+        (o.pay === 'online' ? '<div style="margin-top:6px;font-size:12.5px;color:' + (o.paid ? 'var(--ok)' : 'var(--warn)') + '">' +
+          (o.paid ? '✅ 已支付' : '⏳ 待支付') + '</div>' : '') +
         '<div style="margin-top:8px" class="row-actions">' +
-        '<button class="mini" data-re="' + i + '">再复制一次</button>' +
+        (o.pay === 'online' && !o.paid
+          ? '<button class="mini go" data-pay="' + i + '">去支付</button>'
+          : '<button class="mini" data-re="' + i + '">再复制一次</button>') +
         '<button class="mini" data-again="' + i + '">再买一单</button>' +
         '</div></div>'
       ).join('');
       $('#myContent').querySelectorAll('[data-re]').forEach(b => b.onclick = async () => {
         await LH.copyText(orderText(my[Number(b.dataset.re)])); LH.toast('已复制 ✅');
+      });
+      $('#myContent').querySelectorAll('[data-pay]').forEach(b => b.onclick = () => {
+        const o = my[Number(b.dataset.pay)];
+        location.href = apiBase() + '/pay.html?no=' + encodeURIComponent(o.code);
       });
       $('#myContent').querySelectorAll('[data-again]').forEach(b => b.onclick = () => {
         const o = my[Number(b.dataset.again)];

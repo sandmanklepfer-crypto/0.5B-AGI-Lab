@@ -1,0 +1,29 @@
+# 免费容器保活：定时访问 /api/health，防止 Render/Koyeb 免费实例休眠
+#
+# 用法：仓库 → Settings → Secrets and variables → Actions → New repository secret
+#   名字：PAY_URL     值：https://你的支付服务地址（末尾不带斜杠）
+# 没有配置这个 secret 时，本 workflow 什么都不做，不会报错。
+
+name: 支付服务保活
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'    # 每 10 分钟一次
+  workflow_dispatch:           # 也支持手动点一下
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping 支付服务
+        env:
+          PAY_URL: ${{ secrets.PAY_URL }}
+        run: |
+          if [ -z "$PAY_URL" ]; then
+            echo "未配置 PAY_URL secret，跳过。"
+            exit 0
+          fi
+          echo "访问 $PAY_URL/api/health"
+          # 免费实例冷启动可能要 50 秒，多给点时间
+          curl -sS --max-time 90 -o /tmp/health.json -w "HTTP %{http_code}  耗时 %{time_total}s\n" "$PAY_URL/api/health" || true
+          cat /tmp/health.json 2>/dev/null || true

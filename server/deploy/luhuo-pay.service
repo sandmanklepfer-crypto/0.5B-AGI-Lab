@@ -1,0 +1,28 @@
+# 开机自启 + 崩溃自动重启
+# 用法：
+#   sudo cp luhuo-pay.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now luhuo-pay
+#   sudo journalctl -u luhuo-pay -f      # 看日志
+
+[Unit]
+Description=LuHuo Payment Server (WeChat Pay)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/luhuo/server
+ExecStart=/usr/bin/node index.js
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=production
+
+# 安全加固
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/luhuo/server/data
+
+[Install]
+WantedBy=multi-user.target

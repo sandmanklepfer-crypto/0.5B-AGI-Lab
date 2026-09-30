@@ -1,0 +1,15 @@
+# 敏感信息千万别打进镜像
+server/.env
+server/cert/
+server/data/orders.json
+*.pem
+*.key
+
+# 无用文件
+.git/
+.github/
+server/node_modules/
+**/node_modules/
+*.md
+!server/README.md
+.DS_Store

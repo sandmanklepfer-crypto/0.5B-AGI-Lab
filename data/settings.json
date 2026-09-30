@@ -12,8 +12,11 @@
   "deliveryTimeOptions": ["尽快送到", "上午 10:00-12:00", "下午 14:00-17:00", "晚上 17:00-20:00"],
   "payQrWechat": "",
   "payQrAlipay": "",
+  "payQrUnionpay": "img/pay-unionpay.png",
   "payNote": "扫码付款后请填一下付款留言里的几位数字，方便我们核对～",
   "acceptCash": true,
+  "onlinePay": true,
+  "payApiBase": "",
   "orderForm": {
     "provider": "none",
     "email": "",

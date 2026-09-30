@@ -9,6 +9,9 @@ window.LH = (function () {
     deliveryArea: '',
     deliveryTimeOptions: ['尽快送到'],
     payQrWechat: '', payQrAlipay: '', payNote: '', acceptCash: true,
+    onlinePay: false,          // 是否启用微信在线支付（自建支付服务器）
+    payApiBase: '',            // 支付服务器地址，例如 https://pay.example.com
+    payQrUnionpay: '',         // 聚合收款码（线下扫码时展示）
     orderForm: { provider: 'none', email: '', accessKey: '' },
     adminPin: '1234'
   };

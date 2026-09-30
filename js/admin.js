@@ -94,8 +94,12 @@
     $('#btnTestOrder').onclick = testOrder;
     ['s_slogan', 's_notice', 's_shopName', 's_phone', 's_wechat', 's_hours', 's_minOrder', 's_deliveryFee',
       's_freeDeliveryOver', 's_deliveryArea', 's_deliveryTimeOptions', 's_payNote',
-      's_payQrWechat', 's_payQrAlipay', 's_orderEmail', 's_orderKey'].forEach(id => { const el = $('#' + id); if (el) el.onchange = () => { collectShop(); markDirty(); }; });
+      's_payQrWechat', 's_payQrAlipay', 's_payQrUnionpay', 's_payApiBase',
+      's_orderEmail', 's_orderKey'].forEach(id => { const el = $('#' + id); if (el) el.onchange = () => { collectShop(); markDirty(); }; });
     $('#s_acceptCash').onchange = () => { collectShop(); markDirty(); };
+    $('#s_onlinePay').onchange = () => { collectShop(); markDirty(); };
+    $('#btnTestPayServer').onclick = testPayServer;
+    $('#qrUnionpay').onchange = e => uploadImage(e, 'img/pay-unionpay.png', (path, url) => { D.settings.payQrUnionpay = path; $('#s_payQrUnionpay').value = path; showQrPrev('#qrUnionpayPrev', url); markDirty(); });
     $('#s_orderProvider').onchange = () => { collectShop(); markDirty(); syncOrderFields(); };
     $('#qrWechat').onchange = e => uploadImage(e, 'img/qr-wechat.jpg', (path, url) => { D.settings.payQrWechat = path; $('#s_payQrWechat').value = path; showQrPrev('#qrWechatPrev', url); markDirty(); });
     $('#qrAlipay').onchange = e => uploadImage(e, 'img/qr-alipay.jpg', (path, url) => { D.settings.payQrAlipay = path; $('#s_payQrAlipay').value = path; showQrPrev('#qrAlipayPrev', url); markDirty(); });
@@ -265,9 +269,30 @@
     set('s_deliveryArea', s.deliveryArea);
     set('s_deliveryTimeOptions', (s.deliveryTimeOptions || []).join(', '));
     set('s_payNote', s.payNote); set('s_payQrWechat', s.payQrWechat); set('s_payQrAlipay', s.payQrAlipay);
+    set('s_payQrUnionpay', s.payQrUnionpay); set('s_payApiBase', s.payApiBase);
     $('#s_acceptCash').checked = s.acceptCash !== false;
+    $('#s_onlinePay').checked = !!s.onlinePay;
     if (s.payQrWechat) showQrPrev('#qrWechatPrev', s.payQrWechat);
     if (s.payQrAlipay) showQrPrev('#qrAlipayPrev', s.payQrAlipay);
+    if (s.payQrUnionpay) showQrPrev('#qrUnionpayPrev', s.payQrUnionpay);
+  }
+
+  // 测试支付服务器是否可用
+  async function testPayServer() {
+    const box = $('#payServerStatus');
+    const base = String($('#s_payApiBase').value || '').trim().replace(/\/+$/, '');
+    if (!base) { box.innerHTML = '<span style="color:#c98a00">先填支付服务器地址</span>'; return; }
+    box.textContent = '正在测试…';
+    try {
+      const r = await fetch(base + '/api/health', { cache: 'no-store' });
+      const d = await r.json();
+      if (!r.ok || !d.ok) throw new Error('返回异常');
+      box.innerHTML = '<span style="color:#1f9d55">✅ 连接正常 ｜ ' + LH.esc(d.mode) + ' ｜ 回调 ' + LH.esc(d.notifyUrl) + '</span>' +
+        (String(d.mode).indexOf('MOCK') === 0 ? '<br><span style="color:#c98a00">⚠️ 服务器当前是演示模式，不会真实扣款</span>' : '');
+    } catch (e) {
+      box.innerHTML = '<span style="color:#c0392b">❌ 连不上：' + LH.esc(e.message) + '</span>' +
+        '<br><span style="color:#8d7264">检查地址是否正确、服务器是否已启动、有没有 https 证书</span>';
+    }
   }
   function collectShop() {
     const s = D.settings;
@@ -282,7 +307,10 @@
     s.deliveryTimeOptions = g('s_deliveryTimeOptions').split(/[,，]/).map(x => x.trim()).filter(Boolean);
     s.payNote = g('s_payNote');
     s.payQrWechat = g('s_payQrWechat'); s.payQrAlipay = g('s_payQrAlipay');
+    s.payQrUnionpay = g('s_payQrUnionpay');
     s.acceptCash = $('#s_acceptCash').checked;
+    s.onlinePay = $('#s_onlinePay').checked;
+    s.payApiBase = g('s_payApiBase').replace(/\/+$/, '');
     s.orderForm = {
       provider: $('#s_orderProvider').value,
       email: g('s_orderEmail'),

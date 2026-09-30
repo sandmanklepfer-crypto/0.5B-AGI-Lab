@@ -1,0 +1,47 @@
+# 免费部署到 Render（render.com）
+# 用法：把仓库推到 GitHub → Render 控制台 → New → Blueprint → 选这个仓库
+# 注意：Render 免费实例 15 分钟没人访问会休眠，顾客下单会转圈几十秒。
+#      解决办法见 README「免费托管」一节（用免费 Uptime 监控保活）。
+services:
+  - type: web
+    name: luhuo-pay
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: singapore          # 离国内近一点
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: "8787"
+      # ↓↓↓ 上线前把这些改成你自己的值（在 Render 面板里填，不要提交到仓库）
+      - key: MOCK
+        value: "0"
+      - key: PUBLIC_BASE_URL
+        sync: false            # 例：https://luhuo-pay.onrender.com
+      - key: ADMIN_TOKEN
+        sync: false
+      - key: WXPAY_MCHID
+        sync: false
+      - key: WXPAY_APPID
+        sync: false
+      - key: WXPAY_SERIAL_NO
+        sync: false
+      - key: WXPAY_APIV3_KEY
+        sync: false
+      - key: WXPAY_PRIVATE_KEY_PATH
+        value: ./cert/apiclient_key.pem
+      - key: WXPAY_PUBLIC_KEY_PATH
+        value: ./cert/pub_key.pem
+      # 免费实例磁盘会清空 → 订单存到 GitHub 仓库里，重启不丢
+      - key: STORAGE
+        value: github
+      - key: GH_TOKEN
+        sync: false
+      - key: GH_OWNER
+        sync: false
+      - key: GH_REPO
+        sync: false
+      - key: GH_BRANCH
+        value: main
+      - key: GH_FILE
+        value: server-orders/orders.json
