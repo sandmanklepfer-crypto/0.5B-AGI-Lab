@@ -39,6 +39,32 @@
       buildPayOptions();
       renderFooterLinks();
     });
+    // 探测直播状态（异步，不影响首屏）
+    detectLive();
+  }
+
+  /* ================= 直播入口 ================= */
+  async function detectLive() {
+    let on = false, title = '';
+    try {
+      if (S.payServer) {
+        const r = await fetch(S.payServer + '/api/live/config', { cache: 'no-store' });
+        const d = await r.json();
+        if (d.ok) { on = !!d.live.on; title = d.live.title || ''; }
+      } else {
+        const r = await fetch('data/live.json?t=' + Date.now(), { cache: 'no-store' });
+        const d = await r.json();
+        on = !!d.on; title = d.title || '';
+      }
+    } catch (e) { on = false; }
+
+    const b = $('#btnLive');
+    if (b) {
+      b.classList.toggle('hidden', !on);
+      if (on && title) b.title = title;
+    }
+    const fl = $('#footerLive');
+    if (fl) fl.innerHTML = on ? '　|　<a href="live.html" style="color:var(--brand)">📺 直播中</a>' : '';
   }
 
   const findProduct = id => (S.products.items || []).find(p => p.id === id);
@@ -67,6 +93,7 @@
       '<div style="margin-top:6px">' +
       '<a href="#" id="linkMyOrders">我的订单</a>' +
       '　|　<a href="#" id="linkContact">联系商家</a>' +
+      '<span id="footerLive"></span>' +
       '<span id="footerExtra"></span></div>' +
       '<div style="margin-top:4px">© ' + LH.esc(s.shopName) + '</div>';
     const lk = $('#linkMyOrders');

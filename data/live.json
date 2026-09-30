@@ -1,0 +1,15 @@
+{
+  "on": true,
+  "title": "今晚现捞",
+  "notice": "直播中下单，满 50 免配送费；报「看直播来的」送卤蛋一个",
+  "mode": "hls",
+  "url": "https://x.com/s.m3u8",
+  "cover": "",
+  "startAt": "",
+  "chatOn": true,
+  "chatNeedName": true,
+  "bannedWords": [
+    "加微信",
+    "广告"
+  ]
+}

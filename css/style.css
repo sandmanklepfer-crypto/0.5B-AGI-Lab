@@ -340,3 +340,15 @@ code{background:#f6ece3;padding:1px 5px;border-radius:5px;font-size:12.5px;word-
   padding:10px 12px;margin-top:9px;font-size:12.5px;line-height:1.8;white-space:pre-wrap;
   font-family:ui-monospace,Menlo,monospace;color:#14663a;
 }
+
+/* ---------- 悬浮按钮：直播间 ---------- */
+.fab-live{
+  background:linear-gradient(135deg,#ff3b30,#c0392b);color:#fff;
+  bottom:146px;box-shadow:0 6px 18px rgba(255,59,48,.42);
+}
+.fab-live .fab-ic{animation:livebl 1.3s infinite}
+@keyframes livebl{50%{opacity:.35}}
+.fab-live::after{
+  content:"";position:absolute;top:7px;left:9px;width:7px;height:7px;border-radius:50%;
+  background:#fff;animation:livebl 1.3s infinite;
+}

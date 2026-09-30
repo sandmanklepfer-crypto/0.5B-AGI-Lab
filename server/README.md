@@ -407,3 +407,53 @@ https://uni.jsmjushoumi.com/paySyt?data=O1VaeFJvc2ZT
 所以它能做的只有一件事：**当成一张收款码图片展示**（我已经放进 `img/pay-unionpay.png` 并接进了付款方式"聚合码扫码"）。
 
 要"真正的支付 + 自动回调"，只有**直连微信支付官方**这一条正路，也就是这套代码。
+
+---
+
+## 直播模块
+
+### 接口
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/live/config` | 直播配置（公开，前端用） |
+| POST | `/api/live/ping` | 心跳，用于统计在线人数 |
+| GET | `/api/live/chat?since=` | 拉取聊天（轮询，比 SSE 适合隧道场景） |
+| POST | `/api/live/chat` | 发送聊天 |
+| GET | `/api/admin/live` | 读直播设置（需 ADMIN_TOKEN） |
+| POST | `/api/admin/live` | 改直播设置（需 ADMIN_TOKEN） |
+| DELETE | `/api/admin/live/chat` | 清空聊天（需 ADMIN_TOKEN） |
+
+### 页面
+
+| 页面 | 用途 |
+|---|---|
+| `live.html` | 直播间（顾客端）：播放器 + 商品 + 聊天 |
+| `live-admin.html` | 开播控制台（商家端）：开关直播、填流地址、看聊天 |
+
+### 播放格式
+
+| 格式 | 兼容性 | 延迟 |
+|---|---|---|
+| **HLS (.m3u8)** | 全平台（含 iOS） | 5~15 秒 |
+| FLV (.flv) | 安卓/PC，**iOS 不支持** | 1~3 秒 |
+| embed | 嵌第三方直播间 | 取决于平台 |
+
+### 聊天安全
+
+- 同一 IP 两条消息最短间隔 2 秒
+- 单条最长 200 字符，控制字符会被清掉
+- 禁止发链接
+- 支持屏蔽词（后台可配）
+- 消息内存环形缓冲，最多留 300 条
+
+### 降级行为
+
+GitHub Pages 上没有后端时：
+- 视频照常播放（读静态 `data/live.json`）
+- 聊天区自动换成「联系商家」提示
+- 在线人数显示 0
+
+### 部署
+
+自建推流（SRS / nginx-rtmp）见 **[deploy/rtmp.md](deploy/rtmp.md)**。

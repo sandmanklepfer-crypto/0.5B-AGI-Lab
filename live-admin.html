@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#241a15">
+<meta name="robots" content="noindex,nofollow">
+<title>开播控制台 · 卤味小店</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  body{background:#f6efe8;padding-bottom:24px}
+  .big-switch{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    background:#fff;border-radius:16px;padding:16px;box-shadow:var(--shadow);margin-bottom:12px}
+  .big-switch .st{font-size:15px;font-weight:700}
+  .big-switch .st small{display:block;font-weight:400;font-size:12px;color:var(--muted);margin-top:3px}
+  .sw{width:62px;height:34px;border-radius:20px;background:#ddd;position:relative;flex:0 0 auto;
+    transition:background .2s;cursor:pointer;border:0}
+  .sw.on{background:#1f9d55}
+  .sw::after{content:"";position:absolute;top:3px;left:3px;width:28px;height:28px;border-radius:50%;
+    background:#fff;transition:left .2s;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+  .sw.on::after{left:31px}
+  .stat-row{display:flex;gap:10px;margin-bottom:12px}
+  .stat{flex:1;background:#fff;border-radius:14px;padding:12px;text-align:center;box-shadow:var(--shadow)}
+  .stat .n{font-size:22px;font-weight:800;color:var(--brand)}
+  .stat .l{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .mode-tabs{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  .mode-tabs button{flex:1;min-width:80px;padding:9px;border-radius:11px;border:1px solid var(--line);
+    background:#fff;font-size:13px;font-weight:600;color:var(--muted)}
+  .mode-tabs button.on{background:var(--brand-l);border-color:var(--brand);color:var(--brand)}
+  .chat-mini{max-height:200px;overflow-y:auto;font-size:13px;line-height:1.9;
+    background:#fff;border-radius:12px;padding:10px 12px;box-shadow:var(--shadow)}
+  .chat-mini .m b{color:var(--brand)}
+</style>
+</head>
+<body>
+
+<header class="admin-top">
+  <div class="wrap">
+    <div>
+      <h1>📺 开播控制台</h1>
+      <div class="who" id="whoAmI">—</div>
+    </div>
+    <div class="row-actions">
+      <a class="mini" href="live.html" target="_blank" style="text-decoration:none;display:inline-block">预览直播间</a>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="big-switch">
+    <div class="st">直播状态<small id="stHint">关闭时顾客看到「未开播」</small></div>
+    <button class="sw" id="swLive"></button>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat"><div class="n" id="stViewers">0</div><div class="l">在线观看</div></div>
+    <div class="stat"><div class="n" id="stChat">0</div><div class="l">聊天条数</div></div>
+  </div>
+
+  <div class="card-panel">
+    <h3>基本信息</h3>
+    <div class="field"><label>直播标题</label><input type="text" id="f_title" placeholder="今晚 7 点现捞直播"></div>
+    <div class="field"><label>直播公告</label><textarea id="f_notice" rows="2" placeholder="直播中下单满 50 免配送费"></textarea></div>
+    <div class="field"><label>封面图地址（可选）</label><input type="text" id="f_cover" placeholder="img/live-cover.jpg"></div>
+  </div>
+
+  <div class="card-panel">
+    <h3>视频源</h3>
+    <div class="mode-tabs">
+      <button data-mode="hls" class="on">HLS (m3u8)</button>
+      <button data-mode="flv">FLV (低延迟)</button>
+      <button data-mode="embed">第三方嵌入</button>
+      <button data-mode="none">暂不播</button>
+    </div>
+    <div class="field">
+      <label id="urlLabel">流地址</label>
+      <input type="text" id="f_url" placeholder="https://xxx/live/stream.m3u8">
+      <div class="hint" id="urlHint"></div>
+    </div>
+    <div id="modeHelp" class="hint" style="line-height:1.9"></div>
+  </div>
+
+  <div class="card-panel">
+    <h3>聊天</h3>
+    <div class="field"><span class="switch"><input type="checkbox" id="f_chatOn" checked>允许观众发言</span></div>
+    <div class="field"><label>屏蔽词（逗号分隔）</label><input type="text" id="f_banned" placeholder="加微信,私聊,广告"></div>
+    <div class="row-actions">
+      <button class="mini" id="btnReloadChat">刷新聊天</button>
+      <button class="mini danger" id="btnClearChat">清空聊天</button>
+    </div>
+    <div class="chat-mini" id="chatBox" style="margin-top:10px"><div style="color:var(--muted);text-align:center;padding:14px">还没有消息</div></div>
+  </div>
+
+  <div class="card-panel">
+    <h3>怎么把画面推上去</h3>
+    <div id="pushHelp" style="font-size:13px;line-height:1.95"></div>
+  </div>
+
+  <div class="row-actions" style="margin-top:14px">
+    <button class="btn-primary btn-block" id="btnSave" style="max-width:100%">💾 保存</button>
+  </div>
+  <div id="msg" style="margin-top:10px"></div>
+</div>
+
+<div id="lockScreen" style="position:fixed;inset:0;background:#241a15;color:#fff;z-index:200;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;padding:20px">
+  <div style="font-size:38px">🔒</div>
+  <div style="font-size:14px">输入 ADMIN_TOKEN</div>
+  <input id="tokInput" type="password" placeholder="ADMIN_TOKEN"
+         style="width:min(320px,86vw);padding:11px 12px;border-radius:12px;border:0;font-size:14px;color:#241a15;text-align:center">
+  <button class="mini go" id="btnUnlock" style="padding:9px 22px">进入</button>
+  <div style="font-size:12.5px;color:#ffb4a8" id="lockErr"></div>
+</div>
+
+<script src="js/store.js"></script>
+<script src="js/live-admin.js"></script>
+</body>
+</html>

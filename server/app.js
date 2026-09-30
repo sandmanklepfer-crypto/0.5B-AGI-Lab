@@ -12,10 +12,12 @@ const { createStore } = require('./lib/store');
 const { WxPay, fromConfig } = require('./lib/wxpay');
 const { json, text, match, readJson, readBody, serveStatic } = require('./lib/http');
 const { pushToMerchant } = require('./lib/notify');
+const { createLive } = require('./lib/live');
 const qrcode = require('./vendor/qrcode.js');
 
 const store = createStore(cfg);
 const wx = fromConfig(cfg);
+const live = createLive({ configPath: path.join(cfg.SHOP_ROOT, 'data', 'live.json') });
 
 /* ---------------- 读取店铺数据 ---------------- */
 function readShop(p, fallback) {
@@ -162,6 +164,11 @@ async function handleNotify(req, res) {
 
 /* ---------------- 路由 ---------------- */
 const { Buffer: B } = require('buffer');
+
+function clientIp(req) {
+  const xf = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return xf || (req.socket && req.socket.remoteAddress) || 'unknown';
+}
 
 function isAdmin(req) {
   const auth = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
@@ -317,6 +324,70 @@ async function route(req, res) {
     const up = await store.update(o.outTradeNo, { status: 'PAID', paidAt: Date.now(), transactionId: 'MOCK' + Date.now() });
     if (up) pushToMerchant(up).catch(() => {});
     json(res, 200, { ok: true, status: 'PAID' });
+    return true;
+  }
+
+  /* ================= 直播 ================= */
+
+  /* --- 直播配置（公开，前端要用） --- */
+  if (p === '/api/live/config' && method === 'GET') {
+    const c = live.readConfig();
+    json(res, 200, { ok: true, live: c, viewers: live.viewerCount() });
+    return true;
+  }
+
+  /* --- 心跳（算在线人数） --- */
+  if (p === '/api/live/ping' && method === 'POST') {
+    live.heartbeat(clientIp(req));
+    json(res, 200, { ok: true, viewers: live.viewerCount() });
+    return true;
+  }
+
+  /* --- 拉取聊天 --- */
+  if (p === '/api/live/chat' && method === 'GET') {
+    live.heartbeat(clientIp(req));
+    json(res, 200, {
+      ok: true,
+      messages: live.getChat(u.searchParams.get('since')),
+      viewers: live.viewerCount(),
+    });
+    return true;
+  }
+
+  /* --- 发聊天 --- */
+  if (p === '/api/live/chat' && method === 'POST') {
+    let body;
+    try { body = await readJson(req); } catch (e) { json(res, 400, { ok: false, error: e.message }); return true; }
+    const r = live.addChat({ name: body.name, text: body.text, ip: clientIp(req) });
+    json(res, r.ok ? 200 : 400, r);
+    return true;
+  }
+
+  /* --- 老板：改直播设置 --- */
+  if (p === '/api/admin/live' && method === 'GET') {
+    if (!isAdmin(req)) { json(res, 403, { ok: false, error: '无权限' }); return true; }
+    json(res, 200, { ok: true, live: live.readConfig(), viewers: live.viewerCount() });
+    return true;
+  }
+  if (p === '/api/admin/live' && method === 'POST') {
+    if (!isAdmin(req)) { json(res, 403, { ok: false, error: '无权限' }); return true; }
+    let body;
+    try { body = await readJson(req); } catch (e) { json(res, 400, { ok: false, error: e.message }); return true; }
+    try {
+      const c = live.writeConfig(body);
+      console.log('[live] 设置已更新：on=' + c.on + ' mode=' + c.mode);
+      json(res, 200, { ok: true, live: c });
+    } catch (e) {
+      json(res, 500, { ok: false, error: '保存失败：' + e.message });
+    }
+    return true;
+  }
+
+  /* --- 老板：清空聊天 --- */
+  if (p === '/api/admin/live/chat' && method === 'DELETE') {
+    if (!isAdmin(req)) { json(res, 403, { ok: false, error: '无权限' }); return true; }
+    live.clearChat();
+    json(res, 200, { ok: true });
     return true;
   }
 
