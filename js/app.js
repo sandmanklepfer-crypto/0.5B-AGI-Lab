@@ -670,6 +670,15 @@
 
     const rows = [];
 
+    // 在线咨询（有后端时才显示）
+    if (S.payServer) {
+      rows.push(
+        '<a class="ct-btn ct-chat" href="chat.html">' +
+        '<span class="ic">💬</span><span><b>在线咨询</b><small>直接在这儿问，看到就回</small></span>' +
+        '<span class="ct-copy">进入</span>' +
+        '</a>');
+    }
+
     if (s.phone) {
       rows.push(
         '<a class="ct-btn ct-call" href="tel:' + LH.esc(s.phone) + '">' +

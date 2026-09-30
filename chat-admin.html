@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#241a15">
+<meta name="robots" content="noindex,nofollow">
+<title>顾客消息 · 卤味小店</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  html,body{height:100%;overflow:hidden}
+  body{display:flex;flex-direction:column;background:#f2ede8;padding-bottom:0}
+  .hd{background:#241a15;color:#fff;padding:11px 0;flex:0 0 auto}
+  .hd .in{max-width:1100px;margin:0 auto;padding:0 14px;display:flex;align-items:center;gap:10px}
+  .hd h1{margin:0;font-size:16px;flex:1}
+  .hd .pill{background:#ff3b30;color:#fff;font-size:12px;font-weight:700;
+    padding:2px 9px;border-radius:20px}
+  .hd a{color:#fff;text-decoration:none;border:1px solid rgba(255,255,255,.4);
+    border-radius:20px;padding:5px 12px;font-size:12.5px}
+
+  .main{flex:1;display:flex;min-height:0;max-width:1100px;margin:0 auto;width:100%}
+  .side{width:270px;flex:0 0 auto;background:#fff;border-right:1px solid var(--line);
+    overflow-y:auto}
+  .side .th{padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+  .side .th.on{background:var(--brand-l);border-left:3px solid var(--brand)}
+  .side .th .r1{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .side .th .nm{font-weight:700;font-size:14px}
+  .side .th .badge{background:#ff3b30;color:#fff;font-size:11px;font-weight:700;
+    padding:1px 7px;border-radius:20px;flex:0 0 auto}
+  .side .th .pv{font-size:12.5px;color:var(--muted);margin-top:3px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .side .empty{padding:30px 16px;text-align:center;color:var(--muted);font-size:13px;line-height:1.9}
+
+  .room{flex:1;display:flex;flex-direction:column;min-width:0}
+  .room .top{padding:10px 14px;background:#fff;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:10px}
+  .room .top .nm{font-weight:700;flex:1}
+  .room .top a{font-size:12.5px;color:var(--brand)}
+  .chat{flex:1;overflow-y:auto;padding:14px}
+  .b{display:flex;margin-bottom:12px;align-items:flex-end;gap:8px}
+  .b.me{flex-direction:row-reverse}
+  .b .av{width:30px;height:30px;border-radius:50%;flex:0 0 auto;display:flex;
+    align-items:center;justify-content:center;font-size:15px;background:#fff;box-shadow:var(--shadow)}
+  .b.me .av{background:var(--brand);color:#fff}
+  .b .tx{max-width:74%;padding:9px 13px;border-radius:15px;background:#fff;
+    box-shadow:var(--shadow);font-size:14.5px;line-height:1.6;word-break:break-word;white-space:pre-wrap}
+  .b.me .tx{background:var(--brand);color:#fff}
+  .b .tm{font-size:10.5px;color:var(--muted);flex:0 0 auto}
+  .bar{flex:0 0 auto;background:#fdfaf7;border-top:1px solid var(--line);padding:9px 12px}
+  .bar .in{display:flex;gap:8px;align-items:flex-end}
+  .bar textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radius:13px;
+    padding:10px 12px;font-size:15px;max-height:100px;outline:none;font-family:inherit;background:#fff}
+  .bar textarea:focus{border-color:var(--brand)}
+  .bar button{flex:0 0 auto;padding:11px 20px;border-radius:13px;background:var(--brand);
+    color:#fff;font-weight:700;font-size:14.5px}
+  .placeholder{flex:1;display:flex;align-items:center;justify-content:center;
+    color:var(--muted);font-size:13.5px;text-align:center;padding:20px;line-height:1.9}
+
+  #lockScreen{position:fixed;inset:0;background:#241a15;color:#fff;z-index:200;
+    display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;padding:20px}
+  .hintbar{background:#fff8e6;border-bottom:1px solid #f0d9a0;color:#8a6100;
+    font-size:12.5px;padding:8px 14px;line-height:1.7}
+</style>
+</head>
+<body>
+
+<div class="hd">
+  <div class="in">
+    <h1>💬 顾客消息</h1>
+    <span class="pill" id="unreadPill" style="display:none">0</span>
+    <a href="orders.html">订单</a>
+  </div>
+</div>
+
+<div class="hintbar">
+  新消息会发到你邮箱（若已配置）。顾客端也能看到你的回复，<b>建议及时回，回复越快下单率越高</b>。
+</div>
+
+<div class="main">
+  <div class="side" id="side"><div class="empty">加载中…</div></div>
+  <div class="room" id="room">
+    <div class="placeholder">← 左边选一个顾客开始回复</div>
+  </div>
+</div>
+
+<div id="lockScreen">
+  <div style="font-size:38px">🔒</div>
+  <div style="font-size:14px">输入 ADMIN_TOKEN</div>
+  <input id="tokInput" type="password" placeholder="ADMIN_TOKEN"
+         style="width:min(320px,86vw);padding:11px 12px;border-radius:12px;border:0;font-size:14px;color:#241a15;text-align:center">
+  <button class="mini go" id="btnUnlock" style="padding:9px 22px">进入</button>
+  <div style="font-size:12.5px;color:#ffb4a8" id="lockErr"></div>
+</div>
+
+<script src="js/store.js"></script>
+<script src="js/chat-admin.js"></script>
+</body>
+</html>

@@ -11,13 +11,18 @@ const { cfg, summary } = require('./lib/config');
 const { createStore } = require('./lib/store');
 const { WxPay, fromConfig } = require('./lib/wxpay');
 const { json, text, match, readJson, readBody, serveStatic } = require('./lib/http');
-const { pushToMerchant } = require('./lib/notify');
+const { pushToMerchant, pushChatToMerchant } = require('./lib/notify');
 const { createLive } = require('./lib/live');
+const { createChat } = require('./lib/chat');
 const qrcode = require('./vendor/qrcode.js');
 
 const store = createStore(cfg);
 const wx = fromConfig(cfg);
 const live = createLive({ configPath: path.join(cfg.SHOP_ROOT, 'data', 'live.json') });
+const chat = createChat({
+  file: path.join(cfg.ROOT, 'data', 'chat.json'),
+  onNewMessage: (thread, msg) => { pushChatToMerchant(thread, msg).catch(() => {}); },
+});
 
 /* ---------------- 读取店铺数据 ---------------- */
 function readShop(p, fallback) {
@@ -360,6 +365,63 @@ async function route(req, res) {
     try { body = await readJson(req); } catch (e) { json(res, 400, { ok: false, error: e.message }); return true; }
     const r = live.addChat({ name: body.name, text: body.text, ip: clientIp(req) });
     json(res, r.ok ? 200 : 400, r);
+    return true;
+  }
+
+  /* ================= 私域聊天 ================= */
+
+  /* --- 顾客：拉自己的消息 --- */
+  if (p === '/api/chat' && method === 'GET') {
+    const phone = u.searchParams.get('phone') || '';
+    const r = chat.customerFetch(phone, u.searchParams.get('since'));
+    json(res, 200, r);
+    return true;
+  }
+
+  /* --- 顾客：发消息 --- */
+  if (p === '/api/chat' && method === 'POST') {
+    let body;
+    try { body = await readJson(req); } catch (e) { json(res, 400, { ok: false, error: e.message }); return true; }
+    const r = chat.customerSend({ phone: body.phone, name: body.name, text: body.text, ip: clientIp(req) });
+    json(res, r.ok ? 200 : 400, r);
+    return true;
+  }
+
+  /* --- 老板：会话列表 --- */
+  if (p === '/api/admin/chat/threads' && method === 'GET') {
+    if (!isAdmin(req)) { json(res, 403, { ok: false, error: '无权限' }); return true; }
+    json(res, 200, { ok: true, threads: chat.merchantThreads(), unread: chat.totalUnread() });
+    return true;
+  }
+
+  /* --- 老板：读某个会话 --- */
+  if (p === '/api/admin/chat/thread' && method === 'GET') {
+    if (!isAdmin(req)) { json(res, 403, { ok: false, error: '无权限' }); return true; }
+    const t = chat.merchantThread(
+      u.searchParams.get('phone'),
+      u.searchParams.get('read') !== '0',
+      u.searchParams.get('since')
+    );
+    if (!t) { json(res, 404, { ok: false, error: '没有这个会话' }); return true; }
+    json(res, 200, { ok: true, thread: t });
+    return true;
+  }
+
+  /* --- 老板：回复 --- */
+  if (p === '/api/admin/chat/reply' && method === 'POST') {
+    if (!isAdmin(req)) { json(res, 403, { ok: false, error: '无权限' }); return true; }
+    let body;
+    try { body = await readJson(req); } catch (e) { json(res, 400, { ok: false, error: e.message }); return true; }
+    const r = chat.merchantSend({ phone: body.phone, text: body.text });
+    json(res, r.ok ? 200 : 400, r);
+    return true;
+  }
+
+  /* --- 老板：删会话 --- */
+  if (p === '/api/admin/chat/thread' && method === 'DELETE') {
+    if (!isAdmin(req)) { json(res, 403, { ok: false, error: '无权限' }); return true; }
+    chat.clearThread(u.searchParams.get('phone'));
+    json(res, 200, { ok: true });
     return true;
   }
 

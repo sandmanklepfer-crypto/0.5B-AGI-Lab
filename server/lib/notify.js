@@ -89,4 +89,44 @@ async function pushToMerchant(o) {
   return text;
 }
 
-module.exports = { pushToMerchant, summaryText };
+/* ---------- 新消息通知商家 ---------- */
+async function pushChatToMerchant(thread, msg) {
+  const name = thread.name || thread.phone;
+  const text = [
+    '【新消息】' + name,
+    '手机号：' + thread.phone,
+    '——',
+    msg.text,
+    '——',
+    new Date(msg.at).toLocaleString('zh-CN'),
+    '（回复请打开订单后台 → 消息）',
+  ].join('\n');
+
+  if (cfg.merchantWebhook) {
+    await post(cfg.merchantWebhook, { type: 'CHAT', text, phone: thread.phone });
+  }
+
+  let form = {};
+  try {
+    const s = JSON.parse(fs.readFileSync(path.join(cfg.SHOP_ROOT, 'data', 'settings.json'), 'utf8'));
+    form = s.orderForm || {};
+  } catch (e) { /* ignore */ }
+
+  try {
+    const subject = `【新消息】${name} 在卤味小店留言`;
+    if (form.provider === 'web3forms' && form.accessKey) {
+      await post('https://api.web3forms.com/submit', {
+        access_key: form.accessKey, subject, from_name: '店铺消息',
+        '来自': name, '手机号': thread.phone, '内容': msg.text, '时间': text.split('\n').pop(),
+      });
+    } else if (form.provider === 'formsubmit' && form.email) {
+      await post('https://formsubmit.co/ajax/' + encodeURIComponent(form.email), {
+        _subject: subject, '来自': name, '手机号': thread.phone, '内容': msg.text,
+      });
+    }
+  } catch (e) { console.warn('[chat] 邮件通知失败', e.message); }
+
+  console.log('\n===== 顾客留言 =====\n' + text + '\n====================\n');
+}
+
+module.exports = { pushToMerchant, summaryText, pushChatToMerchant };

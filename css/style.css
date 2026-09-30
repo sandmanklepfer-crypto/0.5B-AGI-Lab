@@ -352,3 +352,8 @@ code{background:#f6ece3;padding:1px 5px;border-radius:5px;font-size:12.5px;word-
   content:"";position:absolute;top:7px;left:9px;width:7px;height:7px;border-radius:50%;
   background:#fff;animation:livebl 1.3s infinite;
 }
+
+/* ---------- 在线咨询入口 ---------- */
+.ct-chat{border-color:#cfe3f7;background:#f2f8ff;text-decoration:none}
+.ct-chat b{color:#1976d2}
+.ct-chat .ct-copy{color:#1976d2;border-color:#1976d2}
