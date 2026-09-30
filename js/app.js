@@ -429,10 +429,13 @@
 
   async function detectPayServer() {
     if (S.settings.onlinePay === false) { S.payServer = null; return; }
+    // GitHub Pages 是纯静态托管，永远不可能有 /api，不用白试一次
+    const isStaticHost = /\.github\.io$/i.test(location.hostname);
     const cands = [];
     const cfgBase = String(S.settings.payApiBase || '').replace(/\/+$/, '');
     if (cfgBase) cands.push(cfgBase);
-    if (cands.indexOf(location.origin) < 0) cands.push(location.origin);
+    if (!isStaticHost && cands.indexOf(location.origin) < 0) cands.push(location.origin);
+    if (!cands.length) { S.payServer = null; return; }
     for (const c of cands) {
       try {
         const r = await fetch(c + '/api/health', { cache: 'no-store' });

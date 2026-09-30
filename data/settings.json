@@ -15,7 +15,7 @@
   "payQrUnionpay": "img/pay-unionpay.png",
   "payNote": "扫码付款后请填一下付款留言里的几位数字，方便我们核对～",
   "acceptCash": true,
-  "onlinePay": true,
+  "onlinePay": false,
   "payApiBase": "",
   "orderForm": {
     "provider": "none",
