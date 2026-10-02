@@ -336,6 +336,8 @@
     $('#mask').classList.add('on'); $('#sAct').classList.add('on');
   }
   function closeAct() { $('#mask').classList.remove('on'); $('#sAct').classList.remove('on'); }
+  function closeGh() { $('#mask').classList.remove('on'); $('#sGh').classList.remove('on'); }
+  function closeMe() { $('#mask').classList.remove('on'); $('#sMe').classList.remove('on'); }
 
   async function toggleBlock() {
     if (!S.peer) return;
@@ -405,6 +407,7 @@
             (w ? '' : '<button class="go" id="btnGh">连上仓库（开始发言）</button>') +
             (w ? '<button id="btnGh">改仓库 / Token</button>' : '') +
             '<button id="btnTest">测试连接</button>' +
+            '<button id="btnDiag">看诊断</button>' +
             (c.token ? '<button id="btnClear">清除本机 Token</button>' : '') +
           '</div>' +
           '<div id="testBox" style="margin-top:10px;font-size:12.5px"></div>' +
@@ -416,23 +419,55 @@
       '</div>' +
       '<div style="height:20px"></div>';
 
-    $('#btnEdit').onclick = openMe;
-    $('#btnGh').onclick = openGh;
-    $('#btnTest').onclick = async () => {
-      $('#testBox').innerHTML = '测试中…';
+    // 动态生成的按钮可能因为各种原因拿不到，这里全部容错，避免整页白屏
+    const on = (sel, fn) => { const el = $(sel); if (el) el.onclick = fn; };
+    on('#btnEdit', openMe);
+    on('#btnGh', openGh);
+    on('#btnTest', async () => {
+      const tb = $('#testBox');
+      const show = html => { if (tb) tb.innerHTML = html; };
+      show('测试中…');
       try {
         const r = await GH.test();
-        $('#testBox').innerHTML = r.ok
+        show(r.ok
           ? '<span style="color:var(--ok)">✅ 连接正常：' + esc(r.user) + ' → ' + esc(r.repo) +
             (r.canWrite ? '（可写入）' : '（⚠️ 没有写权限）') + '</span>'
-          : '<span style="color:var(--bad)">❌ ' + esc(r.error) + '</span>';
-      } catch (e) { $('#testBox').innerHTML = '<span style="color:var(--bad)">❌ ' + esc(e.message) + '</span>'; }
-    };
-    $('#btnClear').onclick = () => {
+          : '<span style="color:var(--bad)">❌ ' + esc(r.error) + '</span>');
+      } catch (e) {
+        show('<span style="color:var(--bad)">❌ ' + esc(e.message) + '</span>');
+      }
+    });
+    on('#btnDiag', () => {
+      const c = GH.cfg();
+      let lh = {}, mine = {};
+      try { lh = JSON.parse(localStorage.getItem('lh_gh') || '{}') || {}; } catch (e) {}
+      try { mine = JSON.parse(localStorage.getItem('yh_gh') || '{}') || {}; } catch (e) {}
+      const mark = t => t ? (String(t).slice(0, 7) + '…(' + String(t).length + '位)') : '(空)';
+      const box = $('#testBox');
+      if (!box) return;
+      box.style.textAlign = 'left';
+      box.innerHTML =
+        '<div style="background:#f7f7fb;border-radius:10px;padding:10px;font-family:monospace;font-size:11.5px;line-height:1.9">' +
+        '<b>卤味后台存的(lh_gh)：</b><br>' +
+        '  owner=' + esc(lh.owner || '(无)') + '<br>' +
+        '  repo=' + esc(lh.repo || '(无)') + '<br>' +
+        '  branch=' + esc(lh.branch || '(无)') + '<br>' +
+        '  token=' + esc(mark(lh.token)) + '<br>' +
+        '<b>本页存的(yh_gh)：</b><br>' +
+        '  owner=' + esc(mine.owner || '(无)') + '<br>' +
+        '  token=' + esc(mark(mine.token)) + '<br>' +
+        '<b>实际生效：</b><br>' +
+        '  ' + esc(c.owner + '/' + c.repo) + ' @ ' + esc(c.branch) + '/' + esc(c.path) + '<br>' +
+        '  token=' + esc(mark(c.token)) + '　' +
+        (c._fromLh ? '<span style="color:#1f9d55">借用自卤味后台</span>' : (c.token ? '本页设置' : '<span style="color:#e03131">无</span>')) + '<br>' +
+        '  可发言=' + (GH.canWrite() ? '<span style="color:#1f9d55">是</span>' : '<span style="color:#e03131">否</span>') +
+        '</div>';
+    });
+    on('#btnClear', () => {
       if (!confirm('清掉本机保存的 Token？清掉后要重新填。')) return;
       GH.clearCfg();
       location.reload();
-    };
+    });
   }
 
   /* ---------- 设置仓库 ---------- */
@@ -444,7 +479,12 @@
     $('#g_branch').value = c.branch || 'gh-pages';
     $('#g_path').value = c.path || 'social';
     $('#g_token').value = c.token || '';
-    $('#ghErr').textContent = '';
+    // 如果借用的是卤味后台的令牌，提示一下不用重填
+    if (c._fromLh) {
+      $('#ghErr').innerHTML = '<span style="color:var(--ok)">✅ 已自动沿用你卤味后台的令牌，一般不用改</span>';
+    } else {
+      $('#ghErr').textContent = '';
+    }
     $('#mask').classList.add('on'); $('#sGh').classList.add('on');
     // 没 Token 时直接聚焦到 Token 那格
     if (!c.token) setTimeout(() => $('#g_token').focus(), 300);
@@ -504,9 +544,16 @@
     writeLS(LSK.me, S.me);
     $('#topMe').textContent = pickedAv;
     $('#mask').classList.remove('on'); $('#sMe').classList.remove('on');
-    await heartbeat();
+    await heartbeat().catch(() => {});
     toast('欢迎，' + nick + '！');
+    // 关键：设完昵称要立刻拉一次数据，否则大厅空着要等 6 秒
+    renderConn();
     renderMe();
+    await Promise.all([
+      loadHall(true).catch(() => {}),
+      loadUsers().catch(() => {}),
+      loadThreads().catch(() => {}),
+    ]);
     startLoops();
   }
 
@@ -523,6 +570,28 @@
     S.timers.threads = setInterval(() => { if (S.view === 'msg') loadThreads(); }, 15000);
     // 心跳（保持"在线"）
     S.timers.hb = setInterval(heartbeat, 45000);
+  }
+
+  /* ---------- 连接状态条 ---------- */
+  function renderConn() {
+    const bar = $('#connbar');
+    if (!bar) return;
+    const c = GH.cfg();
+    const w = GH.canWrite();
+    const fromLh = GH.hasLhCfg() && c._fromLh;
+    if (w) {
+      bar.className = 'connbar ok';
+      bar.innerHTML = '✅ 已连上 ' + esc(c.owner + '/' + c.repo) +
+        (fromLh ? ' · 🔑 用的是你<b>卤味后台</b>那个令牌，不用重填' : '');
+      // 3 秒后自动收起，不挡视线
+      setTimeout(() => { if (bar.className.indexOf('ok') >= 0) bar.className = 'connbar hid'; }, 3500);
+    } else {
+      bar.className = 'connbar warn';
+      bar.innerHTML = '⚠️ <b>现在只能看，不能发言</b> · ' +
+        '<button id="goConn">点这里连上仓库</button>';
+      const b = $('#goConn');
+      if (b) b.onclick = openGh;
+    }
   }
 
   /* ---------- 启动 ---------- */
@@ -544,6 +613,7 @@
 
     // 先渲染，再拉数据（先让界面活起来）
     show('hall');
+    renderConn();
     renderMe();
 
     // 首次拉取（读不需要 Token）
@@ -573,7 +643,11 @@
     $('#actBlock').onclick = toggleBlock;
     $('#actReport').onclick = doReport;
     $('#actClose').onclick = closeAct;
-    $('#mask').onclick = () => { closeAct(); };
+    $('#mask').onclick = () => {
+      // 第一次进来还没起昵称时，不允许点遮罩关掉（否则就没法继续了）
+      if (!S.me || !S.me.nick) return;
+      closeAct(); closeGh(); closeMe();
+    };
     $('#ghGo').onclick = doGh;
     $('#meGo').onclick = doMe;
     $('#nickIn').onkeydown = e => { if (e.key === 'Enter') doMe(); };

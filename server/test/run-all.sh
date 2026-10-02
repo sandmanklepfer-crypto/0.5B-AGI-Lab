@@ -18,6 +18,7 @@ run() {
 # 1. 离线测试（不需要起服务）
 run "GitHub 订单存储后端（离线）" test/store-github.test.js
 run "交友聊天 GitHub 存储（离线）" test/ghchat.test.js
+run "交友页面启动流程（DOM 模拟）" test/friends-dom.test.js
 run "微信回调整链路（离线，真实签名+AES）" test/notify-e2e.test.js
 
 # 2. 冒烟测试（需起服务）
