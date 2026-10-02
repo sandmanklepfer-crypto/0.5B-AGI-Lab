@@ -14,6 +14,7 @@ const { json, text, match, readJson, readBody, serveStatic } = require('./lib/ht
 const { pushToMerchant, pushChatToMerchant } = require('./lib/notify');
 const { createLive } = require('./lib/live');
 const { createChat } = require('./lib/chat');
+const { createSocial } = require('./lib/social');
 const qrcode = require('./vendor/qrcode.js');
 
 const store = createStore(cfg);
@@ -22,6 +23,10 @@ const live = createLive({ configPath: path.join(cfg.SHOP_ROOT, 'data', 'live.jso
 const chat = createChat({
   file: path.join(cfg.ROOT, 'data', 'chat.json'),
   onNewMessage: (thread, msg) => { pushChatToMerchant(thread, msg).catch(() => {}); },
+});
+const social = createSocial({
+  file: path.join(cfg.ROOT, 'data', 'social.json'),
+  onReport: (r) => { console.log('[social] 举报：' + r.byNick + ' → ' + r.targetNick + ' 理由：' + r.reason); },
 });
 
 /* ---------------- 读取店铺数据 ---------------- */
@@ -365,6 +370,102 @@ async function route(req, res) {
     try { body = await readJson(req); } catch (e) { json(res, 400, { ok: false, error: e.message }); return true; }
     const r = live.addChat({ name: body.name, text: body.text, ip: clientIp(req) });
     json(res, r.ok ? 200 : 400, r);
+    return true;
+  }
+
+  /* ================= 交友聊天（匿名社交） ================= */
+
+  /* --- 进入 / 改昵称 --- */
+  if (p === '/api/social/join' && method === 'POST') {
+    let b; try { b = await readJson(req); } catch (e) { json(res, 400, { ok: false, error: e.message }); return true; }
+    const r = social.join({ uid: b.uid, nick: b.nick, avatar: b.avatar });
+    json(res, r.ok ? 200 : 400, r);
+    return true;
+  }
+
+  /* --- 心跳 + 在线列表 --- */
+  if (p === '/api/social/online' && method === 'GET') {
+    const uid = u.searchParams.get('uid') || '';
+    social.heartbeat(uid);
+    json(res, 200, {
+      ok: true,
+      me: social.myself(uid),
+      list: social.online(uid, u.searchParams.get('q')),
+      stats: social.stats(),
+    });
+    return true;
+  }
+
+  /* --- 大厅：拉取 --- */
+  if (p === '/api/social/hall' && method === 'GET') {
+    social.heartbeat(u.searchParams.get('uid') || '');
+    const r = social.hallFetch(u.searchParams.get('uid'), u.searchParams.get('since'));
+    json(res, 200, Object.assign(r, { stats: social.stats() }));
+    return true;
+  }
+
+  /* --- 大厅：发言 --- */
+  if (p === '/api/social/hall' && method === 'POST') {
+    let b; try { b = await readJson(req); } catch (e) { json(res, 400, { ok: false, error: e.message }); return true; }
+    social.heartbeat(b.uid);
+    const r = social.hallSend(b.uid, b.text);
+    json(res, r.ok ? 200 : 400, r);
+    return true;
+  }
+
+  /* --- 私聊：会话列表 --- */
+  if (p === '/api/social/dms' && method === 'GET') {
+    social.heartbeat(u.searchParams.get('uid') || '');
+    json(res, 200, { ok: true, list: social.dmList(u.searchParams.get('uid')) });
+    return true;
+  }
+
+  /* --- 私聊：拉取 --- */
+  if (p === '/api/social/dm' && method === 'GET') {
+    social.heartbeat(u.searchParams.get('uid') || '');
+    const r = social.dmFetch(u.searchParams.get('uid'), u.searchParams.get('peer'),
+      u.searchParams.get('since'), u.searchParams.get('read') !== '0');
+    json(res, 200, r);
+    return true;
+  }
+
+  /* --- 私聊：发送 --- */
+  if (p === '/api/social/dm' && method === 'POST') {
+    let b; try { b = await readJson(req); } catch (e) { json(res, 400, { ok: false, error: e.message }); return true; }
+    social.heartbeat(b.uid);
+    const r = social.dmSend(b.uid, b.to, b.text);
+    json(res, r.ok ? 200 : 400, r);
+    return true;
+  }
+
+  /* --- 拉黑 --- */
+  if (p === '/api/social/block' && method === 'POST') {
+    let b; try { b = await readJson(req); } catch (e) { json(res, 400, { ok: false, error: e.message }); return true; }
+    const r = social.block(b.uid, b.target, b.on !== false);
+    json(res, r.ok ? 200 : 400, r);
+    return true;
+  }
+
+  /* --- 举报 --- */
+  if (p === '/api/social/report' && method === 'POST') {
+    let b; try { b = await readJson(req); } catch (e) { json(res, 400, { ok: false, error: e.message }); return true; }
+    const r = social.report(b.uid, b.target, b.reason, b.msg);
+    json(res, r.ok ? 200 : 400, r);
+    return true;
+  }
+
+  /* --- 老板：看举报 --- */
+  if (p === '/api/admin/social/reports' && method === 'GET') {
+    if (!isAdmin(req)) { json(res, 403, { ok: false, error: '无权限' }); return true; }
+    json(res, 200, { ok: true, reports: social.adminReports(), stats: social.stats() });
+    return true;
+  }
+
+  /* --- 老板：封禁/解封 --- */
+  if (p === '/api/admin/social/ban' && method === 'POST') {
+    if (!isAdmin(req)) { json(res, 403, { ok: false, error: '无权限' }); return true; }
+    let b; try { b = await readJson(req); } catch (e) { json(res, 400, { ok: false, error: e.message }); return true; }
+    json(res, 200, social.adminBan(b.uid, b.on !== false));
     return true;
   }
 

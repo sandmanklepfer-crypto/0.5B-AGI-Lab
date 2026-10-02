@@ -1,8 +1,13 @@
 # 千万别把这些提交上去
 .env
 cert/
-data/orders.json
-data/orders.json.tmp
 *.pem
 *.key
 node_modules/
+
+# ---------- 用户数据：绝对不能进公开仓库 ----------
+# 聊天记录含陌生人之间的对话，订单含顾客姓名电话地址
+data/
+data/*.json
+data/*.tmp
+!data/.gitkeep

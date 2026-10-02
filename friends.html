@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#6d5efc">
+<title>遇见 · 聊天交友</title>
+<style>
+  :root{
+    --p:#6d5efc; --p2:#9b6efc; --bg:#f5f5fa; --card:#fff;
+    --ink:#1c1b2e; --mut:#8a89a0; --line:#ecebf5; --ok:#1f9d55; --warn:#c98a00;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--ink);display:flex;flex-direction:column;overflow:hidden;font-size:15px}
+  button{font-family:inherit;border:0;background:none;cursor:pointer;color:inherit;font-size:inherit}
+  input,textarea{font-family:inherit;font-size:16px;color:var(--ink)}
+  .hid{display:none !important}
+
+  /* ---- 顶部 ---- */
+  .top{flex:0 0 auto;background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;padding:13px 16px 11px}
+  .top .r{display:flex;align-items:center;gap:10px}
+  .top h1{margin:0;font-size:17px;flex:1;font-weight:700}
+  .top .st{font-size:11.5px;opacity:.85;margin-top:3px}
+  .top .me{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.22);
+    display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto}
+
+  /* ---- 在线横条 ---- */
+  .strip{flex:0 0 auto;background:#fff;border-bottom:1px solid var(--line);padding:9px 0 7px}
+  .strip .hd{padding:0 16px 7px;font-size:12px;color:var(--mut);display:flex;justify-content:space-between}
+  .strip .row{display:flex;gap:13px;overflow-x:auto;padding:0 16px 3px;scrollbar-width:none}
+  .strip .row::-webkit-scrollbar{display:none}
+  .who{flex:0 0 auto;text-align:center;width:56px;cursor:pointer}
+  .who .av{width:46px;height:46px;border-radius:50%;background:#f0effa;display:flex;
+    align-items:center;justify-content:center;font-size:24px;margin:0 auto 4px;
+    border:2px solid #fff;box-shadow:0 2px 8px rgba(109,94,252,.16)}
+  .who .nm{font-size:11px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .who .nm .dot{color:var(--ok)}
+
+  /* ---- 主区 ---- */
+  .main{flex:1;min-height:0;position:relative}
+  .view{position:absolute;inset:0;display:none;flex-direction:column}
+  .view.on{display:flex}
+
+  /* 聊天流 */
+  .flow{flex:1;overflow-y:auto;padding:14px 14px 6px;-webkit-overflow-scrolling:touch}
+  .b{display:flex;margin-bottom:13px;align-items:flex-start;gap:8px}
+  .b.me{flex-direction:row-reverse}
+  .b .av{width:34px;height:34px;border-radius:50%;flex:0 0 auto;display:flex;
+    align-items:center;justify-content:center;font-size:17px;background:#f0effa}
+  .b .wrap{max-width:74%}
+  .b .who2{font-size:11px;color:var(--mut);margin-bottom:3px}
+  .b.me .who2{text-align:right}
+  .b .tx{padding:10px 13px;border-radius:16px;background:#fff;font-size:14.5px;line-height:1.6;
+    word-break:break-word;white-space:pre-wrap;box-shadow:0 2px 8px rgba(28,27,46,.06)}
+  .b.me .tx{background:var(--p);color:#fff}
+  .sys{text-align:center;font-size:11.5px;color:var(--mut);margin:12px 0}
+  .empty{text-align:center;color:var(--mut);font-size:13px;padding:40px 20px;line-height:1.9}
+
+  /* 输入条 */
+  .inbar{flex:0 0 auto;background:#fff;border-top:1px solid var(--line);padding:9px 12px;
+    padding-bottom:calc(9px + env(safe-area-inset-bottom))}
+  .inbar .r{display:flex;gap:8px;align-items:flex-end}
+  .inbar textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radius:14px;
+    padding:10px 13px;max-height:96px;outline:none;line-height:1.45;background:#fafaff}
+  .inbar textarea:focus{border-color:var(--p);background:#fff}
+  .inbar .send{flex:0 0 auto;padding:11px 20px;border-radius:14px;
+    background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;font-weight:700}
+  .inbar .send:disabled{opacity:.4}
+
+  /* 消息列表 */
+  .list{flex:1;overflow-y:auto}
+  .li{display:flex;gap:12px;padding:13px 16px;border-bottom:1px solid var(--line);
+    align-items:center;background:#fff;cursor:pointer}
+  .li .av{width:46px;height:46px;border-radius:50%;background:#f0effa;flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;font-size:23px}
+  .li .mid{flex:1;min-width:0}
+  .li .nm{font-weight:600;font-size:14.5px}
+  .li .pv{font-size:12.5px;color:var(--mut);margin-top:2px;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+  .li .rt{flex:0 0 auto;text-align:right}
+  .li .tm{font-size:11px;color:var(--mut)}
+  .li .un{background:#ff3b30;color:#fff;font-size:11px;font-weight:700;border-radius:20px;
+    padding:1px 7px;margin-top:5px;display:inline-block}
+
+  /* 底部 tab */
+  .tabs{flex:0 0 auto;display:flex;background:#fff;border-top:1px solid var(--line);
+    padding-bottom:env(safe-area-inset-bottom)}
+  .tabs button{flex:1;padding:9px 0 7px;font-size:11px;color:var(--mut);position:relative}
+  .tabs button .ic{display:block;font-size:20px;line-height:1.25}
+  .tabs button.on{color:var(--p);font-weight:700}
+  .tabs .dot{position:absolute;top:6px;right:50%;margin-right:-20px;background:#ff3b30;
+    color:#fff;font-size:10px;font-weight:700;border-radius:20px;padding:1px 5px}
+
+  /* 私聊头部 */
+  .dmtop{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:10px 12px;
+    background:#fff;border-bottom:1px solid var(--line)}
+  .dmtop .back{font-size:21px;padding:0 4px;color:var(--p)}
+  .dmtop .av{width:34px;height:34px;border-radius:50%;background:#f0effa;
+    display:flex;align-items:center;justify-content:center;font-size:17px}
+  .dmtop .nm{flex:1;font-weight:600;font-size:15px}
+  .dmtop .act{font-size:12.5px;color:var(--mut);border:1px solid var(--line);
+    border-radius:20px;padding:5px 12px}
+
+  /* 我 */
+  .prof{padding:20px 16px;text-align:center}
+  .prof .big{width:76px;height:76px;border-radius:50%;background:#f0effa;margin:0 auto 10px;
+    display:flex;align-items:center;justify-content:center;font-size:38px;
+    box-shadow:0 4px 16px rgba(109,94,252,.2)}
+  .prof .nick{font-size:19px;font-weight:700}
+  .prof .uid{font-size:11.5px;color:var(--mut);margin-top:4px;font-family:ui-monospace,monospace}
+  .card{background:#fff;border-radius:16px;margin:12px 16px;padding:15px;
+    box-shadow:0 2px 10px rgba(28,27,46,.05)}
+  .card h3{margin:0 0 10px;font-size:14.5px}
+  .card p{margin:0;font-size:13px;color:var(--mut);line-height:1.9}
+  .card .r{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .card .r button{padding:8px 15px;border-radius:11px;border:1px solid var(--line);font-size:13px}
+  .card .r button.go{background:var(--p);color:#fff;border-color:var(--p);font-weight:600}
+  .safe{background:#fff8e6;border:1px solid #f0d9a0;color:#8a6100}
+  .safe h3{color:#8a6100}
+  .safe p{color:#8a6100}
+
+  /* 弹层 */
+  .mask{position:fixed;inset:0;background:rgba(20,18,40,.5);z-index:100;display:none}
+  .mask.on{display:block}
+  .sheet{position:fixed;left:0;right:0;bottom:0;background:#fff;z-index:101;
+    border-radius:22px 22px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));
+    transform:translateY(100%);transition:transform .25s}
+  .sheet.on{transform:none}
+  .sheet h2{margin:0 0 14px;font-size:17px}
+  .sheet input{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:13px;
+    outline:none;margin-bottom:12px;background:#fafaff}
+  .sheet input:focus{border-color:var(--p);background:#fff}
+  .avpick{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:14px}
+  .avpick span{width:46px;height:46px;border-radius:50%;background:#f0effa;display:flex;
+    align-items:center;justify-content:center;font-size:24px;cursor:pointer;
+    border:2px solid transparent}
+  .avpick span.on{border-color:var(--p);background:#efeaff}
+  .sheet .go{width:100%;padding:13px;border-radius:14px;color:#fff;font-weight:700;font-size:15.5px;
+    background:linear-gradient(135deg,var(--p),var(--p2))}
+  .sheet .tip{font-size:12px;color:var(--mut);text-align:center;margin-top:10px;line-height:1.7}
+  .sheet .err{color:#e03131;font-size:12.5px;text-align:center;min-height:18px;margin-bottom:6px}
+
+  .toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%) translateY(20px);
+    background:rgba(28,27,46,.92);color:#fff;padding:10px 18px;border-radius:22px;
+    font-size:13.5px;opacity:0;transition:.22s;z-index:200;pointer-events:none;max-width:80vw;text-align:center}
+  .toast.on{opacity:1;transform:translateX(-50%)}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="r">
+    <div style="flex:1">
+      <h1 id="topTitle">遇见</h1>
+      <div class="st" id="topSub">正在连接…</div>
+    </div>
+    <div class="me" id="topMe">🙂</div>
+  </div>
+</div>
+
+<!-- 在线的人 -->
+<div class="strip" id="strip">
+  <div class="hd"><span>在线的人</span><span id="onlineN">0</span></div>
+  <div class="row" id="onlineRow"><span style="color:var(--mut);font-size:12.5px;padding:8px 0">加载中…</span></div>
+</div>
+
+<div class="main">
+  <!-- 大厅 -->
+  <div class="view on" id="v-hall">
+    <div class="flow" id="hallFlow"></div>
+    <div class="inbar">
+      <div class="r">
+        <textarea id="hallIn" rows="1" placeholder="在大厅说点什么…" maxlength="300"></textarea>
+        <button class="send" id="hallSend">发送</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 消息 -->
+  <div class="view" id="v-msg">
+    <div class="list" id="dmList"></div>
+  </div>
+
+  <!-- 我 -->
+  <div class="view" id="v-me">
+    <div class="list" id="meBox"></div>
+  </div>
+
+  <!-- 私聊 -->
+  <div class="view" id="v-dm">
+    <div class="dmtop">
+      <button class="back" id="dmBack">‹</button>
+      <div class="av" id="dmAv">🙂</div>
+      <div class="nm" id="dmNm">—</div>
+      <button class="act" id="dmMore">⋯</button>
+    </div>
+    <div class="flow" id="dmFlow"></div>
+    <div class="inbar">
+      <div class="r">
+        <textarea id="dmIn" rows="1" placeholder="说点什么…" maxlength="300"></textarea>
+        <button class="send" id="dmSend">发送</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button data-v="hall" class="on"><span class="ic">💬</span>大厅</button>
+  <button data-v="msg"><span class="ic">✉️</span>消息<span class="dot hid" id="tabDot">0</span></button>
+  <button data-v="me"><span class="ic">🙂</span>我</button>
+</div>
+
+<!-- 设置昵称 -->
+<div class="mask on" id="mask"></div>
+<div class="sheet on" id="sSheet">
+  <h2>👋 先给自己起个名字</h2>
+  <input id="nickIn" placeholder="昵称（最多 16 字）" maxlength="16">
+  <div style="font-size:12.5px;color:var(--mut);margin-bottom:8px">挑个头像</div>
+  <div class="avpick" id="avPick"></div>
+  <div class="err" id="joinErr"></div>
+  <button class="go" id="joinGo">开始聊天</button>
+  <div class="tip">不用手机号、不用注册，随时可以改</div>
+</div>
+
+<!-- 操作菜单 -->
+<div class="sheet" id="actSheet">
+  <h2 id="actTitle">操作</h2>
+  <div class="card" style="margin:0">
+    <div class="r" style="margin:0">
+      <button id="actBlock">🚫 拉黑</button>
+      <button id="actReport">⚠️ 举报</button>
+      <button id="actClose">取消</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/friends.js"></script>
+</body>
+</html>
