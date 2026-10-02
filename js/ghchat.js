@@ -20,23 +20,54 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
+  // 自己的配置
   const CFG_KEY = 'yh_gh';
-  const DEF = { owner: '', repo: '', branch: 'main', token: '', path: 'social' };
+  // 卤味后台用的配置（同一套 gh.js）—— 优先复用，用户就不用再填一遍
+  const LH_KEY = 'lh_gh';
+  // 默认值：本仓库，用户少填几个字
+  const DEF = {
+    owner: 'sandmanklepfer-crypto', repo: '0.5B-AGI-Lab',
+    branch: 'gh-pages', token: '', path: 'social',
+  };
   const HALL_MAX = 400;      // 大厅最多留多少条
   const DM_MAX = 400;
 
   /* ---------- 配置 ---------- */
+  // 说明：Token 只存在浏览器 localStorage，不会上传到任何地方。
+  //       如果卤味后台已经连过仓库，这里会自动沿用那份配置 —— 不用重复填。
   function cfg() {
-    try { return Object.assign({}, DEF, JSON.parse(localStorage.getItem(CFG_KEY) || '{}')); }
-    catch (e) { return Object.assign({}, DEF); }
+    let mine = {}, lh = {};
+    try { mine = JSON.parse(localStorage.getItem(CFG_KEY) || '{}') || {}; } catch (e) {}
+    try { lh = JSON.parse(localStorage.getItem(LH_KEY) || '{}') || {}; } catch (e) {}
+    const out = Object.assign({}, DEF, lh, mine);   // 自己的配置优先级最高
+    // 用户名/仓库至少要有；Token 允许来自卤味后台
+    if (!out.owner) out.owner = DEF.owner;
+    if (!out.repo) out.repo = DEF.repo;
+    if (!out.branch) out.branch = DEF.branch;
+    if (!out.path) out.path = 'social';
+    out._fromLh = !!(lh.token && !mine.token);      // 标记：Token 借用自卤味后台
+    return out;
   }
   function saveCfg(c) {
-    const n = Object.assign(cfg(), c);
+    let mine = {};
+    try { mine = JSON.parse(localStorage.getItem(CFG_KEY) || '{}') || {}; } catch (e) {}
+    const n = Object.assign({}, mine, c);
     try { localStorage.setItem(CFG_KEY, JSON.stringify(n)); } catch (e) {}
-    return n;
+    return cfg();
   }
   function clearCfg() { try { localStorage.removeItem(CFG_KEY); } catch (e) {} }
-  function ready() { const c = cfg(); return !!(c.owner && c.repo && c.token); }
+
+  // 只读方式的就绪判断
+  function ready() { const c = cfg(); return !!(c.owner && c.repo); }
+  // 可写才需要 Token
+  function canWrite() { return !!cfg().token; }
+  // 是否有卤味后台的配置可借
+  function hasLhCfg() {
+    try {
+      const lh = JSON.parse(localStorage.getItem(LH_KEY) || '{}') || {};
+      return !!(lh.owner && lh.repo && lh.token);
+    } catch (e) { return false; }
+  }
 
   /* ---------- 编解码 ---------- */
   const b64enc = s => {
@@ -306,7 +337,7 @@
   }
 
   return {
-    cfg, saveCfg, clearCfg, ready, test,
+    cfg, saveCfg, clearCfg, ready, canWrite, hasLhCfg, test,
     hallRead, hallSend, usersRead, userUpsert,
     dmRead, dmSend, dmIndexRead, dmIndexAdd,
     uploadImage, compressImage, rawUrl,

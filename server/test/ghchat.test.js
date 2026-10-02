@@ -82,9 +82,21 @@ const GH = require('../../js/ghchat.js');
 
 (async () => {
   console.log('\n== 1. 配置 ==');
-  ok('初始未就绪', GH.ready() === false);
+  ok('默认仓库已预填（用户少填）', GH.cfg().owner === 'sandmanklepfer-crypto' && !!GH.cfg().repo);
+  ok('没 Token 时可读不可写', GH.ready() === true && GH.canWrite() === false);
+  ok('没有卤味配置时 hasLhCfg=false', GH.hasLhCfg() === false);
+
+  // 复用卤味后台的配置（关键：用户不用填第二遍）
+  mem['lh_gh'] = JSON.stringify({
+    owner: 'lhowner', repo: 'lhorepo', branch: 'gh-pages', token: 'LHToken', path: 'luhuo',
+  });
+  ok('能发现卤味后台的配置', GH.hasLhCfg() === true);
+  ok('Token 自动借用', GH.canWrite() === true && GH.cfg().token === 'LHToken', GH.cfg().token);
+  ok('借用时标记来源', GH.cfg()._fromLh === true);
+  delete mem['lh_gh'];
+
   GH.saveCfg({ owner: 'tester', repo: 'chat', branch: 'main', token: 'tok', path: 'social' });
-  ok('保存后就绪', GH.ready() === true);
+  ok('自己填的优先级更高', GH.cfg().owner === 'tester' && GH.cfg().token === 'tok', GH.cfg());
   ok('路径默认 social', GH.cfg().path === 'social');
 
   console.log('\n== 2. 连接测试 ==');

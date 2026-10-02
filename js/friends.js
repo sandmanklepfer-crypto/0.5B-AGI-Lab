@@ -120,6 +120,7 @@
   async function sendHall() {
     const ta = $('#hallIn'), t = ta.value.trim();
     if (!t || S.busy) return;
+    if (needToken()) return toastNeedToken();
     const err = checkText(t);
     if (err) return toast(err);
     S.busy = true; $('#hallSend').disabled = true;
@@ -262,6 +263,7 @@
   async function sendDM() {
     const ta = $('#dmIn'), t = ta.value.trim();
     if (!t || S.busy || !S.peer) return;
+    if (needToken()) return toastNeedToken();
     const err = checkText(t);
     if (err) return toast(err);
     S.busy = true; $('#dmSend').disabled = true;
@@ -385,17 +387,29 @@
           '· <b>图片是公开的</b>：别发身份证、证件照、私密照' +
         '</p>' +
       '</div>' +
-      '<div class="card">' +
-        '<h3>存储设置</h3>' +
-        '<p>数据存在 <b>' + esc(GH.cfg().owner + '/' + GH.cfg().repo) + '</b> 的 <code>' +
-          esc(GH.cfg().path || '/') + '</code> 目录。</p>' +
-        '<div class="r">' +
-          '<button id="btnGh">改仓库 / Token</button>' +
-          '<button id="btnTest">测试连接</button>' +
-          '<button id="btnClear">清除本机 Token</button>' +
-        '</div>' +
-        '<div id="testBox" style="margin-top:10px;font-size:12.5px"></div>' +
-      '</div>' +
+      (function () {
+        const c = GH.cfg();
+        const w = GH.canWrite();
+        const fromLh = GH.hasLhCfg() && c._fromLh;
+        return '<div class="card">' +
+          '<h3>存储 ' + (w
+            ? '<span style="color:var(--ok)">✅ 已连接</span>'
+            : '<span style="color:var(--warn)">⚠️ 只读模式</span>') + '</h3>' +
+          '<p>' +
+            '数据存在 <b>' + esc(c.owner + '/' + c.repo) + '</b> 的 <code>' + esc(c.path || '/') + '</code> 目录。<br>' +
+            (w
+              ? (fromLh ? '🔑 复用你<b>卤味后台</b>已填过的 Token，不用再填一次。' : '🔑 已配置 Token。')
+              : '⚠️ <b>现在只能看、不能发言</b>。要发言需要连一次仓库（填个 Token）。') +
+          '</p>' +
+          '<div class="r">' +
+            (w ? '' : '<button class="go" id="btnGh">连上仓库（开始发言）</button>') +
+            (w ? '<button id="btnGh">改仓库 / Token</button>' : '') +
+            '<button id="btnTest">测试连接</button>' +
+            (c.token ? '<button id="btnClear">清除本机 Token</button>' : '') +
+          '</div>' +
+          '<div id="testBox" style="margin-top:10px;font-size:12.5px"></div>' +
+        '</div>';
+      })() +
       '<div class="card">' +
         '<h3>已拉黑（' + S.blocked.length + '）</h3>' +
         '<p>' + (blockedNames.length ? esc(blockedNames.join('、')) : '还没有拉黑任何人。') + '</p>' +
@@ -424,13 +438,16 @@
   /* ---------- 设置仓库 ---------- */
   function openGh() {
     const c = GH.cfg();
+    // 已预填好仓库信息，多数情况下只需粘一个 Token
     $('#g_owner').value = c.owner || '';
     $('#g_repo').value = c.repo || '';
-    $('#g_branch').value = c.branch || 'main';
+    $('#g_branch').value = c.branch || 'gh-pages';
     $('#g_path').value = c.path || 'social';
     $('#g_token').value = c.token || '';
     $('#ghErr').textContent = '';
     $('#mask').classList.add('on'); $('#sGh').classList.add('on');
+    // 没 Token 时直接聚焦到 Token 那格
+    if (!c.token) setTimeout(() => $('#g_token').focus(), 300);
   }
   async function doGh() {
     const c = {
@@ -452,6 +469,16 @@
     } catch (e) {
       $('#ghErr').textContent = '❌ ' + (e.message || '连不上') + '（检查 Token 是否勾了 Contents: Read and write）';
     }
+  }
+
+  /* ---------- 只读模式提示（没 Token 时） ---------- */
+  function needToken() {
+    const c = GH.cfg();
+    return !c.token;
+  }
+  function toastNeedToken() {
+    toast('要发言需要先连上仓库（点「我」→ 存储设置）');
+    show('me'); renderMe();
   }
 
   /* ---------- 身份 ---------- */
@@ -500,30 +527,32 @@
 
   /* ---------- 启动 ---------- */
   async function boot() {
-    // 身份
+    // 身份（本机生成，不用填任何东西）
     let uid = readLS(LSK.uid, '');
     if (!uid) { uid = 'u' + GH.uid16(); writeLS(LSK.uid, uid); }
     S.uid = String(uid).replace(/[^\w-]/g, '');
     S.blocked = readLS(LSK.blocked, []) || [];
     S.read = readLS(LSK.read, {}) || {};
 
-    // 仓库配置
-    if (!GH.ready()) { openGh(); return; }
+    // 角色：老板（有卤味后台配置）还是普通用户（只有本机身份）
+    S.isOwner = GH.canWrite();
 
     const me = readLS(LSK.me, null);
     if (!me || !me.nick) { openMe(); return; }
     S.me = me;
     $('#topMe').textContent = me.avatar || '🙂';
 
-    // 首次拉取
-    await heartbeat();
+    // 先渲染，再拉数据（先让界面活起来）
+    show('hall');
+    renderMe();
+
+    // 首次拉取（读不需要 Token）
+    await heartbeat().catch(() => {});
     await Promise.all([
       loadHall(true).catch(() => {}),
       loadUsers().catch(() => {}),
       loadThreads().catch(() => {}),
     ]);
-    show('hall');
-    renderMe();
     startLoops();
   }
 
