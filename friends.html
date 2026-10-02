@@ -17,105 +17,50 @@
   button{font-family:inherit;border:0;background:none;cursor:pointer;color:inherit;font-size:inherit}
   input,textarea{font-family:inherit;font-size:16px;color:var(--ink)}
   .hid{display:none !important}
-  img{max-width:100%}
 
-  .top{flex:0 0 auto;background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;padding:13px 16px 11px}
+  .top{flex:0 0 auto;background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;padding:12px 14px}
   .top .r{display:flex;align-items:center;gap:10px}
-  .top h1{margin:0;font-size:17px;flex:1;font-weight:700}
-  .top .st{font-size:11.5px;opacity:.85;margin-top:3px}
+  .top .t1{flex:1;min-width:0}
+  .top h1{margin:0;font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .top .sub{font-size:11.5px;opacity:.9;margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .dotlive{display:inline-block;width:7px;height:7px;border-radius:50%;background:#5ff58a}
+  .dotoff{display:inline-block;width:7px;height:7px;border-radius:50%;background:#ffb4a8}
   .top .me{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.22);
-    display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto}
+    display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto;cursor:pointer}
 
-  .strip{flex:0 0 auto;background:#fff;border-bottom:1px solid var(--line);padding:9px 0 7px}
-  .strip .hd{padding:0 16px 7px;font-size:12px;color:var(--mut);display:flex;justify-content:space-between}
-  .strip .row{display:flex;gap:13px;overflow-x:auto;padding:0 16px 3px;scrollbar-width:none}
-  .strip .row::-webkit-scrollbar{display:none}
-  .who{flex:0 0 auto;text-align:center;width:56px;cursor:pointer}
-  .who .av{width:46px;height:46px;border-radius:50%;background:#f0effa;display:flex;
-    align-items:center;justify-content:center;font-size:24px;margin:0 auto 4px;
-    border:2px solid #fff;box-shadow:0 2px 8px rgba(109,94,252,.16);overflow:hidden}
-  .who .nm{font-size:11px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .who .nm .dot{color:var(--ok)}
+  .conn{flex:0 0 auto;padding:7px 14px;font-size:12px;text-align:center}
+  .conn.ok{background:#e6f7ee;color:#14663a}
+  .conn.warn{background:#fff8e6;color:#8a6100}
+  .conn.warn button{text-decoration:underline;font-weight:700;color:#8a6100}
 
-  .main{flex:1;min-height:0;position:relative}
-  .view{position:absolute;inset:0;display:none;flex-direction:column}
-  .view.on{display:flex}
-
-  .flow{flex:1;overflow-y:auto;padding:14px 14px 6px;-webkit-overflow-scrolling:touch}
-  .b{display:flex;margin-bottom:13px;align-items:flex-start;gap:8px}
+  .flow{flex:1;overflow-y:auto;padding:14px 12px 6px;-webkit-overflow-scrolling:touch}
+  .b{display:flex;margin-bottom:12px;align-items:flex-start;gap:8px}
   .b.me{flex-direction:row-reverse}
   .b .av{width:34px;height:34px;border-radius:50%;flex:0 0 auto;display:flex;
     align-items:center;justify-content:center;font-size:17px;background:#f0effa;overflow:hidden}
-  .b .wrap{max-width:76%}
+  .b .wrap{max-width:78%}
   .b .who2{font-size:11px;color:var(--mut);margin-bottom:3px}
   .b.me .who2{text-align:right}
-  .b .tx{padding:10px 13px;border-radius:16px;background:#fff;font-size:14.5px;line-height:1.6;
+  .b .tx{padding:9px 13px;border-radius:16px;background:#fff;font-size:14.5px;line-height:1.6;
     word-break:break-word;white-space:pre-wrap;box-shadow:0 2px 8px rgba(28,27,46,.06)}
   .b.me .tx{background:var(--p);color:#fff}
-  .b .tx img{border-radius:10px;margin-top:4px;max-height:260px;display:block}
-  .b .tx.pic{padding:6px;background:#fff}
+  .b .tx img{border-radius:10px;margin-top:3px;max-height:240px;max-width:100%;display:block}
+  .b .tx.pic{padding:5px;background:#fff}
   .b.me .tx.pic{background:var(--p)}
-  .sys{text-align:center;font-size:11.5px;color:var(--mut);margin:12px 0}
-  .empty{text-align:center;color:var(--mut);font-size:13px;padding:40px 20px;line-height:1.9}
+  .sys{text-align:center;font-size:11.5px;color:var(--mut);margin:11px 0;line-height:1.7}
+  .empty{text-align:center;color:var(--mut);font-size:13px;padding:44px 20px;line-height:2}
 
-  .inbar{flex:0 0 auto;background:#fff;border-top:1px solid var(--line);padding:9px 12px;
-    padding-bottom:calc(9px + env(safe-area-inset-bottom))}
-  .inbar .r{display:flex;gap:8px;align-items:flex-end}
+  .inbar{flex:0 0 auto;background:#fff;border-top:1px solid var(--line);padding:8px 10px;
+    padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+  .inbar .r{display:flex;gap:7px;align-items:flex-end}
   .inbar .pic{flex:0 0 auto;width:42px;height:42px;border-radius:13px;background:#f0effa;
     display:flex;align-items:center;justify-content:center;font-size:19px}
   .inbar textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radius:14px;
     padding:10px 13px;max-height:96px;outline:none;line-height:1.45;background:#fafaff}
   .inbar textarea:focus{border-color:var(--p);background:#fff}
-  .inbar .send{flex:0 0 auto;padding:11px 20px;border-radius:14px;
+  .inbar .send{flex:0 0 auto;padding:11px 18px;border-radius:14px;
     background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;font-weight:700}
   .inbar .send:disabled{opacity:.4}
-
-  .list{flex:1;overflow-y:auto}
-  .li{display:flex;gap:12px;padding:13px 16px;border-bottom:1px solid var(--line);
-    align-items:center;background:#fff;cursor:pointer}
-  .li .av{width:46px;height:46px;border-radius:50%;background:#f0effa;flex:0 0 auto;
-    display:flex;align-items:center;justify-content:center;font-size:23px}
-  .li .mid{flex:1;min-width:0}
-  .li .nm{font-weight:600;font-size:14.5px}
-  .li .pv{font-size:12.5px;color:var(--mut);margin-top:2px;overflow:hidden;
-    text-overflow:ellipsis;white-space:nowrap}
-  .li .rt{flex:0 0 auto;text-align:right}
-  .li .tm{font-size:11px;color:var(--mut)}
-  .li .un{background:#ff3b30;color:#fff;font-size:11px;font-weight:700;border-radius:20px;
-    padding:1px 7px;margin-top:5px;display:inline-block}
-
-  .tabs{flex:0 0 auto;display:flex;background:#fff;border-top:1px solid var(--line);
-    padding-bottom:env(safe-area-inset-bottom)}
-  .tabs button{flex:1;padding:9px 0 7px;font-size:11px;color:var(--mut);position:relative}
-  .tabs button .ic{display:block;font-size:20px;line-height:1.25}
-  .tabs button.on{color:var(--p);font-weight:700}
-  .tabs .dot{position:absolute;top:6px;right:50%;margin-right:-20px;background:#ff3b30;
-    color:#fff;font-size:10px;font-weight:700;border-radius:20px;padding:1px 5px}
-
-  .dmtop{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:10px 12px;
-    background:#fff;border-bottom:1px solid var(--line)}
-  .dmtop .back{font-size:21px;padding:0 4px;color:var(--p)}
-  .dmtop .av{width:34px;height:34px;border-radius:50%;background:#f0effa;
-    display:flex;align-items:center;justify-content:center;font-size:17px}
-  .dmtop .nm{flex:1;font-weight:600;font-size:15px}
-  .dmtop .act{font-size:12.5px;color:var(--mut);border:1px solid var(--line);
-    border-radius:20px;padding:5px 12px}
-
-  .prof{padding:20px 16px;text-align:center}
-  .prof .big{width:76px;height:76px;border-radius:50%;background:#f0effa;margin:0 auto 10px;
-    display:flex;align-items:center;justify-content:center;font-size:38px;
-    box-shadow:0 4px 16px rgba(109,94,252,.2)}
-  .prof .nick{font-size:19px;font-weight:700}
-  .prof .uid{font-size:11.5px;color:var(--mut);margin-top:4px;font-family:ui-monospace,monospace}
-  .card{background:#fff;border-radius:16px;margin:12px 16px;padding:15px;
-    box-shadow:0 2px 10px rgba(28,27,46,.05)}
-  .card h3{margin:0 0 10px;font-size:14.5px}
-  .card p{margin:0;font-size:13px;color:var(--mut);line-height:1.9}
-  .card .r{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-  .card .r button{padding:8px 15px;border-radius:11px;border:1px solid var(--line);font-size:13px}
-  .card .r button.go{background:var(--p);color:#fff;border-color:var(--p);font-weight:600}
-  .safe{background:#fff8e6;border:1px solid #f0d9a0}
-  .safe h3,.safe p{color:#8a6100}
 
   .mask{position:fixed;inset:0;background:rgba(20,18,40,.5);z-index:100;display:none}
   .mask.on{display:block}
@@ -124,153 +69,119 @@
     transform:translateY(100%);transition:transform .25s;max-height:92vh;overflow-y:auto}
   .sheet.on{transform:none}
   .sheet h2{margin:0 0 14px;font-size:17px}
-  .sheet input,.sheet textarea{width:100%;padding:12px 14px;border:1px solid var(--line);
-    border-radius:13px;outline:none;margin-bottom:12px;background:#fafaff;resize:none}
-  .sheet input:focus,.sheet textarea:focus{border-color:var(--p);background:#fff}
+  .sheet input{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:13px;
+    outline:none;margin-bottom:12px;background:#fafaff}
+  .sheet input:focus{border-color:var(--p);background:#fff}
   .avpick{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:14px}
   .avpick span{width:46px;height:46px;border-radius:50%;background:#f0effa;display:flex;
-    align-items:center;justify-content:center;font-size:24px;cursor:pointer;
-    border:2px solid transparent}
+    align-items:center;justify-content:center;font-size:24px;cursor:pointer;border:2px solid transparent}
   .avpick span.on{border-color:var(--p);background:#efeaff}
   .sheet .go{width:100%;padding:13px;border-radius:14px;color:#fff;font-weight:700;font-size:15.5px;
     background:linear-gradient(135deg,var(--p),var(--p2))}
   .sheet .tip{font-size:12px;color:var(--mut);text-align:center;margin-top:10px;line-height:1.7}
   .sheet .err{color:var(--bad);font-size:12.5px;text-align:center;min-height:18px;margin-bottom:6px}
   .sheet label{display:block;font-size:12.5px;color:var(--mut);margin-bottom:5px}
-  .sheet .hint{font-size:12px;color:var(--mut);line-height:1.75;margin:-6px 0 12px}
+  .sheet .hint{font-size:12.5px;color:var(--mut);line-height:1.8;margin:-4px 0 12px}
+  .card{background:#f7f7fb;border-radius:14px;padding:14px;margin-bottom:12px}
+  .card h3{margin:0 0 8px;font-size:14.5px}
+  .card p{margin:0;font-size:13px;color:var(--mut);line-height:1.9}
+  .card .r{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .card .r button{padding:8px 15px;border-radius:11px;border:1px solid var(--line);
+    font-size:13px;background:#fff}
+  .card .r button.go{background:var(--p);color:#fff;border-color:var(--p);font-weight:600}
+  .safe{background:#fff8e6;border:1px solid #f0d9a0}
+  .safe h3,.safe p{color:#8a6100}
+  .roomcode{font-family:ui-monospace,Menlo,monospace;font-size:19px;letter-spacing:3px;
+    font-weight:800;color:var(--p);text-align:center;padding:10px;background:#fff;
+    border:2px dashed #d7d3f5;border-radius:12px;margin-bottom:12px}
 
   .toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%) translateY(20px);
     background:rgba(28,27,46,.92);color:#fff;padding:10px 18px;border-radius:22px;
-    font-size:13.5px;opacity:0;transition:.22s;z-index:200;pointer-events:none;max-width:80vw;text-align:center}
+    font-size:13.5px;opacity:0;transition:.22s;z-index:200;pointer-events:none;
+    max-width:80vw;text-align:center;line-height:1.5}
   .toast.on{opacity:1;transform:translateX(-50%)}
-  .loading{text-align:center;color:var(--mut);font-size:13px;padding:30px}
-
-  .connbar{padding:9px 14px;font-size:12.5px;text-align:center;line-height:1.6}
-  .connbar.ok{background:#e6f7ee;color:#14663a}
-  .connbar.warn{background:#fff8e6;color:#8a6100;border-bottom:1px solid #f0d9a0}
-  .connbar button{color:#6d5efc;text-decoration:underline;font-weight:700}
 </style>
 </head>
 <body>
 
 <div class="top">
   <div class="r">
-    <div style="flex:1">
-      <h1 id="topTitle">遇见</h1>
-      <div class="st" id="topSub">正在连接…</div>
-    </div>
-    <div class="me" id="topMe">🙂</div>
-  </div>
-</div>
-
-<!-- 连接状态条 -->
-<div class="connbar hid" id="connbar"></div>
-
-<div class="strip hid" id="strip">
-  <div class="hd"><span>在线的人</span><span id="onlineN">0</span></div>
-  <div class="row" id="onlineRow"></div>
-</div>
-
-<div class="main">
-  <div class="view on" id="v-hall">
-    <div class="flow" id="hallFlow"><div class="loading">加载中…</div></div>
-    <div class="inbar">
-      <div class="r">
-        <button class="pic" id="hallPic" title="发图片">🖼️</button>
-        <textarea id="hallIn" rows="1" placeholder="在大厅说点什么…" maxlength="300"></textarea>
-        <button class="send" id="hallSend">发送</button>
+    <div class="t1">
+      <h1 id="roomTitle">公共聊天室</h1>
+      <div class="sub">
+        <span><span class="dotoff" id="liveDot"></span> <span id="liveTxt">连接中…</span></span>
+        <span id="onlineTxt"></span>
       </div>
     </div>
-  </div>
-
-  <div class="view" id="v-msg">
-    <div class="list" id="dmList"></div>
-  </div>
-
-  <div class="view" id="v-me">
-    <div class="list" id="meBox"></div>
-  </div>
-
-  <div class="view" id="v-dm">
-    <div class="dmtop">
-      <button class="back" id="dmBack">‹</button>
-      <div class="av" id="dmAv">🙂</div>
-      <div class="nm" id="dmNm">—</div>
-      <button class="act" id="dmMore">⋯</button>
-    </div>
-    <div class="flow" id="dmFlow"></div>
-    <div class="inbar">
-      <div class="r">
-        <button class="pic" id="dmPic" title="发图片">🖼️</button>
-        <textarea id="dmIn" rows="1" placeholder="说点什么…" maxlength="300"></textarea>
-        <button class="send" id="dmSend">发送</button>
-      </div>
-    </div>
+    <div class="me" id="topMe" title="我的资料">🙂</div>
+    <div class="me" id="topRoom" title="房间设置" style="font-size:15px">🔑</div>
   </div>
 </div>
 
-<div class="tabs">
-  <button data-v="hall" class="on"><span class="ic">💬</span>大厅</button>
-  <button data-v="msg"><span class="ic">✉️</span>消息<span class="dot hid" id="tabDot">0</span></button>
-  <button data-v="me"><span class="ic">🙂</span>我</button>
+<div class="conn hid" id="conn"></div>
+
+<div class="flow" id="flow"><div class="empty">正在连接聊天服务器…</div></div>
+
+<div class="inbar">
+  <div class="r">
+    <button class="pic" id="btnPic" title="发图片">🖼️</button>
+    <textarea id="input" rows="1" placeholder="说点什么…（Enter 发送）" maxlength="500"></textarea>
+    <button class="send" id="btnSend">发送</button>
+  </div>
 </div>
 
 <input type="file" id="filePick" accept="image/*" class="hid">
 
-<!-- 存储设置 -->
 <div class="mask" id="mask"></div>
-<div class="sheet" id="sGh">
-  <h2>🔧 连接你的 GitHub 仓库</h2>
-  <p class="hint">
-    聊天记录存进你自己的仓库，<b>永久保存、换手机也在、不用服务器</b>。<br>
-    和卤味后台是同一套做法。
-  </p>
-  <label>用户名 / 组织</label>
-  <input id="g_owner" placeholder="例如 sandmanklepfer-crypto">
-  <label>仓库名</label>
-  <input id="g_repo" placeholder="例如 chat-data">
-  <label>分支</label>
-  <input id="g_branch" placeholder="main">
-  <label>存放目录（可留空）</label>
-  <input id="g_path" placeholder="social">
-  <label>访问令牌 Token</label>
-  <input id="g_token" type="password" placeholder="github_pat_...">
-  <div class="hint">
-    怎么拿（30 秒）：<br>
-    1. 打开 <b>github.com/settings/personal-access-tokens/new</b><br>
-    2. Repository access 选 <b>Only select repositories</b>，只勾这个聊天仓库<br>
-    3. Permissions → <b>Contents</b> 选 <b>Read and write</b><br>
-    4. 生成后复制粘到上面
-  </div>
-  <div class="err" id="ghErr"></div>
-  <button class="go" id="ghGo">连接并进入</button>
-  <div class="tip">Token 只存在你这台设备的浏览器里，不会发给任何人</div>
-</div>
 
-<!-- 身份设置 -->
+<!-- 我的资料 -->
 <div class="sheet" id="sMe">
-  <h2>👋 给自己起个名字</h2>
+  <h2>🙂 我的资料</h2>
   <input id="nickIn" placeholder="昵称（最多 16 字）" maxlength="16">
   <div style="font-size:12.5px;color:var(--mut);margin-bottom:8px">挑个头像</div>
   <div class="avpick" id="avPick"></div>
   <div class="err" id="meErr"></div>
-  <button class="go" id="meGo">开始聊天</button>
-  <div class="tip">不用手机号、不用注册</div>
-</div>
+  <button class="go" id="meGo">保存</button>
+  <div class="tip">不用手机号、不用注册、不用登录</div>
 
-<!-- 操作 -->
-<div class="sheet" id="sAct">
-  <h2 id="actTitle">操作</h2>
-  <div class="card" style="margin:0">
-    <div class="r" style="margin:0">
-      <button id="actBlock">🚫 拉黑</button>
-      <button id="actReport">⚠️ 举报</button>
-      <button id="actClose">取消</button>
-    </div>
+  <div class="card safe" style="margin-top:14px">
+    <h3>🛡️ 安全提示</h3>
+    <p>
+      · 这里<b>不用手机号、不用实名</b>，就是个聊天的地方<br>
+      · <b>别透露</b>真实姓名、住址、单位、银行卡<br>
+      · <b>任何要钱的都是骗子</b>：投资、刷单、借钱、代付<br>
+      · 遇到骚扰点私聊里的 <b>拉黑</b>，别再回<br>
+      · <b>照片是公开可转发的</b>：别发身份证、证件照、私密照<br>
+      · 聊得来也别急着线下见，先在人多的地方见
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>📌 关于这个聊天</h3>
+    <p>
+      · 消息走公共服务器，<b>同一个房间号的人都能看到</b><br>
+      · 历史消息只存在你这台设备上，<b>换设备看不到旧的</b><br>
+      · 房间号可以分享给朋友，一起进来聊
+    </p>
   </div>
 </div>
 
-<script src="js/ghchat.js"></script>
+<!-- 房间 -->
+<div class="sheet" id="sRoom">
+  <h2>🔑 房间</h2>
+  <p class="hint">同一个房间号的人才能互相看到。把房间号发给朋友，就能一起聊。</p>
+  <label>当前房间号</label>
+  <input id="roomIn" placeholder="6 位字母数字" maxlength="12" style="text-transform:uppercase;letter-spacing:2px;font-family:ui-monospace,monospace">
+  <div class="err" id="roomErr"></div>
+  <button class="go" id="roomGo">进入这个房间</button>
+  <div class="r" style="display:flex;gap:8px;margin-top:10px">
+    <button id="roomCopy" style="flex:1;padding:10px;border-radius:12px;border:1px solid var(--line);background:#fff;font-size:13px">复制房间号</button>
+    <button id="roomNew" style="flex:1;padding:10px;border-radius:12px;border:1px solid var(--line);background:#fff;font-size:13px">换个新房间</button>
+  </div>
+  <div class="tip">房间是公开的，别发隐私信息</div>
+</div>
+
+<script src="js/mqtt.js"></script>
 <script src="js/friends.js"></script>
 </body>
 </html>
