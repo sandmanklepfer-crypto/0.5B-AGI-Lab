@@ -19,6 +19,7 @@ run() {
 run "GitHub 订单存储后端（离线）" test/store-github.test.js
 run "MQTT 客户端（真实 broker）" test/mqtt.test.js
 run "交友聊天端到端（两个用户真实互发）" test/friends-live.test.js
+run "跨设备历史（真实 broker retain）" test/friends-history.test.js
 run "交友页面启动流程（DOM 模拟）" test/friends-dom.test.js
 run "微信回调整链路（离线，真实签名+AES）" test/notify-e2e.test.js
 

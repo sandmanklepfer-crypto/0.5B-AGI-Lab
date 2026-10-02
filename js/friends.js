@@ -12,6 +12,7 @@
   const LSK = { uid: 'yh_uid', me: 'yh_me', room: 'yh_room', blocked: 'yh_blocked' };
   const ONLINE_MS = 70 * 1000;     // 70 秒内有心跳算在线
   const HIST_MAX = 200;            // 本机每个房间最多留 200 条
+  const HIST_KEEP = 80;            // broker 上最多保留 80 条（跨设备可见的历史）
   const IMG_MAX_KB = 90;           // 图片压到 90KB 以内
 
   const S = {
@@ -45,16 +46,27 @@
     return null;
   }
 
-  /* ---------- topic ---------- */
-  const tRoom = () => 'zhz/chat/' + S.room;
-  const tPres = () => 'zhz/chat/' + S.room + '/presence';
-  const tDm = (a, b) => 'zhz/chat/' + S.room + '/dm/' + [a, b].sort().join('_');
+  /* ---------- topic ----------
+   * 消息用「一条一主题 + retain（保留消息）」：
+   *   broker 会替我们保存每条消息，任何新进来的人订阅通配符就能拿到全部历史。
+   *   —— 这就是跨设备同步的来源，不需要任何账号或令牌。
+   */
+  const ROOT = 'zhz/c/';
+  const tMsg = (key) => ROOT + S.room + '/m/' + key;   // 单条消息（retained）
+  const tMsgAll = () => ROOT + S.room + '/m/#';         // 历史 + 实时
+  const tPres = () => ROOT + S.room + '/p';             // 在线心跳（不 retain）
+  const tDm = (a, b) => ROOT + S.room + '/d/' + [a, b].sort().join('_');
+
+  // 消息 key：时间戳(36进制) + 随机 → 天生按时间排序
+  function msgKey(ts) { return ts.toString(36) + Math.random().toString(36).slice(2, 6); }
 
   /* ---------- 消息收发 ---------- */
   function sendMsg(obj) {
     if (!S.mq || !S.mq.connected) { toast('还没连上，稍等一下'); return false; }
-    try { S.mq.publish(tRoom(), JSON.stringify(obj)); return true; }
-    catch (e) { toast('发送失败'); return false; }
+    try {
+      S.mq.publish(tMsg(obj._k), JSON.stringify(obj), true);   // retain = true，broker 帮我们存
+      return true;
+    } catch (e) { toast('发送失败'); return false; }
   }
 
   function onMsg(topic, raw) {
@@ -78,12 +90,15 @@
       }
       return;
     }
-    if (topic === tRoom()) {                       // 房间消息
+    if (topic.indexOf('/m/') > 0) {                // 房间消息（含 broker 补发的历史）
       if (S.msgs.some(x => x.id === m.id)) return;
       if (m.dm) return;                            // 私聊不走这里
+      m._k = topic.split('/m/')[1];
       S.msgs.push(m);
+      S.msgs.sort((a, b) => (a.at || 0) - (b.at || 0));
       saveHist();
       appendBubble($('#flow'), m);
+      trimHistory();                               // 太老的从 broker 上删掉
       return;
     }
     if (topic === tDm(S.uid, S.peer ? S.peer.uid : '')) {
@@ -200,9 +215,11 @@
     if (S.peer) return sendDm(t);
     const err = checkText(t);
     if (err) return toast(err);
+    const at = Date.now();
     const m = {
-      id: S.uid + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
-      uid: S.uid, nick: S.me.nick, avatar: S.me.avatar, text: t, at: Date.now(),
+      id: S.uid + '-' + at + '-' + Math.random().toString(36).slice(2, 5),
+      uid: S.uid, nick: S.me.nick, avatar: S.me.avatar, text: t, at,
+      _k: msgKey(at),
     };
     if (!sendMsg(m)) return;
     ta.value = ''; ta.style.height = 'auto';
@@ -262,10 +279,11 @@
       try { data = await compress(f); } catch (e) { return toast('图片处理失败'); }
       const kb = Math.round(data.length * 0.75 / 1024);
       if (kb > IMG_MAX_KB + 15) return toast('图片还是太大（' + kb + 'KB），换一张');
+      const at = Date.now();
       const m = {
-        id: S.uid + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+        id: S.uid + '-' + at + '-' + Math.random().toString(36).slice(2, 5),
         uid: S.uid, nick: S.me.nick, avatar: S.me.avatar,
-        text: data, at: Date.now(), pic: 1,
+        text: data, at, pic: 1, _k: msgKey(at),
       };
       if (S.peer) {
         m.dm = 1;
@@ -347,7 +365,7 @@
     // 退掉旧房间
     if (S.mq) {
       try {
-        S.mq.unsubscribe(tRoom()); S.mq.unsubscribe(tPres());
+        S.mq.unsubscribe(tMsgAll()); S.mq.unsubscribe(tPres());
         S.mq.publish(tPres(), JSON.stringify({ uid: S.uid, bye: 1, at: Date.now() }));
       } catch (e) {}
       try { S.mq.end(); } catch (e) {}
@@ -375,7 +393,8 @@
       renderConn();
       $('#liveDot').className = 'dotlive';
       $('#liveTxt').textContent = '已连接';
-      mq.subscribe(tRoom());
+      // 订阅通配符 = 拿到 broker 保存的全部历史 + 后续实时消息
+      mq.subscribe(tMsgAll());
       mq.subscribe(tPres());
       if (S.peer) mq.subscribe(tDm(S.uid, S.peer.uid));
       // 打个招呼，让别人看到我在线
@@ -397,6 +416,24 @@
 
     clearInterval(S.timerSweep);
     S.timerSweep = setInterval(() => { renderOnline(); }, 15000);
+  }
+
+  /* ---------- 历史清理：把太老的 retained 消息从 broker 上删掉 ----------
+   * 删法：向同一主题发一个空载荷、retain=true 的消息，broker 就会清掉它。
+   */
+  let lastTrim = 0;
+  function trimHistory() {
+    if (!S.mq || !S.mq.connected) return;
+    if (S.msgs.length <= HIST_KEEP) return;
+    if (Date.now() - lastTrim < 20000) return;      // 别太频繁
+    lastTrim = Date.now();
+    const extra = S.msgs.slice(0, S.msgs.length - HIST_KEEP);
+    for (const m of extra) {
+      if (!m._k) continue;
+      try { S.mq.publish(tMsg(m._k), '', true); } catch (e) {}
+    }
+    S.msgs = S.msgs.slice(-HIST_KEEP);
+    saveHist();
   }
 
   function publishPresence() {

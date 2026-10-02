@@ -69,7 +69,9 @@ ok('有拉黑', /blocked/.test(js) && /dmBlock/.test(js));
 ok('有安全提示（页面里）', /任何要钱的都是骗子/.test(html) && /别透露/.test(html));
 ok('说明了换设备看不到历史', /换设备看不到/.test(html));
 ok('图片会压缩后再发', /compress/.test(js) && /IMG_MAX_KB/.test(js));
-ok('房间隔离（不同房间看不到）', /zhz\/chat\//.test(js));
+ok('房间隔离（不同房间看不到）', /zhz\/c\//.test(js) && /S\.room/.test(js));
+ok('消息用 retain（跨设备历史）', /publish\(tMsg\(obj\._k\),\s*JSON\.stringify\(obj\),\s*true\)/.test(js));
+ok('有历史清理（删旧 retained）', /trimHistory/.test(js));
 
 console.log('\n== 7. 无服务器验证 ==');
 ok('没有任何后端 API 调用', !/fetch\(/.test(js));
