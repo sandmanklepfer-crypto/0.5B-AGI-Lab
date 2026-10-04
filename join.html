@@ -101,6 +101,23 @@
       <button class="btn-ghost" id="btnReset" type="button">再填一份</button>
     </div>
     <div id="contactBox2" style="margin-top:12px;font-size:12.5px;color:var(--muted);line-height:1.8"></div>
+
+    <!-- ===== 平台方专用：报名 → 现成店铺数据 ===== -->
+    <details id="storeBox" style="margin-top:14px;border-top:1px dashed var(--line);padding-top:12px">
+      <summary style="cursor:pointer;font-weight:700;font-size:13.5px">🏪 平台方点这里：把这份报名变成「现成的店铺数据」</summary>
+      <p class="hint" style="margin:8px 0 4px;line-height:1.7">
+        <b>店名：</b><span id="storeFileName"></span><br>
+        开店时：新店后台 →「商品 / 改价」→「导入数据」选这份 JSON → 再点「💾 保存并发布」，<b>店就现成了</b>。
+      </p>
+      <pre class="copy" id="storeJson"></pre>
+      <div class="row-actions">
+        <button class="mini go" id="btnCopyStore" type="button">📋 复制店铺 JSON</button>
+        <button class="mini" id="btnDlStore" type="button">⬇️ 下载 JSON 文件</button>
+      </div>
+      <div class="hint" style="margin-top:10px">或者用下面这条「一键开店链接」（点开就是已经填好数据的后台）：</div>
+      <pre class="copy" id="storeLink"></pre>
+      <div class="row-actions"><button class="mini go" id="btnCopyStoreLink" type="button">📋 复制一键开店链接</button></div>
+    </details>
   </div>
 
   <div class="foot-tip">

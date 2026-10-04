@@ -163,6 +163,83 @@
     return '';
   }
 
+  /* ============================================================
+   *  报名 → 现成店铺数据（JSON）
+   *  输出格式和 admin.html「导出/导入数据」完全一致：
+   *  { settings, products, coupons }
+   * ============================================================ */
+  function buildStore(d) {
+    const s = Object.assign({}, LH.DEFAULT_SETTINGS, {
+      shopName: d.shopName,
+      slogan: d.slogan || '现做现卖 · 欢迎下单',
+      notice: d.hours ? ('营业时间：' + d.hours + '。下单后我们会尽快联系您确认。') : '下单后我们会尽快联系您确认。',
+      phone: d.phone,
+      wechat: d.wechat || '',
+      hours: d.hours || '',
+      minOrder: 0,
+      deliveryFee: 0,
+      freeDeliveryOver: 0,
+      deliveryArea: d.address ? ('配送范围：' + d.address + ' 周边（超出请先联系店主）') : '',
+      acceptCash: true,
+      onlinePay: false,
+      adminPin: '1234'
+    });
+    const products = {
+      categories: d.category ? [d.category] : ['招牌'],
+      items: [{
+        id: 'p_1',
+        name: '（点这里改成你的招牌菜）',
+        cat: d.category || '招牌',
+        price: 0, origPrice: 0, unit: '份', stock: 99, on: true, tag: '招牌',
+        desc: '在后台「商品 / 改价」里编辑', img: ''
+      }]
+    };
+    const coupons = { items: [] };
+    return {
+      settings: s,
+      products: products,
+      coupons: coupons,
+      /* 给平台方看的招商信息；后台导入时会自动忽略这一项，不影响发布 */
+      _meta: {
+        商家: d.shopName,
+        推荐人: d.ref || '（无）',
+        联系人: d.contact,
+        手机: d.phone,
+        微信: d.wechat || '',
+        品类: d.category || '',
+        配送: d.delivery.join('、'),
+        收款方式: d.pay || '',
+        想要的网址名: d.slug || '',
+        报名时间: d.ts,
+        生成时间: new Date().toLocaleString('zh-CN')
+      }
+    };
+  }
+
+  function buildStoreBox(d) {
+    const bundle = buildStore(d);
+    const json = JSON.stringify(bundle, null, 2);
+    const b64 = btoa(unescape(encodeURIComponent(json)));
+    const link = location.origin + location.pathname.replace(/[^/]*$/, '') +
+      'admin.html#import=' + encodeURIComponent(b64);
+    const fname = (d.slug || d.shopName || 'luhuo').replace(/[^\w\-]+/g, '_') + '.json';
+
+    $('#storeJson').textContent = json;
+    $('#storeLink').textContent = link;
+    $('#storeFileName').textContent = fname;
+
+    $('#btnCopyStore').onclick = async () => { await LH.copyText(json); LH.toast('店铺 JSON 已复制 ✅'); };
+    $('#btnDlStore').onclick = () => {
+      const blob = new Blob([json], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = fname;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      LH.toast('已下载 ' + fname);
+    };
+    $('#btnCopyStoreLink').onclick = async () => { await LH.copyText(link); LH.toast('一键开店链接已复制 ✅'); };
+  }
+
   /* ---------------- 提交 ---------------- */
   async function submit(e) {
     e.preventDefault();
@@ -195,6 +272,7 @@
       setStatus('warn', '报名信息已生成，请点下面按钮复制，发给邀请你的人。');
       $('#doneTip').innerHTML = '平台还没配置自动收件邮箱，所以要麻烦你手动发一下 👇';
     }
+    buildStoreBox(d);                     // 生成"现成店铺数据"
     $('#doneWrap').scrollIntoView({ behavior: 'smooth', block: 'center' });
     $('#f_honey').value = '';
   }

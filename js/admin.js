@@ -13,8 +13,32 @@
     if (!c.owner && guess.owner) GH.saveCfg(guess);
     fillConn();
     await loadAll();
+    importFromHash();
     checkLock();
     bind();
+  }
+
+  /* 报名页 → 一键开店：链接里带 #import=<base64 店铺数据>，打开就自动填好 */
+  function importFromHash() {
+    const m = (location.hash || '').match(/import=([^&]+)/);
+    if (!m) return false;
+    try {
+      const b64 = decodeURIComponent(m[1]);
+      const json = decodeURIComponent(escape(atob(b64)));
+      const d = JSON.parse(json);
+      if (d.settings) D.settings = Object.assign({}, LH.DEFAULT_SETTINGS, d.settings);
+      if (d.products) D.products = d.products;
+      if (d.coupons) D.coupons = d.coupons;
+      afterLoad(); markDirty();
+      const ref = (d._meta && d._meta.推荐人) ? ('（推荐人：' + d._meta.推荐人 + '）') : '';
+      setStatus('warn', '已载入报名数据' + ref + '，核对后点右上角「💾 保存并发布」就开店成功。');
+      LH.toast('已载入店铺数据');
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+      return true;
+    } catch (e) {
+      setStatus('err', '开店数据解析失败：' + e.message);
+      return false;
+    }
   }
 
   async function loadAll(fromGitHubFirst) {
