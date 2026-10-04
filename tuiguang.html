@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#241a15">
+<meta name="robots" content="noindex,nofollow">
+<title>推广员 / 团长 · 专属邀请链接</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  body{padding-bottom:30px;background:#f6efe8}
+  .tg-top{background:linear-gradient(160deg,#2b1d16,#4a2f22);color:#fff;padding:20px 0 24px}
+  .tg-top h1{margin:0 0 6px;font-size:21px}
+  .tg-top p{margin:0;font-size:13px;opacity:.88}
+  .sec{background:#fff;border-radius:16px;box-shadow:0 6px 20px rgba(120,70,40,.10);padding:14px;margin:12px 0}
+  .sec h3{margin:0 0 10px;font-size:15px}
+  pre.copy{white-space:pre-wrap;word-break:break-all;background:#faf5f0;border:1px dashed var(--line);border-radius:12px;padding:11px;font-size:13px;line-height:1.7;font-family:ui-monospace,Menlo,Consolas,monospace;margin:8px 0}
+  .lbl{font-size:12.5px;color:var(--muted);margin:10px 0 2px}
+  .hist div{font-size:12.5px;padding:8px 0;border-bottom:1px dashed var(--line);word-break:break-all}
+  .hist div:last-child{border-bottom:0}
+  .hist a{font-size:12px}
+</style>
+</head>
+<body>
+
+<header class="tg-top">
+  <div class="wrap">
+    <h1>👥 推广员 / 团长 · 专属链接</h1>
+    <p>填个名字，生成你自己的邀请链接。商家从你的链接进去报名，系统会自动记上是<strong>你</strong>带来的。</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="sec">
+    <h3>① 我是谁</h3>
+    <div class="field">
+      <label>你的名字 / 编号</label>
+      <input type="text" id="tgName" placeholder="例如：团长小李 / T003" maxlength="20">
+      <div class="hint">会显示在报名页上（"你是由 xxx 推荐"），用名字或编号都行，别用空格。</div>
+    </div>
+    <button class="btn-primary btn-block" id="btnGen" type="button">生成我的专属链接</button>
+  </div>
+
+  <div class="sec hidden" id="outWrap">
+    <h3>② 我的专属链接</h3>
+    <div class="lbl">发给商家，他在手机上点开就能报名：</div>
+    <pre class="copy" id="outLink"></pre>
+    <div class="row-actions">
+      <button class="mini go" id="btnCopyLink" type="button">📋 复制链接</button>
+      <a class="mini" id="btnOpen" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block">👀 预览一下</a>
+    </div>
+
+    <div class="lbl">懒得打字？直接复制下面这段话发给商家：</div>
+    <pre class="copy" id="outWords"></pre>
+    <div class="row-actions">
+      <button class="mini go" id="btnCopyWords" type="button">📋 复制邀请话术</button>
+    </div>
+
+    <div class="lbl">商家扫码报名（把上面链接生成二维码也能用，微信/相机都能扫）：</div>
+    <div id="qrBox" style="margin-top:8px"></div>
+  </div>
+
+  <div class="sec">
+    <h3>📌 怎么用、怎么算你的</h3>
+    <p style="font-size:13px;line-height:1.9;margin:0">
+      1. 把你的专属链接发给想开店的老板（群发、朋友圈、当面发都行）<br>
+      2. 老板点你的链接填资料报名，报名信息里会带上你的名字<br>
+      3. 平台审核通过、给老板开好店之后，就知道这颗单是你带来的<br>
+      4. 以后要看"谁带来了多少家"，把这个页面生成的名字和你手上的记录对一下即可
+    </p>
+    <p style="font-size:12.5px;color:var(--muted);line-height:1.8;margin:10px 0 0">
+      ⚠️ 提醒：<strong>只按"真实开店的商家数"算你的功劳</strong>，不要靠拉人头、层层发展下线来拿钱，
+      那种模式容易被认定为违规。老老实实服务商家、帮他们把店开起来，才是长久做法。
+    </p>
+  </div>
+
+  <div class="sec">
+    <h3>🕘 本机历史</h3>
+    <div class="hist" id="hist"><div style="color:var(--muted)">还没有生成过</div></div>
+    <div class="row-actions" style="margin-top:8px"><button class="mini danger" id="btnClear" type="button">清空历史</button></div>
+  </div>
+
+  <div class="foot-tip" style="text-align:center;font-size:12px;color:var(--muted);margin:16px 0 0">
+    <a href="join.html">← 去报名页看看</a>
+  </div>
+</div>
+
+<script src="js/store.js"></script>
+<script src="js/tuiguang.js"></script>
+</body>
+</html>

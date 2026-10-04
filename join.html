@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#241a15">
+<title>商家入驻报名 · 卤味小店</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  body{padding-bottom:26px;background:#f6efe8}
+  .join-top{background:linear-gradient(160deg,#2b1d16,#4a2f22);color:#fff;padding:22px 0 26px;position:relative;overflow:hidden}
+  .join-top::after{content:"招";position:absolute;right:-16px;bottom:-40px;font-size:140px;font-weight:900;opacity:.08;line-height:1}
+  .join-top .wrap{position:relative;z-index:1}
+  .join-top h1{margin:0 0 6px;font-size:23px}
+  .join-top p{margin:0;font-size:13px;opacity:.88}
+  .join-top .pills{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap}
+  .join-top .pills span{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:4px 10px;font-size:12px}
+  .ref-bar{margin:12px 0 0;background:#fff7e6;border:1px solid #f0d9a8;color:#8a6100;border-radius:12px;padding:9px 12px;font-size:13px}
+  .ref-bar b{color:#b06a00}
+  .sec{background:#fff;border-radius:16px;box-shadow:0 6px 20px rgba(120,70,40,.10);padding:14px 14px 4px;margin:12px 0}
+  .sec h3{margin:0 0 12px;font-size:15px}
+  .opt{display:flex;align-items:center;gap:6px;font-size:13.5px;padding:6px 0}
+  .opt input{width:auto}
+  .opts{display:flex;flex-wrap:wrap;gap:2px 16px;margin-bottom:8px}
+  .agree{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--muted);line-height:1.6;margin:4px 0 12px}
+  .agree input{margin-top:3px}
+  .honey{position:absolute;left:-9999px;opacity:0}
+  .done{background:#fff;border-radius:16px;box-shadow:0 6px 20px rgba(120,70,40,.10);padding:16px;margin:12px 0}
+  pre.copy{white-space:pre-wrap;word-break:break-all;background:#faf5f0;border:1px dashed var(--line);border-radius:12px;padding:12px;font-size:12.5px;line-height:1.7;font-family:ui-monospace,Menlo,Consolas,monospace;margin:10px 0}
+  .foot-tip{text-align:center;font-size:12px;color:var(--muted);margin:16px 0 4px;line-height:1.8}
+</style>
+</head>
+<body>
+
+<header class="join-top">
+  <div class="wrap">
+    <h1 id="platName">商家入驻报名</h1>
+    <p>免费开店 · 手机收款 · 30 秒填完</p>
+    <div class="pills">
+      <span>✅ 不收开店费</span>
+      <span>✅ 钱直接进你自己的微信</span>
+      <span>✅ 有专人教你用</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="ref-bar hidden" id="refBar">🎉 你是由 <b id="refWho"></b> 推荐来的，提交后我们会优先联系你。</div>
+
+  <div id="status" class="status info">填好下面的信息，点最下面「提交报名」就行。</div>
+
+  <div class="sec">
+    <h3>① 你的店</h3>
+    <div class="field"><label>店名 <i>*</i></label><input type="text" id="f_shopName" placeholder="例如：阿香卤味" maxlength="30"></div>
+    <div class="field"><label>经营品类</label><select id="f_category"></select></div>
+    <div class="field"><label>一句话介绍（选填）</label><input type="text" id="f_slogan" placeholder="例如：老卤现捞 · 当天现做" maxlength="40"></div>
+  </div>
+
+  <div class="sec">
+    <h3>② 怎么联系你</h3>
+    <div class="field"><label>联系人 <i>*</i></label><input type="text" id="f_contact" placeholder="老板的称呼" maxlength="20"></div>
+    <div class="field"><label>手机号 <i>*</i></label><input type="tel" id="f_phone" inputmode="numeric" placeholder="11 位手机号"></div>
+    <div class="field"><label>微信号（选填，方便拉群）</label><input type="text" id="f_wechat" placeholder="微信号 / 手机号" maxlength="30"></div>
+  </div>
+
+  <div class="sec">
+    <h3>③ 你打算怎么做生意</h3>
+    <div class="field"><label>店铺地址 <i>*</i></label><input type="text" id="f_address" placeholder="例如：XX 市 XX 区 XX 路 12 号" maxlength="60"></div>
+    <div class="field"><label>营业时间（选填）</label><input type="text" id="f_hours" placeholder="例如：10:00 - 20:00" maxlength="30"></div>
+    <div class="field"><label>怎么送到顾客手上（可多选）</label><div class="opts" id="f_delivery"></div></div>
+    <div class="field"><label>收款方式</label><div class="opts" id="f_pay"></div></div>
+  </div>
+
+  <div class="sec">
+    <h3>④ 开店设置</h3>
+    <div class="field">
+      <label>想要的网址名（选填，英文/拼音）</label>
+      <input type="text" id="f_slug" placeholder="例如 axianganwei" maxlength="30">
+      <div class="hint">只能用小写字母、数字、短横线；不满意我们会帮你取。</div>
+    </div>
+    <div class="field"><label>还有什么想说的（选填）</label><textarea id="f_note" maxlength="200" placeholder="例如：我只有晚上有空 / 想先试试看"></textarea></div>
+  </div>
+
+  <form id="joinForm" autocomplete="on">
+    <input type="text" id="f_ref" class="honey" tabindex="-1" autocomplete="off" readonly>
+    <input type="text" id="f_honey" class="honey" tabindex="-1" autocomplete="off" aria-hidden="true">
+    <label class="agree">
+      <input type="checkbox" id="f_agree">
+      <span>我承诺上面填的信息真实有效，我的店有相关经营资质；同意平台为我开通独立店铺，我的店铺数据由我自己保管。</span>
+    </label>
+    <button class="btn-primary btn-block" id="btnSubmit" type="submit">✅ 提交报名</button>
+  </form>
+
+  <div id="doneWrap" class="done hidden">
+    <h3 style="margin:0 0 6px;font-size:15px">📋 报名信息</h3>
+    <div id="doneTip" style="font-size:12.5px;color:var(--muted);line-height:1.7"></div>
+    <pre class="copy" id="doneText"></pre>
+    <div class="row-actions">
+      <button class="btn-primary" id="btnCopy" type="button" style="flex:1">📋 复制，发给邀请我的人</button>
+      <button class="btn-ghost" id="btnReset" type="button">再填一份</button>
+    </div>
+    <div id="contactBox2" style="margin-top:12px;font-size:12.5px;color:var(--muted);line-height:1.8"></div>
+  </div>
+
+  <div class="foot-tip">
+    <div id="contactBox" style="margin-bottom:8px"></div>
+    本页只收集开店必需的信息，不会用来做别的事。<br>
+    <a href="index.html">← 返回店铺首页</a>
+  </div>
+</div>
+
+<script src="js/store.js"></script>
+<script src="js/join.js"></script>
+</body>
+</html>
