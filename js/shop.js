@@ -103,7 +103,7 @@
         if (st) D.settings = Object.assign({}, LH.DEFAULT_SETTINGS, JSON.parse(st.text));
         if (p) D.products = JSON.parse(p.text);
         if (cp) D.coupons = JSON.parse(cp.text);
-        D.shop = mergeShop(sh ? JSON.parse(sh.text) : null);
+        if (!MQ.got) D.shop = mergeShop(sh ? JSON.parse(sh.text) : null);  // MQTT 实时配置优先
         D.source = 'github';
         D.conn = GH.cfg().owner + '/' + GH.cfg().repo;
         return;
@@ -114,8 +114,8 @@
     }
     const [st, p, cp] = await Promise.all([LH.loadSettings(), LH.loadProducts(), LH.loadCoupons()]);
     D.settings = st; D.products = p; D.coupons = cp;
-    D.shop = mergeShop(LH.LS.get('lh_wb_shop', null));
-    D.source = 'local';
+    if (!MQ.got) D.shop = mergeShop(LH.LS.get('lh_wb_shop', null));      // MQTT 实时配置优先
+    D.source = LH.guessRepo().owner ? 'site' : 'local';
   }
 
   /* 统计：有 data/orders.json 就按真实订单算，否则用工作台里手填的数 */
@@ -146,6 +146,43 @@
     return { sales, pending };
   }
 
+  /* ================= 实时通道（公共 MQTT，免注册 / 免 Token） =================
+   * 和聊天页一个思路：公共 broker + retain（保留消息）当小存储。
+   * 只用来存工作台自己的小配置（横幅/体验分/手填统计），不存商品和价格。
+   */
+  const MQ = { cli: null, ready: false, broker: '', got: false };
+  function storeKey() {
+    const c = GH.cfg(), g = LH.guessRepo();
+    const o = c.owner || g.owner || 'anon', r = c.repo || g.repo || 'luhuo';
+    return (o + '__' + r).toLowerCase().replace(/[^a-z0-9_]/g, '');
+  }
+  const mqTopic = () => 'zhz/luhuo/wb/' + storeKey() + '/cfg';
+
+  function initMq() {
+    if (typeof MiniMqtt === 'undefined') return;
+    try {
+      MQ.cli = MiniMqtt.createClient({ clientId: 'wbshop' });
+      MQ.cli.on('connect', b => {
+        MQ.ready = true; MQ.broker = b;
+        MQ.cli.subscribe(mqTopic());
+        renderFoot();
+      });
+      MQ.cli.on('close', () => { MQ.ready = false; renderFoot(); });
+      MQ.cli.on('message', (topic, msg) => {
+        if (topic !== mqTopic()) return;
+        try {
+          const obj = JSON.parse(msg);
+          if (obj && obj._v) { MQ.got = true; D.shop = mergeShop(obj); renderAll(); }
+        } catch (e) { /* 忽略脏数据 */ }
+      });
+    } catch (e) { console.warn('[工作台] MQTT 初始化失败', e); }
+  }
+  function mqPublish(cfg) {
+    if (!MQ.ready || !MQ.cli) return false;
+    return !!MQ.cli.publish(mqTopic(),
+      JSON.stringify(Object.assign({}, cfg, { _v: 1, _at: Date.now() })), true);
+  }
+
   /* ================= 渲染 ================= */
   function renderAll() {
     const name = D.shop.shopName || D.settings.shopName || '满满小店';
@@ -164,11 +201,19 @@
       $('#bannerText').textContent = b.text;
     } else $('#banner').classList.add('hidden');
 
-    renderMenus(); renderTabs(); renderHot(); renderStock();
+    renderMenus(); renderTabs(); renderHot(); renderStock(); renderFoot();
+  }
 
-    $('#connTip').innerHTML = D.source === 'github'
-      ? '已连接 GitHub：<b>' + esc(D.conn) + '</b>　数据实时同步'
-      : '本机预览模式（未连接 GitHub）　<a href="javascript:;" data-act="conn">去连接 →</a>';
+  /* 底部状态：实时通道（MQTT）+ 数据来源 */
+  function renderFoot() {
+    const parts = [];
+    if (MQ.ready) parts.push('<b>实时通道已连</b>（MQTT · 免 Token）');
+    else if (typeof MiniMqtt !== 'undefined') parts.push('实时通道连接中…');
+    if (D.source === 'github') parts.push('商品数据来自 GitHub <b>' + esc(D.conn) + '</b>');
+    else if (D.source === 'site') parts.push('商品数据来自本站 <b>' + esc(LH.guessRepo().owner) + '</b>（免 Token）');
+    else parts.push('商品数据：本机预览');
+    $('#connTip').innerHTML = parts.join('　·　') +
+      '　<a href="javascript:;" data-act="conn">设置 →</a>';
   }
 
   function renderMenus() {
@@ -275,9 +320,16 @@
   function connSheet() {
     const c = GH.cfg();
     openSheet('GitHub 后端',
-      '<div class="conn-chips"><span class="chip">仓库即数据库</span><span class="chip">顾客端/后台共用</span><span class="chip">和后台同一个 Token</span></div>' +
+      '<div class="conn-chips"><span class="chip">读数据免 Token</span><span class="chip">MQTT 实时通道免 Token</span><span class="chip">Token 仅用于写回仓库</span></div>' +
+      '<details class="help-tut" style="background:#eefbf3;border:1px solid #d6f0e0;border-radius:12px;padding:10px 12px;margin-bottom:14px">' +
+      '<summary style="cursor:pointer;font-weight:700;font-size:13.5px;color:#12703c">✅ 这里其实可以完全不填 Token</summary>' +
+      '<p style="font-size:12.5px;line-height:1.95;color:#3f6b52;margin:9px 0 2px">' +
+      '商品、价格、店名这些都存在你 GitHub 仓库的 <code>data/*.json</code> 里，网页是<b>直接读文件</b>的，不需要任何令牌；<br>' +
+      '工作台自己的设置（横幅文案、体验分等）走公共 MQTT 实时通道，同样免令牌（和聊天页同一套 broker）。<br>' +
+      '只有想把配置<b>长期写进仓库文件</b>时才需要 Token，属于可选项。</p>' +
+      '</details>' +
       '<details class="help-tut" open style="background:#f7f8fb;border:1px solid #eceff5;border-radius:12px;padding:10px 12px;margin-bottom:14px">' +
-      '<summary style="cursor:pointer;font-weight:700;font-size:13.5px">怎么拿到 GitHub Token？（30 秒）</summary>' +
+      '<summary style="cursor:pointer;font-weight:700;font-size:13.5px">（可选）怎么拿到 GitHub Token？（30 秒）</summary>' +
       '<ol style="font-size:12.5px;line-height:1.95;color:#5a6270;margin:9px 0 6px;padding-left:20px">' +
       '<li>打开 <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" style="color:#2f7bf6">github.com/settings/personal-access-tokens/new</a>（先登录你的 GitHub）</li>' +
       '<li>Token name 随便填，例如 <code>luhuo-workbench</code>；Expiration 选 90 天或自定义</li>' +
@@ -334,12 +386,16 @@
       '<div class="field"><label>待处理订单（手填，未接订单时用）</label><input type="number" id="s_pending" value="' + (Number(s.metrics.pendingOrders) || 0) + '"></div>' +
       '<div class="field"><label>客服电话</label><input type="text" id="s_phone" value="' + esc(s.service.phone || D.settings.phone || '') + '"></div>' +
       '<div class="field"><label>客服微信</label><input type="text" id="s_wechat" value="' + esc(s.service.wechat || D.settings.wechat || '') + '"></div>' +
-      '<div class="row-actions"><button class="btn-primary" id="s_save" style="flex:1">保存到 GitHub</button>' +
-      '<button class="btn-ghost" id="s_local">仅存本机</button></div>' +
-      '<div class="hint" style="font-size:11.5px;color:#8a8f99;margin-top:8px">保存到 GitHub 会写入仓库 <code>data/shop.json</code>，只影响本工作台，不动商品/价格。</div>',
+      '<div class="row-actions"><button class="btn-primary" id="s_mq" style="flex:1">保存（免 Token）</button>' +
+      '<button class="btn-ghost" id="s_gh">写入 GitHub</button>' +
+      '<button class="btn-ghost" id="s_local">仅本机</button></div>' +
+      '<div class="hint" style="font-size:11.5px;color:#8a8f99;margin-top:8px">' +
+      '「保存（免 Token）」走公共 MQTT 实时通道（和聊天同一套），<b>立即生效、跨设备可见、不需要令牌</b>；<br>' +
+      '「写入 GitHub」需要 Token，会把配置写进仓库 <code>data/shop.json</code> 长期保存（可选）。</div>',
       () => {
-        $('#s_save').onclick = () => saveSetting(true);
-        $('#s_local').onclick = () => saveSetting(false);
+        $('#s_mq').onclick = () => saveSetting('mq');
+        $('#s_gh').onclick = () => saveSetting('gh');
+        $('#s_local').onclick = () => saveSetting('local');
       });
   }
 
@@ -359,20 +415,27 @@
     return s;
   }
 
-  async function saveSetting(toGH) {
+  async function saveSetting(mode) {
     const s = collectSetting();
     LH.LS.set('lh_wb_shop', s);
-    if (toGH) {
-      if (!GH.ready()) { LH.toast('还没连接 GitHub，已存本机'); }
+    const oks = [];
+    if (mode === 'mq') {
+      if (mqPublish(s)) oks.push('✅ 已实时生效（免 Token）');
+      else { oks.push('实时通道还没连上，已先存本机'); LH.LS.set('lh_wb_shop', s); }
+    } else if (mode === 'gh') {
+      if (mqPublish(s)) oks.push('已实时生效');
+      if (!GH.ready()) oks.push('未连接 GitHub，跳过写入');
       else {
         try {
-          $('#s_save').disabled = true; $('#s_save').textContent = '保存中…';
-          await GH.putFile('data/shop.json', JSON.stringify(s, null, 2), '更新工作台配置 ' + new Date().toLocaleString('zh-CN'));
-          LH.toast('已保存到 GitHub');
-        } catch (e) { LH.toast('保存失败：' + e.message); }
-        $('#s_save').disabled = false; $('#s_save').textContent = '保存到 GitHub';
+          await GH.putFile('data/shop.json', JSON.stringify(s, null, 2),
+            '更新工作台配置 ' + new Date().toLocaleString('zh-CN'));
+          oks.push('✅ 已写入 GitHub');
+        } catch (e) { oks.push('⚠ GitHub 写入失败：' + e.message); }
       }
-    } else LH.toast('已存本机');
+    } else {
+      oks.push('已存本机');
+    }
+    LH.toast(oks.join('；'));
     D.metrics = await computeMetrics();
     renderAll();
     closeSheet();
@@ -517,6 +580,7 @@
     const guess = LH.guessRepo(); const c = GH.cfg();
     if (!c.owner && guess.owner) GH.saveCfg(guess);
     bindGlobal();
+    initMq();
     await load();
     D.metrics = await computeMetrics();
     renderAll();
