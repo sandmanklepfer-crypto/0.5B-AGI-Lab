@@ -275,7 +275,19 @@
   function connSheet() {
     const c = GH.cfg();
     openSheet('GitHub 后端',
-      '<div class="conn-chips"><span class="chip">仓库即数据库</span><span class="chip">顾客端/后台共用</span></div>' +
+      '<div class="conn-chips"><span class="chip">仓库即数据库</span><span class="chip">顾客端/后台共用</span><span class="chip">和后台同一个 Token</span></div>' +
+      '<details class="help-tut" open style="background:#f7f8fb;border:1px solid #eceff5;border-radius:12px;padding:10px 12px;margin-bottom:14px">' +
+      '<summary style="cursor:pointer;font-weight:700;font-size:13.5px">怎么拿到 GitHub Token？（30 秒）</summary>' +
+      '<ol style="font-size:12.5px;line-height:1.95;color:#5a6270;margin:9px 0 6px;padding-left:20px">' +
+      '<li>打开 <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" style="color:#2f7bf6">github.com/settings/personal-access-tokens/new</a>（先登录你的 GitHub）</li>' +
+      '<li>Token name 随便填，例如 <code>luhuo-workbench</code>；Expiration 选 90 天或自定义</li>' +
+      '<li>Repository access 选 <b>Only select repositories</b> → 勾选你这个店铺仓库</li>' +
+      '<li>Permissions → Repository permissions → 找到 <b>Contents</b> 选 <b>Read and write</b></li>' +
+      '<li>点 <b>Generate token</b>，复制以 <code>github_pat_</code> 开头的那串字符，粘到下面的输入框</li>' +
+      '</ol>' +
+      '<p style="font-size:12px;color:#8a6100;background:#fdf5e3;padding:8px 10px;border-radius:8px;margin:8px 0 2px">' +
+      'Token 相当于你这间仓库的钥匙，只存在你自己手机里，不会上传。别把它发/截图给别人；过期了重新建一个即可。</p>' +
+      '</details>' +
       '<div class="field"><label>owner（用户名/组织）</label><input type="text" id="g_owner" value="' + esc(c.owner) + '" placeholder="例如 sandmanklepfer-crypto"></div>' +
       '<div class="field"><label>repo（仓库名）</label><input type="text" id="g_repo" value="' + esc(c.repo) + '" placeholder="例如 0.5B-AGI-Lab"></div>' +
       '<div class="field"><label>分支</label><input type="text" id="g_branch" value="' + esc(c.branch || 'gh-pages') + '"></div>' +
