@@ -1,16 +1,24 @@
 /* ============================================================
-   商家工作台（移动端店面风格）
-   - 界面：复刻「满满小店」商家端首页
-   - 后端：复用 js/gh.js 走 GitHub 仓库（读 data/*.json，可写 data/shop.json）
-   - 不改动原有 index / admin / orders 等页面
+   商家工作台（移动端 · 5 个 tab 全部真实功能）
+   ------------------------------------------------------------
+   · 首页 ：经营看板（销售额/订单/商品 + 功能菜单 + 榜单）
+   · 选品 ：商品管理（搜索/分类/排序/改价/上下架/新增/删除）
+   · 分析 ：经营分析（结构统计 + 图表 + 库存预警）
+   · 消息 ：通知中心 + 顾客聊天 + 话术 + 店铺公告
+   · 我的 ：店铺资料 + 工作台设置 + 后端状态 + 数据工具
+   ------------------------------------------------------------
+   后端：默认全部免 Token
+     - 商品/店铺资料：直接读本站 data/*.json
+     - 实时改价、改资料、订单：公共 MQTT（retain 当存储）
+   可选：填了 GitHub Token 才会额外写回仓库文件
    ============================================================ */
 (function () {
+  'use strict';
   const $ = s => document.querySelector(s);
   const $$ = s => Array.from(document.querySelectorAll(s));
   const esc = LH.esc;
-  const yuan = n => '¥' + (Number(n) || 0).toFixed(2);   // 工作台统一两位小数，更贴近电商展示
 
-  /* ---------------- 图标（线性 SVG） ---------------- */
+  /* ---------------- 图标 ---------------- */
   const ICONS = {
     bag:   '<path d="M6 8h12l-1 12H7L6 8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/>',
     team:  '<rect x="4" y="5" width="7" height="7" rx="3.5"/><rect x="13" y="12" width="7" height="7" rx="3.5"/>',
@@ -26,48 +34,53 @@
     chart: '<rect x="4.5" y="4.5" width="15" height="15" rx="4"/><path d="m8 14 3-3 2.5 2.5L16 10"/>',
     chat:  '<path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v6A2.5 2.5 0 0 1 16.5 15H10l-4 4v-4H7.5"/>'
   };
-  const svg = (n, cls) => '<svg class="ic' + (cls ? ' ' + cls : '') +
-    '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ' +
-    'stroke-linecap="round" stroke-linejoin="round">' + (ICONS[n] || '') + '</svg>';
+  const svg = (n, cls) => '<svg class="ic' + (cls ? ' ' + cls : '') + '" viewBox="0 0 24 24" fill="none" ' +
+    'stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + (ICONS[n] || '') + '</svg>';
 
-  /* ---------------- 工作台默认配置 ---------------- */
+  /* ---------------- 默认配置 ---------------- */
   const DEFAULT_SHOP = {
-    shopName: '',                 // 留空则用 data/settings.json 的店名
-    score: '4.5',
+    shopName: '', score: '4.5',
     banner: { on: true, text: '盛世华诞启新章 好物相伴度金秋' },
     metrics: { autoFromOrders: true, salesToday: 0, pendingOrders: 0 },
     hot: { title: '爆款榜单', tag: '热门', limit: 3 },
     stock: { title: '精选现货', tag: 'New', limit: 1 },
-    service: { phone: '', wechat: '', note: '' }
+    service: { phone: '', wechat: '', note: '' },
+    replies: ['您好，欢迎光临～', '亲，订单已收到，马上安排备货～',
+              '不好意思这个今天卖完了，换一个可以吗？', '您的餐已经出发啦，预计 20 分钟到～',
+              '感谢支持，麻烦给个五星好评，下次送您一份小菜～']
   };
-
-  /* ---------------- 功能菜单 ---------------- */
   const MENUS = [
-    { key: 'goods',     name: '商品管理',   icon: 'bag',   href: 'admin.html' },
+    { key: 'goods',     name: '商品管理',   icon: 'bag',   tab: 'pick' },
     { key: 'team',      name: '团队店铺',   icon: 'team',  href: 'tuiguang.html' },
-    { key: 'order',     name: '订单管理',   icon: 'order', href: 'orders.html', badge: 'pending' },
+    { key: 'order',     name: '订单管理',   icon: 'order', act: 'orders', badge: 'pending' },
     { key: 'score',     name: '商家体验分', icon: 'score', act: 'score' },
-    { key: 'pick',      name: '智能选品',   icon: 'pick',  act: 'scroll', target: 'hotSec' },
-    { key: 'account',   name: '账户中心',   icon: 'user',  act: 'account' },
+    { key: 'pick',      name: '智能选品',   icon: 'pick',  tab: 'pick' },
+    { key: 'account',   name: '账户中心',   icon: 'user',  tab: 'mine' },
     { key: 'deposit',   name: '保证金账户', icon: 'coin',  act: 'soon' },
     { key: 'license',   name: '店铺资质',   icon: 'cert',  act: 'soon' },
     { key: 'violation', name: '违规管理',   icon: 'ban',   act: 'soon' }
   ];
-
-  /* ---------------- 底部导航 ---------------- */
   const TABS = [
-    { key: 'home',    name: '首页', icon: 'home',  act: 'home' },
-    { key: 'pick',    name: '选品', icon: 'check', act: 'scroll', target: 'hotSec' },
-    { key: 'analyze', name: '分析', icon: 'chart', href: 'orders.html' },
-    { key: 'msg',     name: '消息', icon: 'chat',  href: 'chat-admin.html' },
-    { key: 'mine',    name: '我的', icon: 'user',  href: 'admin.html', dot: true }
+    { key: 'home',    name: '首页', icon: 'home' },
+    { key: 'pick',    name: '选品', icon: 'check' },
+    { key: 'analyze', name: '分析', icon: 'chart' },
+    { key: 'msg',     name: '消息', icon: 'chat' },
+    { key: 'mine',    name: '我的', icon: 'user', dot: true }
   ];
 
   /* ---------------- 数据 ---------------- */
-  const D = { settings: {}, products: { categories: [], items: [] }, coupons: { items: [] },
-              shop: null, metrics: { sales: 0, pending: 0 }, source: 'local', conn: '' };
+  const DATA = {
+    products: { categories: [], items: [] },
+    settings: {}, coupons: { items: [] },
+    shop: mergeShop(null),
+    orders: {}                       // code -> order
+  };
+  const MQ = { cli: null, ready: false, broker: '', got: { cfg: false, prod: false, set: false } };
+  const PICK = { q: '', cat: '全部', sort: '默认' };
+  const LSKEY = { cfg: 'lh_wb_shop', prod: 'lh_wb_prod', set: 'lh_wb_set' };
+  let ACTIVE = 'home';
 
-  /* ================= 工具 ================= */
+  /* ---------------- 小工具 ---------------- */
   function mergeShop(s) {
     const out = JSON.parse(JSON.stringify(DEFAULT_SHOP));
     if (!s || typeof s !== 'object') return out;
@@ -75,205 +88,418 @@
       if (s[k] && typeof s[k] === 'object' && !Array.isArray(s[k])) Object.assign(out[k], s[k]);
       else if (s[k] !== undefined && s[k] !== null && s[k] !== '') out[k] = s[k];
     });
+    if (!Array.isArray(out.replies) || !out.replies.length) out.replies = DEFAULT_SHOP.replies.slice();
     return out;
   }
-  const onItems = () => (D.products.items || []).filter(it => it && it.on !== false);
+  const yuan = n => '¥' + (Number(n) || 0).toFixed(2);
+  const onItems = () => (DATA.products.items || []).filter(it => it && it.on !== false);
   const salesNum = it => Number(it.sales || it.sold || 0) || 0;
   function fmtW(n) {
     n = Number(n) || 0;
-    if (n >= 10000) { const v = Math.round(n / 1000) / 10; return v + 'w'; }
+    if (n >= 10000) return (Math.round(n / 1000) / 10) + 'w';
     return String(n);
   }
   function thumbHTML(it) {
     if (it && it.img) return '<img src="' + esc(it.img) + '" alt="" loading="lazy">';
-    const ch = (it && it.name ? it.name : '?').slice(0, 1);
-    return '<div class="ph">' + esc(ch) + '</div>';
+    return '<div class="ph">' + esc(((it && it.name) || '?').slice(0, 1)) + '</div>';
   }
+  const dayStr = ts => { const d = new Date(ts); return d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const storeName = () => DATA.shop.shopName || DATA.settings.shopName || '满满小店';
 
-  /* ================= 读取数据 ================= */
-  async function load() {
-    if (GH.ready()) {
-      try {
-        const [st, p, cp, sh] = await Promise.all([
-          GH.getFile('data/settings.json'),
-          GH.getFile('data/products.json'),
-          GH.getFile('data/coupons.json'),
-          GH.getFile('data/shop.json')
-        ]);
-        if (st) D.settings = Object.assign({}, LH.DEFAULT_SETTINGS, JSON.parse(st.text));
-        if (p) D.products = JSON.parse(p.text);
-        if (cp) D.coupons = JSON.parse(cp.text);
-        if (!MQ.got) D.shop = mergeShop(sh ? JSON.parse(sh.text) : null);  // MQTT 实时配置优先
-        D.source = 'github';
-        D.conn = GH.cfg().owner + '/' + GH.cfg().repo;
-        return;
-      } catch (e) {
-        console.warn('[工作台] GitHub 读取失败，转本地', e);
-        D.err = e.message;
-      }
-    }
-    const [st, p, cp] = await Promise.all([LH.loadSettings(), LH.loadProducts(), LH.loadCoupons()]);
-    D.settings = st; D.products = p; D.coupons = cp;
-    if (!MQ.got) D.shop = mergeShop(LH.LS.get('lh_wb_shop', null));      // MQTT 实时配置优先
-    D.source = LH.guessRepo().owner ? 'site' : 'local';
-  }
-
-  /* 统计：有 data/orders.json 就按真实订单算，否则用工作台里手填的数 */
-  async function computeMetrics() {
-    let sales = null, pending = null;
-    if (GH.ready() && D.shop.metrics.autoFromOrders) {
-      try {
-        const f = await GH.getFile('data/orders.json');
-        if (f) {
-          const d = JSON.parse(f.text);
-          const arr = Array.isArray(d) ? d : (d.orders || []);
-          const today = new Date().toISOString().slice(0, 10);
-          let s = 0, p = 0;
-          arr.forEach(o => {
-            const stt = String(o.status || '').toUpperCase();
-            const amt = Number(o.amount != null ? o.amount : (o.total != null ? o.total : o.money)) || 0;
-            const t = o.createdAt || o.created_at || o.time || o.ts || '';
-            const isToday = !t || String(t).slice(0, 10) === today;
-            if (stt === 'PAID' && isToday) s += amt;
-            if (stt === 'PENDING' || stt === 'WAIT' || !stt) p++;
-          });
-          sales = s; pending = p;
-        }
-      } catch (e) { /* 忽略，走手填值 */ }
-    }
-    if (sales == null) sales = Number(D.shop.metrics.salesToday) || 0;
-    if (pending == null) pending = Number(D.shop.metrics.pendingOrders) || 0;
-    return { sales, pending };
-  }
-
-  /* ================= 实时通道（公共 MQTT，免注册 / 免 Token） =================
-   * 和聊天页一个思路：公共 broker + retain（保留消息）当小存储。
-   * 只用来存工作台自己的小配置（横幅/体验分/手填统计），不存商品和价格。
-   */
-  const MQ = { cli: null, ready: false, broker: '', got: false };
+  /* ---------------- 实时通道（公共 MQTT · 免 Token） ---------------- */
   function storeKey() {
     const c = GH.cfg(), g = LH.guessRepo();
     const o = c.owner || g.owner || 'anon', r = c.repo || g.repo || 'luhuo';
     return (o + '__' + r).toLowerCase().replace(/[^a-z0-9_]/g, '');
   }
-  const mqTopic = () => 'zhz/luhuo/wb/' + storeKey() + '/cfg';
-
+  const K = storeKey();
+  const TP = {
+    cfg: 'zhz/luhuo/wb/' + K + '/cfg',
+    prod: 'zhz/luhuo/wb/' + K + '/products',
+    set: 'zhz/luhuo/wb/' + K + '/settings',
+    ordBase: 'zhz/luhuo/orders/' + K + '/'
+  };
   function initMq() {
     if (typeof MiniMqtt === 'undefined') return;
     try {
       MQ.cli = MiniMqtt.createClient({ clientId: 'wbshop' });
       MQ.cli.on('connect', b => {
         MQ.ready = true; MQ.broker = b;
-        MQ.cli.subscribe(mqTopic());
-        renderFoot();
+        MQ.cli.subscribe(TP.cfg); MQ.cli.subscribe(TP.prod);
+        MQ.cli.subscribe(TP.set); MQ.cli.subscribe(TP.ordBase + '#');
+        renderFoot(); renderBackend();
       });
-      MQ.cli.on('close', () => { MQ.ready = false; renderFoot(); });
-      MQ.cli.on('message', (topic, msg) => {
-        if (topic !== mqTopic()) return;
-        try {
-          const obj = JSON.parse(msg);
-          if (obj && obj._v) { MQ.got = true; D.shop = mergeShop(obj); renderAll(); }
-        } catch (e) { /* 忽略脏数据 */ }
-      });
+      MQ.cli.on('close', () => { MQ.ready = false; renderFoot(); renderBackend(); });
+      MQ.cli.on('message', onMq);
     } catch (e) { console.warn('[工作台] MQTT 初始化失败', e); }
   }
-  function mqPublish(cfg) {
+  function onMq(topic, raw) {
+    let o; try { o = JSON.parse(raw); } catch (e) { return; }
+    if (!o) return;
+    if (topic === TP.cfg) { DATA.shop = mergeShop(o); MQ.got.cfg = true; renderAll(); }
+    else if (topic === TP.prod) {
+      if (o.items) { DATA.products = { categories: o.categories || DATA.products.categories, items: o.items };
+        MQ.got.prod = true; LH.LS.set(LSKEY.prod, o); renderAll(); }
+    }
+    else if (topic === TP.set) { Object.assign(DATA.settings, o); MQ.got.set = true;
+      LH.LS.set(LSKEY.set, o); renderAll(); }
+    else if (topic.indexOf(TP.ordBase) === 0) {
+      const id = topic.slice(TP.ordBase.length);
+      DATA.orders[id] = Object.assign({ code: id }, o);
+      renderHome(); renderAnalyze(); renderMsg(); renderBackend();
+    }
+  }
+  function pub(topic, obj) {
     if (!MQ.ready || !MQ.cli) return false;
-    return !!MQ.cli.publish(mqTopic(),
-      JSON.stringify(Object.assign({}, cfg, { _v: 1, _at: Date.now() })), true);
+    try { return !!MQ.cli.publish(topic, JSON.stringify(obj), true); } catch (e) { return false; }
   }
 
-  /* ================= 渲染 ================= */
-  function renderAll() {
-    const name = D.shop.shopName || D.settings.shopName || '满满小店';
-    $('#shopName').textContent = name;
-    $('#shopAvatar').innerHTML = '<span>' + esc(name.slice(0, 8)) + '</span>';
-    $('#shopScore').textContent = D.shop.score || '4.5';
-
-    $('#stGoods').textContent = (D.products.items || []).length;
-    $('#stSales').textContent = yuan(D.metrics.sales);
-    $('#stPending').textContent = D.metrics.pending;
-
-    /* 横幅 */
-    const b = D.shop.banner || {};
-    if (b.on !== false && b.text) {
-      $('#banner').classList.remove('hidden');
-      $('#bannerText').textContent = b.text;
-    } else $('#banner').classList.add('hidden');
-
-    renderMenus(); renderTabs(); renderHot(); renderStock(); renderFoot();
+  /* ---------------- 读取 ---------------- */
+  async function load() {
+    if (GH.ready()) {
+      try {
+        const [st, p, cp, sh] = await Promise.all([
+          GH.getFile('data/settings.json'), GH.getFile('data/products.json'),
+          GH.getFile('data/coupons.json'), GH.getFile('data/shop.json')
+        ]);
+        if (st) DATA.settings = Object.assign({}, LH.DEFAULT_SETTINGS, JSON.parse(st.text));
+        if (p) DATA.products = JSON.parse(p.text);
+        if (cp) DATA.coupons = JSON.parse(cp.text);
+        if (!MQ.got.cfg) DATA.shop = mergeShop(sh ? JSON.parse(sh.text) : LSget(LSKEY.cfg));
+        DATA.source = 'github'; DATA.conn = GH.cfg().owner + '/' + GH.cfg().repo;
+        applyLocalOverrides(); return;
+      } catch (e) { console.warn('[工作台] GitHub 读取失败，转本站/本地', e); }
+    }
+    const [st, p, cp] = await Promise.all([LH.loadSettings(), LH.loadProducts(), LH.loadCoupons()]);
+    DATA.settings = st; DATA.products = p; DATA.coupons = cp;
+    if (!MQ.got.cfg) DATA.shop = mergeShop(LSget(LSKEY.cfg));
+    DATA.source = LH.guessRepo().owner ? 'site' : 'local';
+    applyLocalOverrides();
+  }
+  function LSget(k, d) { try { const v = localStorage.getItem(k); return v == null ? (d || null) : JSON.parse(v); } catch (e) { return d || null; } }
+  function applyLocalOverrides() {
+    if (!MQ.got.prod) { const o = LSget(LSKEY.prod); if (o && o.items) DATA.products = { categories: o.categories || DATA.products.categories, items: o.items }; }
+    if (!MQ.got.set) { const o = LSget(LSKEY.set); if (o) Object.assign(DATA.settings, o); }
   }
 
-  /* 底部状态：实时通道（MQTT）+ 数据来源 */
-  function renderFoot() {
-    const parts = [];
-    if (MQ.ready) parts.push('<b>实时通道已连</b>（MQTT · 免 Token）');
-    else if (typeof MiniMqtt !== 'undefined') parts.push('实时通道连接中…');
-    if (D.source === 'github') parts.push('商品数据来自 GitHub <b>' + esc(D.conn) + '</b>');
-    else if (D.source === 'site') parts.push('商品数据来自本站 <b>' + esc(LH.guessRepo().owner) + '</b>（免 Token）');
-    else parts.push('商品数据：本机预览');
-    $('#connTip').innerHTML = parts.join('　·　') +
-      '　<a href="javascript:;" data-act="conn">设置 →</a>';
+  /* ---------------- 统计 ---------------- */
+  function computeMetrics() {
+    const codes = Object.keys(DATA.orders);
+    if (codes.length && DATA.shop.metrics.autoFromOrders) {
+      const today = dayStr(Date.now());
+      let sales = 0, pending = 0;
+      codes.forEach(c => {
+        const o = DATA.orders[c];
+        const st = String(o.status || 'PENDING').toUpperCase();
+        if (st === 'PAID' && dayStr(o.at || Date.now()) === today) sales += Number(o.total) || 0;
+        if (st === 'PENDING') pending++;
+      });
+      return { sales, pending, fromOrders: true };
+    }
+    return { sales: Number(DATA.shop.metrics.salesToday) || 0,
+             pending: Number(DATA.shop.metrics.pendingOrders) || 0, fromOrders: false };
   }
 
-  function renderMenus() {
-    $('#menuGrid').innerHTML = MENUS.map(m => {
-      let badge = '';
-      if (m.badge === 'pending' && D.metrics.pending > 0) badge =
-        '<span class="mi-badge">' + D.metrics.pending + '</span>';
-      return '<button class="menu-item" data-menu="' + m.key + '">' +
-        '<span class="mi-ic">' + svg(m.icon) + '</span>' + badge +
-        '<span class="mi-tx">' + esc(m.name) + '</span></button>';
-    }).join('');
+  /* ---------------- 保存 ---------------- */
+  function saveProducts(msg) {
+    const payload = { categories: DATA.products.categories, items: DATA.products.items, _at: Date.now() };
+    LH.LS.set(LSKEY.prod, payload);
+    const ok = pub(TP.prod, payload);
+    if (GH.ready()) GH.putFile('data/products.json',
+      JSON.stringify({ categories: DATA.products.categories, items: DATA.products.items }, null, 2),
+      msg || ('更新商品 ' + new Date().toLocaleString('zh-CN'))).catch(() => {});
+    return ok;
   }
+  function saveShopCfg() {
+    DATA.shop._v = 1; DATA.shop._at = Date.now();
+    LH.LS.set(LSKEY.cfg, DATA.shop);
+    const ok = pub(TP.cfg, DATA.shop);
+    if (GH.ready()) GH.putFile('data/shop.json', JSON.stringify(DATA.shop, null, 2), '更新工作台配置').catch(() => {});
+    return ok;
+  }
+  function saveSettings(patch, msg) {
+    Object.assign(DATA.settings, patch);
+    LH.LS.set(LSKEY.set, patch);
+    const ok = pub(TP.set, patch);
+    if (GH.ready()) {
+      GH.getFile('data/settings.json').then(f => {
+        const cur = f ? JSON.parse(f.text) : {};
+        return GH.putFile('data/settings.json', JSON.stringify(Object.assign(cur, patch), null, 2), msg || '更新店铺资料');
+      }).catch(() => {});
+    }
+    return ok;
+  }
+  const saveTip = ok => ok ? '已实时生效（免 Token）' : '实时通道未连接，已先存本机';
 
+  /* ================= 渲染：通用 ================= */
   function renderTabs() {
     $('#tabbar').innerHTML = TABS.map(t =>
-      '<button class="tb' + (t.key === 'home' ? ' on' : '') + '" data-tab="' + t.key + '">' +
-      svg(t.icon) + (t.dot ? '<span class="dot"></span>' : '') +
-      '<span>' + esc(t.name) + '</span></button>').join('');
+      '<button class="tb" data-tab="' + t.key + '">' + svg(t.icon) +
+      (t.dot ? '<span class="dot"></span>' : '') + '<span>' + esc(t.name) + '</span></button>').join('');
+    markTab();
+  }
+  function markTab() { $$('#tabbar .tb').forEach(b => b.classList.toggle('on', b.dataset.tab === ACTIVE)); }
+
+  function renderAll() {
+    renderHome(); renderPick(); renderAnalyze(); renderMsg(); renderFoot(); renderBackend();
+    if (ACTIVE === 'mine') renderMine();
   }
 
+  /* ================= 渲染：首页 ================= */
+  function renderHome() {
+    const name = storeName();
+    $('#abShop').textContent = name;
+    $('#shopName').textContent = name;
+    $('#shopAvatar').innerHTML = '<span>' + esc(name.slice(0, 8)) + '</span>';
+    $('#shopScore').textContent = DATA.shop.score || '4.5';
+
+    const m = computeMetrics();
+    DATA._m = m;
+    $('#stSales').textContent = yuan(m.sales);
+    $('#stPending').textContent = m.pending;
+    $('#stGoods').textContent = (DATA.products.items || []).length;
+
+    const b = DATA.shop.banner || {};
+    if (b.on !== false && b.text) { $('#banner').classList.remove('hidden'); $('#bannerText').textContent = b.text; }
+    else $('#banner').classList.add('hidden');
+
+    renderMenus(); renderHot(); renderStock(); renderTabs();
+  }
+  function renderMenus() {
+    const m = computeMetrics();
+    $('#menuGrid').innerHTML = MENUS.map(x => {
+      let badge = '';
+      if (x.badge === 'pending' && m.pending > 0) badge = '<span class="mi-badge">' + m.pending + '</span>';
+      return '<button class="menu-item" data-menu="' + x.key + '">' +
+        '<span class="mi-ic">' + svg(x.icon) + '</span>' + badge +
+        '<span class="mi-tx">' + esc(x.name) + '</span></button>';
+    }).join('');
+  }
   function renderHot() {
-    const cfg = D.shop.hot || {};
-    const lim = Number(cfg.limit) || 3;
+    const cfg = DATA.shop.hot || {}, lim = Number(cfg.limit) || 3;
     $('#hotTitle').textContent = cfg.title || '爆款榜单';
     $('#hotTag').textContent = cfg.tag || '热门';
-    const list = onItems().slice()
-      .sort((a, b) => salesNum(b) - salesNum(a) || (Number(b.stock) || 0) - (Number(a.stock) || 0))
-      .slice(0, lim);
-    if (!list.length) { $('#hotRow').innerHTML = '<div class="empty-tip">还没有上架商品，去「商品管理」上架吧～</div>'; return; }
-    $('#hotRow').innerHTML = list.map((it, i) => {
+    const list = onItems().slice().sort((a, b) => salesNum(b) - salesNum(a) || (Number(b.stock) || 0) - (Number(a.stock) || 0)).slice(0, lim);
+    $('#hotRow').innerHTML = list.length ? list.map((it, i) => {
       const sn = salesNum(it);
       const sub = sn > 0 ? ('销量' + fmtW(sn)) : ('库存' + (Number(it.stock) || 0));
       return '<div class="goods" data-id="' + esc(it.id || '') + '">' +
         '<div class="thumb"><span class="rank">TOP' + (i + 1) + '</span>' +
-        (it.tag ? '<span class="ship">' + esc(it.tag) + '</span>' : '') +
-        thumbHTML(it) + '</div>' +
+        (it.tag ? '<span class="ship">' + esc(it.tag) + '</span>' : '') + thumbHTML(it) + '</div>' +
         '<div class="nm">' + esc(it.name || '') + '</div>' +
-        '<div class="pr">' + yuan(it.price) + '</div>' +
-        '<div class="sl">' + esc(sub) + '</div></div>';
-    }).join('');
+        '<div class="pr">' + yuan(it.price) + '</div><div class="sl">' + esc(sub) + '</div></div>';
+    }).join('') : '<div class="empty-tip">还没有上架商品，去「选品」上架吧～</div>';
   }
-
   function renderStock() {
-    const cfg = D.shop.stock || {};
-    const lim = Number(cfg.limit) || 1;
+    const cfg = DATA.shop.stock || {}, lim = Number(cfg.limit) || 1;
     $('#stockTitle').textContent = cfg.title || '精选现货';
     $('#stockTag').textContent = cfg.tag || 'New';
     const list = onItems().slice(0, lim);
-    if (!list.length) { $('#stockRow').innerHTML = '<div class="empty-tip">暂无可推荐的现货</div>'; return; }
-    $('#stockRow').innerHTML = list.map(it => {
+    $('#stockRow').innerHTML = list.length ? list.map(it => {
       const views = Number(it.views || it.look || 0) || 0;
       let meta = '库存' + fmtW(Number(it.stock) || 0);
       if (salesNum(it)) meta += '　销量' + fmtW(salesNum(it));
       return '<div class="stock" data-id="' + esc(it.id || '') + '">' +
         '<div class="thumb">' + thumbHTML(it) + '</div>' +
         '<div class="info"><div class="nm">' + esc(it.name || '') + '</div>' +
-        '<div class="meta">' + esc(meta) + '</div>' +
-        '<div class="bottom"><div class="price">供货价<b>' + yuan(it.price) + '</b></div>' +
+        '<div class="meta">' + esc(meta) + '</div><div class="bottom">' +
+        '<div class="price">供货价<b>' + yuan(it.price) + '</b></div>' +
         '<div class="views">' + (views ? ('超' + fmtW(views) + '人浏览') : '') + '</div></div></div></div>';
-    }).join('');
+    }).join('') : '<div class="empty-tip">暂无可推荐的现货</div>';
+  }
+
+  /* ================= 渲染：选品 ================= */
+  function pickList() {
+    let arr = (DATA.products.items || []).slice();
+    const q = PICK.q.trim();
+    if (q) arr = arr.filter(it => (it.name + ' ' + (it.cat || '')).toLowerCase().indexOf(q.toLowerCase()) >= 0);
+    if (PICK.cat && PICK.cat !== '全部') arr = arr.filter(it => (it.cat || '未分类') === PICK.cat);
+    const s = PICK.sort;
+    if (s === '销量') arr.sort((a, b) => salesNum(b) - salesNum(a));
+    else if (s === '价格↑') arr.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
+    else if (s === '价格↓') arr.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
+    else if (s === '库存') arr.sort((a, b) => (Number(a.stock) || 0) - (Number(b.stock) || 0));
+    return arr;
+  }
+  function renderPick() {
+    const cats = ['全部'].concat(DATA.products.categories || []);
+    $('#pkCats').innerHTML = cats.map(c =>
+      '<button class="cc' + (c === PICK.cat ? ' on' : '') + '" data-cat="' + esc(c) + '">' + esc(c) + '</button>').join('');
+    const sorts = ['默认', '销量', '价格↑', '价格↓', '库存'];
+    $('#pkSort').innerHTML = sorts.map(s =>
+      '<button class="sc' + (s === PICK.sort ? ' on' : '') + '" data-sort="' + s + '">' + s + '</button>').join('');
+    const list = pickList();
+    const on = list.filter(i => i.on !== false).length;
+    $('#pkSum').textContent = '共 ' + list.length + ' 个（在售 ' + on + ' · 下架 ' + (list.length - on) + '）';
+    $('#pkList').innerHTML = list.length ? list.map(it =>
+      '<div class="pk-row' + (it.on === false ? ' off' : '') + '" data-id="' + esc(it.id || '') + '">' +
+      '<div class="t">' + thumbHTML(it) + '</div>' +
+      '<div class="m"><b>' + esc(it.name || '') + '</b>' +
+      '<small>' + esc(it.cat || '未分类') + ' · 库存' + (Number(it.stock) || 0) +
+      ' · 销量' + fmtW(salesNum(it)) + (it.tag ? ' <span class="pk-tag">' + esc(it.tag) + '</span>' : '') + '</small>' +
+      '<div class="pz">' + yuan(it.price) + (Number(it.origPrice) ? '<s>' + yuan(it.origPrice) + '</s>' : '') + '</div></div>' +
+      '<div class="acts"><button class="pri" data-act="edit">改价</button>' +
+      '<button data-act="toggle">' + (it.on === false ? '上架' : '下架') + '</button></div></div>'
+    ).join('') : '<div class="empty-tip">没有符合条件的商品，换个关键词或分类试试～</div>';
+  }
+
+  /* ================= 渲染：分析 ================= */
+  const bar = (label, right, val, max, cls) => '<div class="bar ' + (cls || '') + '"><div class="bl"><span>' +
+    esc(label) + '</span><b>' + esc(right) + '</b></div><div class="bt"><div class="bf" style="width:' +
+    (max ? Math.max(3, Math.round(val / max * 100)) : 0) + '%"></div></div></div>';
+  function renderAnalyze() {
+    const items = DATA.products.items || [];
+    const live = items.filter(i => i.on !== false).length;
+    const off = items.length - live;
+    const cats = DATA.products.categories || [];
+    const avg = items.length ? items.reduce((a, b) => a + (Number(b.price) || 0), 0) / items.length : 0;
+    const stock = items.reduce((a, b) => a + (Number(b.stock) || 0), 0);
+    const sales = items.reduce((a, b) => a + salesNum(b), 0);
+    const m = DATA._m || computeMetrics();
+
+    $('#anStats').innerHTML = [
+      ['在售商品', live, 'b'], ['已下架', off, ''], ['分类数', cats.length, ''],
+      ['平均价', yuan(avg), 'o'], ['总库存', fmtW(stock), 'g'], ['总销量', fmtW(sales), 'r']
+    ].map(x => '<div class="g2"><div class="n ' + x[2] + '">' + esc(x[1]) + '</div><div class="l">' + x[0] + '</div></div>').join('');
+
+    /* 分类商品数 */
+    const catCount = {};
+    items.forEach(i => { const c = i.cat || '未分类'; catCount[c] = (catCount[c] || 0) + 1; });
+    const cArr = Object.keys(catCount).map(k => [k, catCount[k]]).sort((a, b) => b[1] - a[1]);
+    const cMax = cArr.length ? cArr[0][1] : 0;
+    $('#anCats').innerHTML = cArr.length ? cArr.map(x => bar(x[0], x[1] + ' 个', x[1], cMax)).join('') : '<div class="empty-sm">还没有商品</div>';
+
+    /* 销量 TOP5 */
+    const sArr = items.slice().sort((a, b) => salesNum(b) - salesNum(a)).slice(0, 5);
+    const sMax = sArr.length ? salesNum(sArr[0]) : 0;
+    $('#anSales').innerHTML = (sMax ? sArr.map(x => bar(x.name, fmtW(salesNum(x)), salesNum(x), sMax, 'o')).join('')
+      : '<div class="empty-sm">还没有销量数据</div>');
+
+    /* 价格区间 */
+    const buckets = [[0, 10, '10 元以下'], [10, 30, '10 ~ 30 元'], [30, 50, '30 ~ 50 元'], [50, 100, '50 ~ 100 元'], [100, Infinity, '100 元以上']];
+    const pb = buckets.map(b => [b[2], items.filter(i => { const p = Number(i.price) || 0; return p >= b[0] && p < b[1]; }).length]);
+    const pMax = Math.max.apply(null, pb.map(x => x[1]).concat([1]));
+    $('#anPrice').innerHTML = pb.map(x => bar(x[0], x[1] + ' 个', x[1], pMax, 'g')).join('');
+
+    /* 库存预警 */
+    const low = items.filter(i => (Number(i.stock) || 0) <= 5 && i.on !== false).sort((a, b) => (Number(a.stock) || 0) - (Number(b.stock) || 0));
+    $('#anStock').innerHTML = low.length ? low.map(i =>
+      '<div class="bar r"><div class="bl"><span>' + esc(i.name) + '</span><b>剩 ' + (Number(i.stock) || 0) + '</b></div>' +
+      '<div class="bt"><div class="bf" style="width:' + Math.max(4, Math.min(100, (Number(i.stock) || 0) / 5 * 100)) + '%"></div></div></div>').join('')
+      : '<div class="empty-sm">库存都还充足 ✅</div>';
+
+    /* 顶部订单概览 */
+    $('#anRefresh').onclick = () => { renderAnalyze(); LH.toast('已刷新'); };
+  }
+
+  /* ================= 渲染：消息 ================= */
+  let SEG = 'notice';
+  function renderMsg() {
+    /* 通知（根据数据自动生成） */
+    const m = DATA._m || computeMetrics();
+    const items = DATA.products.items || [];
+    const low = items.filter(i => (Number(i.stock) || 0) <= 5 && i.on !== false);
+    const off = items.filter(i => i.on === false);
+    const noImg = items.filter(i => !i.img && i.on !== false);
+    const orders = Object.keys(DATA.orders).length;
+    const alerts = [];
+    if (orders) alerts.push(['🧾', '待处理订单 ' + m.pending + ' 单', '有新订单进来，去「订单管理」看看', 'orders', m.pending ? 'warn' : '']);
+    if (low.length) alerts.push(['⚠️', '库存不足 ' + low.length + ' 个商品', low.slice(0, 3).map(i => i.name).join('、') + ' 等，建议补货', 'pick', 'warn']);
+    if (off.length) alerts.push(['📦', '已下架 ' + off.length + ' 个商品', off.slice(0, 3).map(i => i.name).join('、') + ' 等', 'pick', '']);
+    if (noImg.length) alerts.push(['🖼️', noImg.length + ' 个商品还没配图', '有图点击率更高哦', 'pick', '']);
+    if (!DATA.settings.phone && !DATA.settings.wechat) alerts.push(['📞', '还没填联系方式', '顾客下单后找不到你，建议去「我的」填上', 'mine', 'bad']);
+    if (!alerts.length) alerts.push(['✅', '一切正常', '暂时没有需要处理的事项', '', '']);
+
+    $('#msgNotice').innerHTML = alerts.map(a =>
+      '<div class="msg-item ' + a[4] + '"' + (a[3] ? ' data-goto="' + a[3] + '"' : '') + '>' +
+      '<div class="mi">' + a[0] + '</div><div class="mt"><b>' + esc(a[1]) + '</b><small>' + esc(a[2]) + '</small></div></div>').join('');
+
+    /* 聊天 + 话术 */
+    const replies = DATA.shop.replies || [];
+    $('#msgChat').innerHTML =
+      '<div class="msg-item" data-href="chat-admin.html"><div class="mi">💬</div><div class="mt"><b>顾客聊天</b>' +
+      '<small>和顾客站内私聊（免登录，走实时通道）</small></div></div>' +
+      '<div class="v-title" style="padding:14px 2px 6px"><h2 style="font-size:14.5px">常用话术</h2>' +
+      '<button class="mini go" id="rpAdd">＋ 添加</button></div>' +
+      (replies.length ? replies.map((r, i) =>
+        '<div class="copy-chip"><span>' + esc(r) + '</span><button data-copy="' + i + '">复制</button>' +
+        '<button data-delr="' + i + '" style="color:#e5484d">删</button></div>').join('')
+        : '<div class="empty-sm">还没有话术，点「＋ 添加」存几句常用的</div>');
+
+    /* 公告 */
+    $('#msgBoard').innerHTML =
+      '<div class="field"><label>店铺公告（顾客端首页会显示）</label>' +
+      '<textarea id="bd_notice" style="min-height:110px" placeholder="例如：每天 17:00 前下单，市区当天送到。">' +
+      esc(DATA.settings.notice || '') + '</textarea></div>' +
+      '<button class="btn-primary btn-block" id="bd_save">保存公告（免 Token）</button>' +
+      '<div class="hint" style="font-size:11.5px;color:#9aa0ab;margin-top:8px">留空表示不显示公告。</div>';
+
+    bindMsg();
+  }
+  function bindMsg() {
+    $('#msgNotice').onclick = e => { const c = e.target.closest('[data-goto]'); if (c) switchTab(c.dataset.goto); };
+    $('#msgChat').onclick = e => {
+      const h = e.target.closest('[data-href]');
+      if (h && !e.target.closest('button')) { location.href = h.dataset.href; return; }
+      const cp = e.target.closest('[data-copy]');
+      if (cp) { LH.copyText(DATA.shop.replies[Number(cp.dataset.copy)] || '').then(() => LH.toast('已复制')); return; }
+      const dl = e.target.closest('[data-delr]');
+      if (dl) { DATA.shop.replies.splice(Number(dl.dataset.delr), 1); saveShopCfg(); renderMsg(); return; }
+      if (e.target.closest('#rpAdd')) {
+        const t = prompt('输入一句常用话术：');
+        if (t && t.trim()) { DATA.shop.replies.push(t.trim()); saveShopCfg(); renderMsg(); LH.toast(saveTip(MQ.ready)); }
+      }
+    };
+    const bs = $('#bd_save');
+    if (bs) bs.onclick = () => { const v = $('#bd_notice').value; LH.LS.set('lh_wb_shop', DATA.shop);
+      saveSettings({ notice: v }, '更新店铺公告'); LH.toast(saveTip(MQ.ready)); };
+  }
+  function switchSeg(s) {
+    SEG = s;
+    $$('#msgSeg .seg-b').forEach(b => b.classList.toggle('on', b.dataset.seg === s));
+    $('#msgNotice').classList.toggle('hidden', s !== 'notice');
+    $('#msgChat').classList.toggle('hidden', s !== 'chat');
+    $('#msgBoard').classList.toggle('hidden', s !== 'board');
+  }
+
+  /* ================= 渲染：我的 ================= */
+  function renderMine() {
+    const s = DATA.settings, w = DATA.shop;
+    const set = (id, v) => { const el = $(id); if (el && document.activeElement !== el) el.value = v == null ? '' : v; };
+    const ck = (id, v) => { const el = $(id); if (el) el.checked = !!v; };
+    set('#me_name', w.shopName || s.shopName); set('#me_slogan', s.slogan);
+    set('#me_hours', s.hours); set('#me_phone', s.phone || (w.service || {}).phone);
+    set('#me_wechat', s.wechat || (w.service || {}).wechat);
+    set('#me_score', w.score); set('#me_banner', (w.banner || {}).text);
+    ck('#me_bannerOn', (w.banner || {}).on !== false);
+    ck('#me_auto', (w.metrics || {}).autoFromOrders !== false);
+    set('#me_sales', (w.metrics || {}).salesToday); set('#me_pending', (w.metrics || {}).pendingOrders);
+    renderBackend();
+  }
+  function renderBackend() {
+    const el = $('#me_backend'); if (!el) return;
+    const rows = [
+      ['实时通道（MQTT）', MQ.ready ? '<b class="dot-on">已连接</b>' : '<b class="dot-wait">连接中…</b>'],
+      ['通道地址', esc(MQ.broker || '—')],
+      ['是否需要 Token', '<b class="dot-on">不需要</b>'],
+      ['商品数据来源', DATA.source === 'github' ? 'GitHub 仓库' : (DATA.source === 'site' ? '本站 data/*.json' : '本机')],
+      ['GitHub 写入', GH.ready() ? '<b class="dot-on">已配置（可选）</b>' : '<b class="dot-off">未配置（不需要）</b>'],
+      ['在售 / 全部商品', onItems().length + ' / ' + (DATA.products.items || []).length],
+      ['收到的订单数', Object.keys(DATA.orders).length]
+    ];
+    el.innerHTML = rows.map(r => '<div class="sl-row"><span>' + r[0] + '</span><span>' + r[1] + '</span></div>').join('');
+  }
+
+  /* ================= 底部状态 ================= */
+  function renderFoot() {
+    const parts = [];
+    parts.push(MQ.ready ? '<b>实时通道已连</b>（MQTT · 免 Token）' : (typeof MiniMqtt !== 'undefined' ? '实时通道连接中…' : ''));
+    if (DATA.source === 'github') parts.push('商品来自 GitHub <b>' + esc(DATA.conn) + '</b>');
+    else if (DATA.source === 'site') parts.push('商品来自本站（免 Token）');
+    else parts.push('商品数据：本机');
+    $('#connTip').innerHTML = parts.filter(Boolean).join('　·　') +
+      '　<a href="javascript:;" data-act="conn">设置 →</a>';
   }
 
   /* ================= 抽屉 ================= */
@@ -285,259 +511,244 @@
   }
   function closeSheet() { $('#mask').classList.remove('on'); $('#sheet').classList.remove('on'); }
 
-  /* ---- 更多菜单 ---- */
-  function moreSheet() {
-    const rows = [
-      ['refresh', '🔄 从 GitHub 重新拉取数据'],
-      ['conn', '🔗 ' + (GH.ready() ? 'GitHub 连接设置（已连接）' : '连接 GitHub 后端')],
-      ['setting', '⚙️ 工作台设置'],
-      ['index', '🛒 打开顾客端首页'],
-      ['admin', '🖥️ 打开电脑版后台'],
-      ['orders', '🧾 打开订单后台']
-    ];
-    openSheet('更多', rows.map(r => '<button class="menu-item" style="flex-direction:row;gap:10px;width:100%;padding:12px 2px;border-bottom:1px solid #f0eef2;justify-content:flex-start" data-more-act="' + r[0] + '"><span style="font-size:15px">' + r[1] + '</span></button>').join(''), () => {
-      $$('#sheetBody [data-more-act]').forEach(b => b.onclick = () => onMoreAct(b.dataset.moreAct));
-    });
-  }
-  async function onMoreAct(a) {
-    if (a === 'refresh') { closeSheet(); await refreshData(); return; }
-    if (a === 'conn') return connSheet();
-    if (a === 'setting') return settingSheet();
-    if (a === 'index') { location.href = 'index.html'; return; }
-    if (a === 'admin') { location.href = 'admin.html'; return; }
-    if (a === 'orders') { location.href = 'orders.html'; return; }
-  }
-
-  async function refreshData() {
-    LH.toast('正在拉取…');
-    await load();
-    D.metrics = await computeMetrics();
-    renderAll();
-    LH.toast(D.source === 'github' ? '已同步 GitHub 最新数据' : '未连接 GitHub，显示本机数据');
-  }
-
-  /* ---- 连接 GitHub ---- */
-  function connSheet() {
-    const c = GH.cfg();
-    openSheet('GitHub 后端',
-      '<div class="conn-chips"><span class="chip">读数据免 Token</span><span class="chip">MQTT 实时通道免 Token</span><span class="chip">Token 仅用于写回仓库</span></div>' +
-      '<details class="help-tut" style="background:#eefbf3;border:1px solid #d6f0e0;border-radius:12px;padding:10px 12px;margin-bottom:14px">' +
-      '<summary style="cursor:pointer;font-weight:700;font-size:13.5px;color:#12703c">✅ 这里其实可以完全不填 Token</summary>' +
-      '<p style="font-size:12.5px;line-height:1.95;color:#3f6b52;margin:9px 0 2px">' +
-      '商品、价格、店名这些都存在你 GitHub 仓库的 <code>data/*.json</code> 里，网页是<b>直接读文件</b>的，不需要任何令牌；<br>' +
-      '工作台自己的设置（横幅文案、体验分等）走公共 MQTT 实时通道，同样免令牌（和聊天页同一套 broker）。<br>' +
-      '只有想把配置<b>长期写进仓库文件</b>时才需要 Token，属于可选项。</p>' +
-      '</details>' +
-      '<details class="help-tut" open style="background:#f7f8fb;border:1px solid #eceff5;border-radius:12px;padding:10px 12px;margin-bottom:14px">' +
-      '<summary style="cursor:pointer;font-weight:700;font-size:13.5px">（可选）怎么拿到 GitHub Token？（30 秒）</summary>' +
-      '<ol style="font-size:12.5px;line-height:1.95;color:#5a6270;margin:9px 0 6px;padding-left:20px">' +
-      '<li>打开 <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" style="color:#2f7bf6">github.com/settings/personal-access-tokens/new</a>（先登录你的 GitHub）</li>' +
-      '<li>Token name 随便填，例如 <code>luhuo-workbench</code>；Expiration 选 90 天或自定义</li>' +
-      '<li>Repository access 选 <b>Only select repositories</b> → 勾选你这个店铺仓库</li>' +
-      '<li>Permissions → Repository permissions → 找到 <b>Contents</b> 选 <b>Read and write</b></li>' +
-      '<li>点 <b>Generate token</b>，复制以 <code>github_pat_</code> 开头的那串字符，粘到下面的输入框</li>' +
-      '</ol>' +
-      '<p style="font-size:12px;color:#8a6100;background:#fdf5e3;padding:8px 10px;border-radius:8px;margin:8px 0 2px">' +
-      'Token 相当于你这间仓库的钥匙，只存在你自己手机里，不会上传。别把它发/截图给别人；过期了重新建一个即可。</p>' +
-      '</details>' +
-      '<div class="field"><label>owner（用户名/组织）</label><input type="text" id="g_owner" value="' + esc(c.owner) + '" placeholder="例如 sandmanklepfer-crypto"></div>' +
-      '<div class="field"><label>repo（仓库名）</label><input type="text" id="g_repo" value="' + esc(c.repo) + '" placeholder="例如 0.5B-AGI-Lab"></div>' +
-      '<div class="field"><label>分支</label><input type="text" id="g_branch" value="' + esc(c.branch || 'gh-pages') + '"></div>' +
-      '<div class="field"><label>子目录（可留空）</label><input type="text" id="g_path" value="' + esc(c.path || '') + '"></div>' +
-      '<div class="field"><label>Token（Contents: Read and write）</label><input type="password" id="g_token" value="' + esc(c.token) + '" placeholder="github_pat_..."></div>' +
-      '<div class="row-actions"><button class="btn-primary" id="g_save" style="flex:1">保存并测试</button>' +
-      '<button class="btn-ghost" id="g_clear">断开</button></div>' +
-      '<div class="status info" id="g_msg" style="margin-top:10px">Token 只存你这台手机，不会上传。</div>',
+  /* ---- 商品编辑 ---- */
+  function productSheet(id) {
+    const isNew = !id;
+    const it = isNew ? { id: '', name: '', cat: (DATA.products.categories || [])[0] || '', price: 0,
+      origPrice: 0, unit: '份', stock: 0, on: true, tag: '', desc: '', img: '' }
+      : JSON.parse(JSON.stringify((DATA.products.items || []).find(x => String(x.id) === String(id)) || {}));
+    if (!isNew && !it.id) return;
+    const cats = DATA.products.categories || [];
+    openSheet(isNew ? '新增商品' : '编辑商品',
+      '<div class="field"><label>名称</label><input type="text" id="f_name" value="' + esc(it.name || '') + '" placeholder="例如 卤猪蹄"></div>' +
+      '<div class="field"><label>分类</label><select id="f_cat">' +
+      cats.map(c => '<option' + (c === it.cat ? ' selected' : '') + '>' + esc(c) + '</option>').join('') +
+      '</select></div>' +
+      '<div class="row2"><div class="field"><label>售价</label><input type="number" id="f_price" step="0.01" value="' + (Number(it.price) || 0) + '"></div>' +
+      '<div class="field"><label>划线原价（0 不显示）</label><input type="number" id="f_orig" step="0.01" value="' + (Number(it.origPrice) || 0) + '"></div></div>' +
+      '<div class="row2"><div class="field"><label>单位</label><input type="text" id="f_unit" value="' + esc(it.unit || '') + '" placeholder="份 / 只"></div>' +
+      '<div class="field"><label>库存</label><input type="number" id="f_stock" value="' + (Number(it.stock) || 0) + '"></div></div>' +
+      '<div class="row2"><div class="field"><label>标签（可空）</label><input type="text" id="f_tag" value="' + esc(it.tag || '') + '" placeholder="招牌 / 微辣"></div>' +
+      '<div class="field"><label>图片地址（可空）</label><input type="text" id="f_img" value="' + esc(it.img || '') + '" placeholder="img/xxx.jpg"></div></div>' +
+      '<div class="field"><label>描述</label><textarea id="f_desc" placeholder="一句话卖点">' + esc(it.desc || '') + '</textarea></div>' +
+      '<label class="sw-row"><span>上架销售</span><input type="checkbox" class="sw" id="f_on"' + (it.on === false ? '' : ' checked') + '></label>' +
+      '<div class="row-actions" style="margin-top:6px"><button class="btn-primary" id="f_save" style="flex:1">保存（免 Token）</button>' +
+      (isNew ? '' : '<button class="btn-ghost" id="f_del" style="color:#e5484d">删除</button>') + '</div>',
       () => {
-        $('#g_save').onclick = async () => {
-          GH.saveCfg({
-            owner: $('#g_owner').value.trim(), repo: $('#g_repo').value.trim(),
-            branch: $('#g_branch').value.trim() || 'gh-pages',
-            path: $('#g_path').value.trim(), token: $('#g_token').value.trim()
-          });
-          const msg = $('#g_msg');
-          if (!GH.ready()) { msg.className = 'status err'; msg.textContent = '信息没填全'; return; }
-          msg.className = 'status info'; msg.textContent = '测试连接中…';
-          try {
-            const r = await GH.testAuth();
-            msg.className = 'status ok';
-            msg.textContent = '✅ 连接成功：' + r.user + ' → ' + (r.repo || '(未指定仓库)');
-            await refreshData();
-            setTimeout(closeSheet, 700);
-          } catch (e) {
-            msg.className = 'status err';
-            msg.textContent = '连接失败：' + e.message + '（确认 Token 权限勾了 Contents: Read and write）';
-          }
+        $('#f_save').onclick = () => {
+          const g = k => $('#' + k).value;
+          const o = { id: it.id || ('p_' + Date.now().toString(36)), name: g('f_name').trim(),
+            cat: g('f_cat'), price: Number(g('f_price')) || 0, origPrice: Number(g('f_orig')) || 0,
+            unit: g('f_unit').trim(), stock: Number(g('f_stock')) || 0, tag: g('f_tag').trim(),
+            desc: g('f_desc').trim(), img: g('f_img').trim(), on: $('#f_on').checked };
+          if (!o.name) { LH.toast('名称不能为空'); return; }
+          if (isNew) DATA.products.items.push(o);
+          else { const i = DATA.products.items.findIndex(x => String(x.id) === String(it.id)); DATA.products.items[i] = o; }
+          const ok = saveProducts((isNew ? '新增商品 ' : '改价 ') + o.name);
+          closeSheet(); renderAll(); LH.toast(isNew ? ('已新增 · ' + saveTip(ok)) : ('已改价 · ' + saveTip(ok)));
         };
-        $('#g_clear').onclick = () => { GH.clearCfg(); closeSheet(); LH.toast('已断开，转为本机模式'); load().then(async () => { D.metrics = await computeMetrics(); renderAll(); }); };
+        if ($('#f_del')) $('#f_del').onclick = () => {
+          if (!confirm('确定删除「' + it.name + '」？')) return;
+          DATA.products.items = DATA.products.items.filter(x => String(x.id) !== String(it.id));
+          const ok = saveProducts('删除商品 ' + it.name); closeSheet(); renderAll(); LH.toast('已删除 · ' + saveTip(ok));
+        };
       });
   }
 
-  /* ---- 工作台设置（写回 data/shop.json） ---- */
-  function settingSheet() {
-    const s = D.shop;
-    openSheet('工作台设置',
-      '<div class="field"><label>店铺名（留空用店铺数据里的店名）</label><input type="text" id="s_name" value="' + esc(s.shopName || '') + '" placeholder="' + esc(D.settings.shopName || '满满小店') + '"></div>' +
-      '<div class="field"><label>商家体验分</label><input type="text" id="s_score" value="' + esc(s.score || '4.5') + '"></div>' +
-      '<div class="field"><label>活动横幅文案</label><input type="text" id="s_banner" value="' + esc(s.banner.text || '') + '"></div>' +
-      '<label class="opt" style="display:flex;gap:8px;align-items:center;font-size:13.5px;margin:2px 0 12px"><input type="checkbox" id="s_bannerOn" ' + (s.banner.on !== false ? 'checked' : '') + '> 显示活动横幅</label>' +
-      '<label class="opt" style="display:flex;gap:8px;align-items:center;font-size:13.5px;margin:2px 0 12px"><input type="checkbox" id="s_auto" ' + (s.metrics.autoFromOrders ? 'checked' : '') + '> 有 data/orders.json 时按真实订单统计</label>' +
-      '<div class="field"><label>今日销售额（手填，未接订单时用）</label><input type="number" id="s_sales" step="0.01" value="' + (Number(s.metrics.salesToday) || 0) + '"></div>' +
-      '<div class="field"><label>待处理订单（手填，未接订单时用）</label><input type="number" id="s_pending" value="' + (Number(s.metrics.pendingOrders) || 0) + '"></div>' +
-      '<div class="field"><label>客服电话</label><input type="text" id="s_phone" value="' + esc(s.service.phone || D.settings.phone || '') + '"></div>' +
-      '<div class="field"><label>客服微信</label><input type="text" id="s_wechat" value="' + esc(s.service.wechat || D.settings.wechat || '') + '"></div>' +
-      '<div class="row-actions"><button class="btn-primary" id="s_mq" style="flex:1">保存（免 Token）</button>' +
-      '<button class="btn-ghost" id="s_gh">写入 GitHub</button>' +
-      '<button class="btn-ghost" id="s_local">仅本机</button></div>' +
-      '<div class="hint" style="font-size:11.5px;color:#8a8f99;margin-top:8px">' +
-      '「保存（免 Token）」走公共 MQTT 实时通道（和聊天同一套），<b>立即生效、跨设备可见、不需要令牌</b>；<br>' +
-      '「写入 GitHub」需要 Token，会把配置写进仓库 <code>data/shop.json</code> 长期保存（可选）。</div>',
-      () => {
-        $('#s_mq').onclick = () => saveSetting('mq');
-        $('#s_gh').onclick = () => saveSetting('gh');
-        $('#s_local').onclick = () => saveSetting('local');
-      });
-  }
-
-  function collectSetting() {
-    const g = id => { const el = $('#' + id); return el ? el.value : ''; };
-    const ck = id => { const el = $('#' + id); return el ? el.checked : false; };
-    const s = D.shop;
-    s.shopName = g('s_name').trim();
-    s.score = g('s_score').trim() || '4.5';
-    s.banner.text = g('s_banner').trim();
-    s.banner.on = ck('s_bannerOn');
-    s.metrics.autoFromOrders = ck('s_auto');
-    s.metrics.salesToday = Number(g('s_sales')) || 0;
-    s.metrics.pendingOrders = Number(g('s_pending')) || 0;
-    s.service.phone = g('s_phone').trim();
-    s.service.wechat = g('s_wechat').trim();
-    return s;
-  }
-
-  async function saveSetting(mode) {
-    const s = collectSetting();
-    LH.LS.set('lh_wb_shop', s);
-    const oks = [];
-    if (mode === 'mq') {
-      if (mqPublish(s)) oks.push('✅ 已实时生效（免 Token）');
-      else { oks.push('实时通道还没连上，已先存本机'); LH.LS.set('lh_wb_shop', s); }
-    } else if (mode === 'gh') {
-      if (mqPublish(s)) oks.push('已实时生效');
-      if (!GH.ready()) oks.push('未连接 GitHub，跳过写入');
-      else {
-        try {
-          await GH.putFile('data/shop.json', JSON.stringify(s, null, 2),
-            '更新工作台配置 ' + new Date().toLocaleString('zh-CN'));
-          oks.push('✅ 已写入 GitHub');
-        } catch (e) { oks.push('⚠ GitHub 写入失败：' + e.message); }
-      }
-    } else {
-      oks.push('已存本机');
+  /* ---- 订单列表 ---- */
+  function orderSheet() {
+    const codes = Object.keys(DATA.orders).sort((a, b) => (DATA.orders[b].at || 0) - (DATA.orders[a].at || 0));
+    if (!codes.length) {
+      openSheet('订单管理',
+        '<div class="empty-tip" style="font-size:13px;line-height:1.9">还没有收到订单。<br>顾客在店铺首页下单后，会通过实时通道（MQTT）自动出现在这里，<b>不需要任何服务器/Token</b>。</div>' +
+        '<div class="row-actions" style="margin-top:12px"><a class="btn-primary" href="orders.html" style="flex:1;text-align:center;text-decoration:none">打开高级订单后台</a></div>');
+      return;
     }
-    LH.toast(oks.join('；'));
-    D.metrics = await computeMetrics();
-    renderAll();
-    closeSheet();
+    const rows = codes.map(c => {
+      const o = DATA.orders[c];
+      const st = String(o.status || 'PENDING').toUpperCase();
+      const tag = st === 'PAID' ? '<span class="pk-tag" style="background:#e6f7ee;color:#1fae5f">已支付</span>'
+        : '<span class="pk-tag" style="background:#fff4e8;color:#c98a00">待处理</span>';
+      const its = (o.items || []).map(i => esc(i.name) + '×' + (i.qty || 1)).join('、');
+      return '<div class="msg-item" data-oid="' + esc(c) + '"><div class="mi">🧾</div><div class="mt">' +
+        '<b>' + esc(o.name || '顾客') + ' ' + tag + '</b>' +
+        '<small>' + esc(its || '(无商品明细)') + '<br>' + esc(o.phone || '') + '　' + esc(o.address || '') +
+        '<br>合计 <b style="color:#f5333f">' + yuan(o.total) + '</b>　' + esc(o.want || '') + '</small></div></div>';
+    }).join('');
+    openSheet('订单管理',
+      '<div class="pk-sum" style="padding:0 0 8px">共 ' + codes.length + ' 单（待处理 ' + computeMetrics().pending + '）</div>' + rows,
+      () => {
+        $('#sheetBody').onclick = e => {
+          const c = e.target.closest('[data-oid]'); if (!c) return;
+          const o = DATA.orders[c.dataset.oid];
+          const st = String(o.status || 'PENDING').toUpperCase();
+          if (st !== 'PAID') { o.status = 'PAID'; pub(TP.ordBase + c.dataset.oid, o);
+            renderHome(); renderAnalyze(); renderMsg(); orderSheet(); LH.toast('已标记为已支付'); }
+        };
+      });
   }
 
-  /* ---- 联系客服 ---- */
+  /* ---- 其他抽屉 ---- */
+  function scoreSheet() {
+    const m = DATA._m || computeMetrics();
+    openSheet('商家体验分',
+      '<div style="text-align:center;padding:6px 0 2px"><div class="big-num">' + esc(DATA.shop.score || '4.5') + '</div>' +
+      '<div style="font-size:12.5px;color:#8a8f99">综合分（满分 5.0）</div></div>' +
+      '<div class="tip">体验分由「商品质量 · 服务态度 · 发货速度」决定。按时送达、及时回消息就能涨分。</div>' +
+      '<div class="stat-list" style="margin-top:10px"><div class="sl-row"><span>在售商品</span><b>' + onItems().length + '</b></div>' +
+      '<div class="sl-row"><span>收到订单</span><b>' + Object.keys(DATA.orders).length + '</b></div>' +
+      '<div class="sl-row"><span>待处理</span><b>' + m.pending + '</b></div></div>' +
+      '<div class="row-actions" style="margin-top:12px"><button class="btn-primary" id="sc_set" style="flex:1">改分数</button>' +
+      '<button class="btn-ghost" id="sc_order">看订单</button></div>',
+      () => { $('#sc_set').onclick = () => { closeSheet(); switchTab('mine'); setTimeout(() => $('#me_score').focus(), 260); };
+        $('#sc_order').onclick = orderSheet; });
+  }
+  function soonSheet(name) {
+    openSheet(name,
+      '<div class="tip" style="font-size:13.5px">「' + esc(name) + '」在工作台里作为入口保留，实际维护建议到电脑版后台操作。</div>' +
+      '<div class="row-actions" style="margin-top:12px"><a class="btn-primary" href="admin.html" style="flex:1;text-align:center;text-decoration:none">打开电脑版后台</a></div>');
+  }
+  function noticeSheet() {
+    const n = DATA.settings.notice || '';
+    openSheet('店铺公告', n ? '<div style="font-size:14px;line-height:1.9">' + esc(n) + '</div>'
+      : '<div class="tip">还没写公告，去「消息 → 公告」写一句吧。</div>',
+      () => { if (!n) $('#sheetBody').onclick = () => { closeSheet(); switchTab('msg'); switchSeg('board'); }; });
+  }
   function serviceSheet() {
-    const sv = D.shop.service || {};
-    const phone = sv.phone || D.settings.phone || '';
-    const wechat = sv.wechat || D.settings.wechat || '';
-    const hours = D.settings.hours || '';
-    let html = '<div class="kv">' +
-      '<div><b>客服电话</b>' + (phone ? esc(phone) : '<span style="color:#9aa0ab">未填写</span>') + '</div>' +
+    const sv = DATA.shop.service || {};
+    const phone = sv.phone || DATA.settings.phone || '';
+    const wechat = sv.wechat || DATA.settings.wechat || '';
+    openSheet('联系客服',
+      '<div class="kv"><div><b>客服电话</b>' + (phone ? esc(phone) : '<span style="color:#9aa0ab">未填写</span>') + '</div>' +
       '<div><b>客服微信</b>' + (wechat ? esc(wechat) : '<span style="color:#9aa0ab">未填写</span>') + '</div>' +
-      '<div><b>营业时间</b>' + (hours ? esc(hours) : '<span style="color:#9aa0ab">未填写</span>') + '</div>' +
-      '</div>';
-    if (sv.note) html += '<div class="tip">' + esc(sv.note) + '</div>';
-    html += '<div class="row-actions" style="margin-top:14px">' +
+      '<div><b>营业时间</b>' + (DATA.settings.hours ? esc(DATA.settings.hours) : '<span style="color:#9aa0ab">未填写</span>') + '</div></div>' +
+      '<div class="row-actions" style="margin-top:14px">' +
       (phone ? '<a class="btn-primary" href="tel:' + esc(phone) + '" style="flex:1;text-align:center;text-decoration:none">📞 拨打电话</a>' : '') +
       (wechat ? '<button class="btn-ghost" id="c_wx">📋 复制微信号</button>' : '') +
-      '<button class="btn-ghost" id="c_help">🛠️ 去后台设置</button></div>';
-    openSheet('联系客服', html, () => {
-      if ($('#c_wx')) $('#c_wx').onclick = () => LH.copyText(wechat).then(() => LH.toast('微信号已复制'));
-      $('#c_help').onclick = () => location.href = 'admin.html';
-    });
+      '<button class="btn-ghost" id="c_set">去填写</button></div>',
+      () => { if ($('#c_wx')) $('#c_wx').onclick = () => LH.copyText(wechat).then(() => LH.toast('微信号已复制'));
+        $('#c_set').onclick = () => { closeSheet(); switchTab('mine'); }; });
   }
-
-  /* ---- 体验分 / 账户中心 / 待接入 ---- */
-  function scoreSheet() {
-    openSheet('商家体验分',
-      '<div style="text-align:center;padding:6px 0 2px"><div class="big-num">' + esc(D.shop.score || '4.5') + '</div>' +
-      '<div style="font-size:12.5px;color:#8a8f99">综合分（满分 5.0）</div></div>' +
-      '<div class="tip">体验分由「商品质量 · 服务态度 · 发货速度」决定。保持按时送达、及时回消息就能涨分。</div>' +
-      '<div class="row-actions" style="margin-top:12px"><button class="btn-primary" id="sc_order" style="flex:1">查看订单表现</button>' +
-      '<button class="btn-ghost" id="sc_set">改分数</button></div>',
-      () => { $('#sc_order').onclick = () => location.href = 'orders.html'; $('#sc_set').onclick = () => settingSheet(); });
+  function moreSheet() {
+    const rows = [['refresh', '🔄 从线上重新拉取数据'], ['conn', '🔗 后端连接设置'],
+      ['mine', '⚙️ 工作台设置'], ['gh', '🐙 GitHub（可选，不需要）'],
+      ['index', '🛒 打开顾客端首页'], ['admin', '🖥️ 打开电脑版后台']];
+    openSheet('更多', rows.map(r => '<button class="menu-item" style="flex-direction:row;gap:10px;width:100%;padding:12px 2px;border-bottom:1px solid #f0eef2;justify-content:flex-start" data-more-act="' + r[0] + '"><span style="font-size:15px">' + r[1] + '</span></button>').join(''),
+      () => { $('#sheetBody').onclick = e => { const b = e.target.closest('[data-more-act]');
+        if (b) moreAct(b.dataset.moreAct); }; });
   }
-
-  function accountSheet() {
-    const s = D.settings;
-    const name = D.shop.shopName || s.shopName || '满满小店';
-    openSheet('账户中心',
-      '<div class="kv">' +
-      '<div><b>店铺名</b>' + esc(name) + '</div>' +
-      '<div><b>营业时间</b>' + (s.hours ? esc(s.hours) : '未填写') + '</div>' +
-      '<div><b>联系电话</b>' + (s.phone ? esc(s.phone) : '未填写') + '</div>' +
-      '<div><b>微信号</b>' + (s.wechat ? esc(s.wechat) : '未填写') + '</div>' +
-      '<div><b>数据来源</b>' + (D.source === 'github' ? 'GitHub 仓库' : '本机预览') + '</div>' +
-      '</div>' +
-      '<div class="row-actions" style="margin-top:12px"><button class="btn-primary" id="ac_admin" style="flex:1">去后台维护资料</button></div>',
-      () => { $('#ac_admin').onclick = () => location.href = 'admin.html'; });
+  async function moreAct(a) {
+    if (a === 'refresh') { closeSheet(); await refreshData(); return; }
+    if (a === 'conn') return connSheet();
+    if (a === 'mine') { closeSheet(); switchTab('mine'); return; }
+    if (a === 'gh') return connSheet();
+    if (a === 'index') { location.href = 'index.html'; return; }
+    if (a === 'admin') { location.href = 'admin.html'; return; }
   }
-
-  function soonSheet(title) {
-    openSheet(title,
-      '<div class="tip" style="font-size:13.5px">「' + esc(title) + '」在工作台里先做展示入口，实际维护请到电脑版后台操作。<br><br>' +
-      '本页所有数据都来自你的 GitHub 仓库（<code>data/products.json</code> / <code>data/settings.json</code>），和顾客端、后台看到的完全一致。</div>' +
-      '<div class="row-actions" style="margin-top:12px"><button class="btn-primary" id="sn_admin" style="flex:1">打开电脑版后台</button></div>',
-      () => { $('#sn_admin').onclick = () => location.href = 'admin.html'; });
+  async function refreshData() {
+    LH.toast('正在拉取…');
+    await load(); renderAll();
+    LH.toast(MQ.ready ? '已同步最新数据（免 Token）' : '已重新加载本地数据');
   }
-
-  /* ---- 公告 ---- */
-  function noticeSheet() {
-    const n = D.settings.notice || '';
-    openSheet('店铺公告',
-      n ? '<div style="font-size:14px;line-height:1.9">' + esc(n) + '</div>'
-        : '<div class="tip">还没写公告。到电脑版后台「店铺设置 → 公告」里写一句吧。</div>' +
-          '<div class="row-actions" style="margin-top:12px"><button class="btn-primary" id="nt_set" style="flex:1">去写公告</button></div>',
-      () => { if ($('#nt_set')) $('#nt_set').onclick = () => location.href = 'admin.html'; });
-  }
-
-  /* ---- 全部商品 ---- */
-  function allGoodsSheet(sortBySales) {
-    let list = onItems().slice();
-    if (sortBySales) list.sort((a, b) => salesNum(b) - salesNum(a));
-    const html = list.length
-      ? '<div class="plist">' + list.map(it =>
-          '<div class="row"><div class="t">' + thumbHTML(it) + '</div>' +
-          '<div class="m"><b>' + esc(it.name || '') + '</b>' +
-          '<small>' + esc((it.cat || '') + (salesNum(it) ? '　销量' + fmtW(salesNum(it)) : '　库存' + (Number(it.stock) || 0))) + '</small></div>' +
-          '<div class="p">' + yuan(it.price) + '</div></div>').join('') + '</div>'
-      : '<div class="empty-tip">还没有上架商品</div>';
-    openSheet('全部商品', html + '<div class="row-actions" style="margin-top:12px"><button class="btn-primary" id="ag_admin" style="flex:1">去商品管理</button></div>',
-      () => { $('#ag_admin').onclick = () => location.href = 'admin.html'; });
-  }
-
-  /* ---- 商品详情 ---- */
-  function itemSheet(id) {
-    const it = (D.products.items || []).find(x => String(x.id) === String(id));
-    if (!it) return;
-    openSheet(it.name || '商品',
-      '<div style="display:flex;gap:12px"><div class="t" style="width:96px;height:96px;border-radius:12px;overflow:hidden;background:#f2f3f5;flex:0 0 auto;display:flex;align-items:center;justify-content:center">' + thumbHTML(it) + '</div>' +
-      '<div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700;line-height:1.4">' + esc(it.name || '') + '</div>' +
-      '<div class="big-num" style="font-size:20px;margin-top:6px">' + yuan(it.price) + '</div>' +
-      '<div style="font-size:12.5px;color:#8a8f99;margin-top:4px">库存 ' + (Number(it.stock) || 0) + (it.cat ? '　' + esc(it.cat) : '') + '</div></div></div>' +
-      (it.desc ? '<div class="tip">' + esc(it.desc) + '</div>' : '') +
-      '<div class="row-actions" style="margin-top:14px"><button class="btn-primary" id="it_admin" style="flex:1">去改价 / 编辑</button>' +
-      '<button class="btn-ghost" id="it_copy">复制名称</button></div>',
+  function connSheet() {
+    const c = GH.cfg();
+    openSheet('后端连接设置',
+      '<div class="conn-chips"><span class="chip">默认免 Token</span><span class="chip">数据全公开，无敏感信息</span></div>' +
+      '<details class="help-tut" style="background:#eefbf3;border:1px solid #d6f0e0;border-radius:12px;padding:10px 12px;margin-bottom:14px">' +
+      '<summary style="cursor:pointer;font-weight:700;font-size:13.5px;color:#12703c">✅ 什么都不用填，打开即用</summary>' +
+      '<p style="font-size:12.5px;line-height:1.95;color:#3f6b52;margin:9px 0 2px">' +
+      '商品/价格直接读本站 JSON；改价、改资料、订单都走公共 MQTT 实时通道，<b>全程不需要 Token</b>。<br>' +
+      '只有想把数据也写进 GitHub 仓库文件时才需要下面的 Token（可选）。</p></details>' +
+      '<details class="help-tut" style="background:#f7f8fb;border:1px solid #eceff5;border-radius:12px;padding:10px 12px;margin-bottom:14px">' +
+      '<summary style="cursor:pointer;font-weight:700;font-size:13.5px">（可选）GitHub Token 怎么拿</summary>' +
+      '<ol style="font-size:12.5px;line-height:1.95;color:#5a6270;margin:9px 0 6px;padding-left:20px">' +
+      '<li>打开 <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener" style="color:#2f7bf6">github.com/settings/personal-access-tokens/new</a></li>' +
+      '<li>Repository access → 勾选店铺仓库；Permissions → Contents 选 Read and write</li>' +
+      '<li>Generate token，复制 <code>github_pat_</code> 开头那串填下面</li></ol></details>' +
+      '<div class="field"><label>owner</label><input type="text" id="g_owner" value="' + esc(c.owner) + '"></div>' +
+      '<div class="field"><label>repo</label><input type="text" id="g_repo" value="' + esc(c.repo) + '"></div>' +
+      '<div class="row2"><div class="field"><label>分支</label><input type="text" id="g_branch" value="' + esc(c.branch || 'gh-pages') + '"></div>' +
+      '<div class="field"><label>子目录</label><input type="text" id="g_path" value="' + esc(c.path || '') + '"></div></div>' +
+      '<div class="field"><label>Token（可留空）</label><input type="password" id="g_token" value="' + esc(c.token) + '" placeholder="留空也能用"></div>' +
+      '<div class="row-actions"><button class="btn-primary" id="g_save" style="flex:1">保存并测试</button>' +
+      '<button class="btn-ghost" id="g_clear">断开</button></div>' +
+      '<div class="status info" id="g_msg" style="margin-top:10px">不填也能正常用。</div>',
       () => {
-        $('#it_admin').onclick = () => location.href = 'admin.html';
-        $('#it_copy').onclick = () => LH.copyText(it.name || '').then(() => LH.toast('已复制'));
+        $('#g_save').onclick = async () => {
+          GH.saveCfg({ owner: $('#g_owner').value.trim(), repo: $('#g_repo').value.trim(),
+            branch: $('#g_branch').value.trim() || 'gh-pages', path: $('#g_path').value.trim(), token: $('#g_token').value.trim() });
+          const msg = $('#g_msg');
+          if (!GH.ready()) { msg.className = 'status info'; msg.textContent = '没填 Token，继续用「免 Token 模式」。'; return; }
+          msg.className = 'status info'; msg.textContent = '测试中…';
+          try { const r = await GH.testAuth(); msg.className = 'status ok';
+            msg.textContent = '✅ 连接成功：' + r.user + ' → ' + (r.repo || '(未指定仓库)'); await refreshData(); setTimeout(closeSheet, 700); }
+          catch (e) { msg.className = 'status err'; msg.textContent = '连接失败：' + e.message; }
+        };
+        $('#g_clear').onclick = () => { GH.clearCfg(); closeSheet(); LH.toast('已断开（依旧免 Token 可用）'); load().then(renderAll); };
       });
+  }
+
+  /* ================= 我的：保存 ================= */
+  function bindMine() {
+    $('#me_save').onclick = () => {
+      const name = $('#me_name').value.trim(), slogan = $('#me_slogan').value.trim();
+      const hours = $('#me_hours').value.trim(), phone = $('#me_phone').value.trim(), wechat = $('#me_wechat').value.trim();
+      DATA.shop.shopName = name; DATA.shop.service = { phone: phone, wechat: wechat, note: '' };
+      const ok1 = saveSettings({ shopName: name, slogan: slogan, hours: hours, phone: phone, wechat: wechat }, '更新店铺资料');
+      const ok2 = saveShopCfg();
+      renderAll(); LH.toast('店铺资料已保存 · ' + saveTip(ok1 || ok2));
+    };
+    $('#me_saveWb').onclick = () => {
+      DATA.shop.score = $('#me_score').value.trim() || '4.5';
+      DATA.shop.banner.text = $('#me_banner').value.trim();
+      DATA.shop.banner.on = $('#me_bannerOn').checked;
+      DATA.shop.metrics.autoFromOrders = $('#me_auto').checked;
+      DATA.shop.metrics.salesToday = Number($('#me_sales').value) || 0;
+      DATA.shop.metrics.pendingOrders = Number($('#me_pending').value) || 0;
+      const ok = saveShopCfg();
+      renderAll(); LH.toast('工作台设置已保存 · ' + saveTip(ok));
+    };
+    $('#me_reconn').onclick = () => { try { if (MQ.cli) MQ.cli.end(); } catch (e) {} MQ.ready = false; initMq(); LH.toast('正在重连…'); };
+    $('#me_ghset').onclick = connSheet;
+    $('#me_clearlocal').onclick = () => {
+      if (!confirm('清空本机缓存（不影响线上数据）？')) return;
+      LH.LS.del(LSKEY.cfg); LH.LS.del(LSKEY.prod); LH.LS.del(LSKEY.set);
+      LH.toast('已清空，刷新中…'); setTimeout(() => location.reload(), 600);
+    };
+    $('#me_export').onclick = () => {
+      const dump = { shop: DATA.shop, products: DATA.products, settings: DATA.settings, orders: DATA.orders };
+      const blob = new Blob([JSON.stringify(dump, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = 'workbench-' + Date.now() + '.json'; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000); LH.toast('已导出');
+    };
+    $('#me_copyall').onclick = () => LH.copyText(JSON.stringify({ products: DATA.products, settings: DATA.settings, shop: DATA.shop }, null, 2))
+      .then(() => LH.toast('已复制 JSON'));
+    $('#me_import').onclick = () => $('#me_file').click();
+    $('#me_file').onchange = ev => {
+      const f = ev.target.files && ev.target.files[0]; if (!f) return;
+      const fr = new FileReader();
+      fr.onload = () => {
+        try {
+          const d = JSON.parse(fr.result);
+          if (d.products) DATA.products = d.products;
+          if (d.settings) DATA.settings = Object.assign(DATA.settings, d.settings);
+          if (d.shop) DATA.shop = mergeShop(d.shop);
+          saveProducts('导入商品'); saveShopCfg(); renderAll(); LH.toast('导入成功');
+        } catch (e) { LH.toast('导入失败：' + e.message); }
+      };
+      fr.readAsText(f); ev.target.value = '';
+    };
+  }
+
+  /* ================= Tab 切换 ================= */
+  function switchTab(k) {
+    ACTIVE = k;
+    $$('.view').forEach(v => v.classList.toggle('hidden', v.id !== 'view-' + k));
+    markTab();
+    if (k === 'mine') renderMine();
+    if (k === 'msg') switchSeg(SEG);
+    window.scrollTo(0, 0);
   }
 
   /* ================= 事件 ================= */
@@ -545,32 +756,58 @@
     $('#btnMore').onclick = moreSheet;
     $('#btnService').onclick = serviceSheet;
     $('#banner').onclick = noticeSheet;
+    $('#abAdd').onclick = () => productSheet(null);
+    $('#abRefresh').onclick = refreshData;
 
     $('#mask').onclick = closeSheet;
     $$('#sheet [data-close]').forEach(b => b.onclick = closeSheet);
 
+    /* 底部导航 */
+    $('#tabbar').onclick = e => { const b = e.target.closest('[data-tab]'); if (b) switchTab(b.dataset.tab); };
+
+    /* 首页菜单 */
     $('#menuGrid').onclick = e => {
       const b = e.target.closest('[data-menu]'); if (!b) return;
       const m = MENUS.find(x => x.key === b.dataset.menu); if (!m) return;
+      if (m.tab) return switchTab(m.tab);
       if (m.href) { location.href = m.href; return; }
-      if (m.act === 'scroll') { const el = document.getElementById(m.target); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+      if (m.act === 'orders') return orderSheet();
       if (m.act === 'score') return scoreSheet();
-      if (m.act === 'account') return accountSheet();
       if (m.act === 'soon') return soonSheet(m.name);
     };
+    $$('[data-goto]').forEach(b => b.onclick = () => switchTab(b.dataset.goto));
 
-    $('#tabbar').onclick = e => {
-      const b = e.target.closest('[data-tab]'); if (!b) return;
-      const t = TABS.find(x => x.key === b.dataset.tab); if (!t) return;
-      if (t.href) { location.href = t.href; return; }
-      if (t.act === 'scroll') { const el = document.getElementById(t.target); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
-      if (t.act === 'home') window.scrollTo({ top: 0, behavior: 'smooth' });
+    /* 首页榜单 */
+    $('#hotRow').onclick = e => { const c = e.target.closest('[data-id]'); if (c) productSheet(c.dataset.id); };
+    $('#stockRow').onclick = e => { const c = e.target.closest('[data-id]'); if (c) productSheet(c.dataset.id); };
+
+    /* 选品 */
+    $('#pkAdd2').onclick = () => productSheet(null);
+    $('#pkSearch').oninput = e => { PICK.q = e.target.value; $('#pkClear').classList.toggle('hidden', !PICK.q); renderPick(); };
+    $('#pkClear').onclick = () => { PICK.q = ''; $('#pkSearch').value = ''; $('#pkClear').classList.add('hidden'); renderPick(); };
+    $('#pkCats').onclick = e => { const b = e.target.closest('[data-cat]'); if (b) { PICK.cat = b.dataset.cat; renderPick(); } };
+    $('#pkSort').onclick = e => { const b = e.target.closest('[data-sort]'); if (b) { PICK.sort = b.dataset.sort; renderPick(); } };
+    $('#pkList').onclick = e => {
+      const row = e.target.closest('[data-id]'); if (!row) return;
+      const id = row.dataset.id;
+      const act = e.target.closest('[data-act]');
+      if (!act) return productSheet(id);
+      if (act.dataset.act === 'edit') return productSheet(id);
+      if (act.dataset.act === 'toggle') {
+        const it = (DATA.products.items || []).find(x => String(x.id) === String(id));
+        if (!it) return;
+        it.on = it.on === false;
+        const ok = saveProducts((it.on ? '上架 ' : '下架 ') + it.name);
+        renderAll(); LH.toast((it.on ? '已上架' : '已下架') + ' · ' + saveTip(ok));
+      }
     };
 
-    document.querySelectorAll('[data-more]').forEach(b => b.onclick = () => allGoodsSheet(b.dataset.more === 'hot'));
+    /* 消息 */
+    $('#msgSeg').onclick = e => { const b = e.target.closest('[data-seg]'); if (b) switchSeg(b.dataset.seg); };
+    $('#msgRefresh').onclick = () => { renderMsg(); LH.toast('已刷新'); };
 
-    $('#hotRow').onclick = e => { const c = e.target.closest('[data-id]'); if (c) itemSheet(c.dataset.id); };
-    $('#stockRow').onclick = e => { const c = e.target.closest('[data-id]'); if (c) itemSheet(c.dataset.id); };
+    /* 我的 */
+    bindMine();
 
     $('#connTip').onclick = e => { if (e.target.closest('[data-act="conn"]')) connSheet(); };
   }
@@ -582,10 +819,9 @@
     bindGlobal();
     initMq();
     await load();
-    D.metrics = await computeMetrics();
     renderAll();
+    switchTab('home');
   }
-
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();

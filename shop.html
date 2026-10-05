@@ -11,56 +11,177 @@
 <body class="wb">
 
 <div class="phone">
+
+  <!-- ============ 顶部应用栏 ============ -->
+  <div class="appbar">
+    <div class="ab-brand">
+      <span class="ab-bolt">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg>
+      </span>
+      <span class="ab-title">商家工作台 · <b id="abShop">卤味小店</b></span>
+    </div>
+    <div class="ab-acts">
+      <button class="ab-btn" id="abAdd" title="新增商品">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><path d="M12 8v8M8 12h8"/></svg>
+      </button>
+      <button class="ab-btn" id="abRefresh" title="刷新">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12a7 7 0 1 1-2.05-4.95"/><path d="M19 4v3.2h-3.2"/></svg>
+      </button>
+    </div>
+  </div>
+
   <div class="wb-body">
 
-    <!-- ============ 门店信息 ============ -->
-    <header class="shop-head">
-      <button class="dots" id="btnMore" aria-label="更多">⋮</button>
-      <div class="avatar" id="shopAvatar"><span>满满小店</span></div>
-      <div class="shop-id">
-        <div class="shop-name" id="shopName">满满小店</div>
-        <div class="shop-score">商家体验分 <b id="shopScore">4.5</b></div>
-      </div>
-      <button class="service-btn" id="btnService">
-        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13a7 7 0 0 1 14 0"/><rect x="3.5" y="13" width="3.5" height="6" rx="1.7"/><rect x="17" y="13" width="3.5" height="6" rx="1.7"/><path d="M19 19a3 3 0 0 1-3 2.5h-3"/></svg>
-        <span>联系客服</span>
-      </button>
-    </header>
+    <!-- ================= 首页 ================= -->
+    <section class="view" id="view-home">
+      <header class="shop-head">
+        <button class="dots" id="btnMore" aria-label="更多">⋮</button>
+        <div class="avatar" id="shopAvatar"><span>满满小店</span></div>
+        <div class="shop-id">
+          <div class="shop-name" id="shopName">满满小店</div>
+          <div class="shop-score">商家体验分 <b id="shopScore">4.5</b></div>
+        </div>
+        <button class="service-btn" id="btnService">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13a7 7 0 0 1 14 0"/><rect x="3.5" y="13" width="3.5" height="6" rx="1.7"/><rect x="17" y="13" width="3.5" height="6" rx="1.7"/><path d="M19 19a3 3 0 0 1-3 2.5h-3"/></svg>
+          <span>联系客服</span>
+        </button>
+      </header>
 
-    <!-- ============ 数据统计 ============ -->
-    <section class="stat-card">
-      <div class="stat"><div class="k">今日销售额</div><div class="v money" id="stSales">¥0</div></div>
-      <div class="stat"><div class="k">待处理订单</div><div class="v" id="stPending">0</div></div>
-      <div class="stat"><div class="k">商品总数</div><div class="v" id="stGoods">0</div></div>
+      <section class="stat-card">
+        <div class="stat"><div class="k">今日销售额</div><div class="v" id="stSales">¥0.00</div></div>
+        <div class="stat"><div class="k">待处理订单</div><div class="v" id="stPending">0</div></div>
+        <div class="stat"><div class="k">商品总数</div><div class="v" id="stGoods">0</div></div>
+      </section>
+
+      <section class="panel menu-card">
+        <button class="banner" id="banner">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l-1 12H7L6 8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>
+          <span id="bannerText">盛世华诞启新章 好物相伴度金秋</span>
+        </button>
+        <div class="menu-grid" id="menuGrid"></div>
+      </section>
+
+      <section class="panel pick-card" id="hotSec">
+        <div class="pick-head">
+          <h2 id="hotTitle">爆款榜单</h2>
+          <span class="tag hot" id="hotTag">热门</span>
+          <button class="more" data-goto="pick">查看更多 ›</button>
+        </div>
+        <div class="hot-row" id="hotRow"></div>
+      </section>
+
+      <section class="panel pick-card" id="stockSec">
+        <div class="pick-head">
+          <h2 id="stockTitle">精选现货</h2>
+          <span class="tag new" id="stockTag">New</span>
+          <button class="more" data-goto="pick">查看更多 ›</button>
+        </div>
+        <div id="stockRow"></div>
+      </section>
     </section>
 
-    <!-- ============ 活动横幅 + 功能菜单 ============ -->
-    <section class="panel menu-card">
-      <button class="banner" id="banner">
-        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l-1 12H7L6 8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>
-        <span id="bannerText">盛世华诞启新章 好物相伴度金秋</span>
-      </button>
-      <div class="menu-grid" id="menuGrid"></div>
+    <!-- ================= 选品 / 商品管理 ================= -->
+    <section class="view hidden" id="view-pick">
+      <div class="v-title"><h2>选品 · 商品管理</h2><button class="mini go" id="pkAdd2">＋ 新增商品</button></div>
+      <div class="searchbar">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><path d="m20 20-3.6-3.6"/></svg>
+        <input type="text" id="pkSearch" placeholder="搜索商品名 / 分类">
+        <button class="sb-x hidden" id="pkClear">✕</button>
+      </div>
+      <div class="chips-row" id="pkCats"></div>
+      <div class="sort-row" id="pkSort"></div>
+      <div class="pk-sum" id="pkSum"></div>
+      <div class="pk-list" id="pkList"></div>
     </section>
 
-    <!-- ============ 爆款榜单 ============ -->
-    <section class="panel pick-card" id="hotSec">
-      <div class="pick-head">
-        <h2 id="hotTitle">爆款榜单</h2>
-        <span class="tag hot" id="hotTag">热门</span>
-        <button class="more" data-more="hot">查看更多 ›</button>
-      </div>
-      <div class="hot-row" id="hotRow"></div>
+    <!-- ================= 分析 ================= -->
+    <section class="view hidden" id="view-analyze">
+      <div class="v-title"><h2>经营分析</h2><button class="mini" id="anRefresh">↻ 刷新</button></div>
+      <div class="grid2" id="anStats"></div>
+      <section class="panel mini-panel">
+        <h3>分类商品数</h3>
+        <div class="bars" id="anCats"></div>
+      </section>
+      <section class="panel mini-panel">
+        <h3>销量 TOP 5</h3>
+        <div class="bars" id="anSales"></div>
+      </section>
+      <section class="panel mini-panel">
+        <h3>价格区间分布</h3>
+        <div class="bars" id="anPrice"></div>
+      </section>
+      <section class="panel mini-panel">
+        <h3>库存预警</h3>
+        <div id="anStock"></div>
+      </section>
     </section>
 
-    <!-- ============ 精选现货 ============ -->
-    <section class="panel pick-card" id="stockSec">
-      <div class="pick-head">
-        <h2 id="stockTitle">精选现货</h2>
-        <span class="tag new" id="stockTag">New</span>
-        <button class="more" data-more="stock">查看更多 ›</button>
+    <!-- ================= 消息 ================= -->
+    <section class="view hidden" id="view-msg">
+      <div class="v-title"><h2>消息中心</h2><button class="mini" id="msgRefresh">↻ 刷新</button></div>
+      <div class="seg" id="msgSeg">
+        <button class="seg-b on" data-seg="notice">通知</button>
+        <button class="seg-b" data-seg="chat">聊天</button>
+        <button class="seg-b" data-seg="board">公告</button>
       </div>
-      <div id="stockRow"></div>
+      <div id="msgNotice"></div>
+      <div id="msgChat" class="hidden"></div>
+      <div id="msgBoard" class="hidden"></div>
+    </section>
+
+    <!-- ================= 我的 ================= -->
+    <section class="view hidden" id="view-mine">
+      <div class="v-title"><h2>我的 · 设置</h2></div>
+      <section class="panel mini-panel">
+        <h3>店铺资料</h3>
+        <div class="field"><label>店名</label><input type="text" id="me_name"></div>
+        <div class="field"><label>一句话介绍</label><input type="text" id="me_slogan"></div>
+        <div class="field"><label>营业时间</label><input type="text" id="me_hours" placeholder="例如 10:00 - 20:00"></div>
+        <div class="field"><label>客服电话</label><input type="tel" id="me_phone" inputmode="numeric"></div>
+        <div class="field"><label>客服微信</label><input type="text" id="me_wechat"></div>
+        <button class="btn-primary btn-block" id="me_save">保存店铺资料（免 Token）</button>
+      </section>
+      <section class="panel mini-panel">
+        <h3>工作台设置</h3>
+        <div class="field"><label>商家体验分</label><input type="text" id="me_score"></div>
+        <div class="field"><label>活动横幅文案</label><input type="text" id="me_banner"></div>
+        <label class="sw-row"><span>显示活动横幅</span><input type="checkbox" id="me_bannerOn" class="sw"></label>
+        <label class="sw-row"><span>有订单数据时自动统计</span><input type="checkbox" id="me_auto" class="sw"></label>
+        <div class="row2">
+          <div class="field"><label>今日销售额（手填）</label><input type="number" id="me_sales" step="0.01"></div>
+          <div class="field"><label>待处理订单（手填）</label><input type="number" id="me_pending"></div>
+        </div>
+        <button class="btn-ghost btn-block" id="me_saveWb">保存工作台设置</button>
+      </section>
+      <section class="panel mini-panel">
+        <h3>后端状态</h3>
+        <div class="stat-list" id="me_backend"></div>
+        <div class="row-actions" style="margin-top:10px">
+          <button class="mini go" id="me_reconn">重连实时通道</button>
+          <button class="mini" id="me_ghset">GitHub（可选）</button>
+          <button class="mini" id="me_clearlocal">清本地缓存</button>
+        </div>
+      </section>
+      <section class="panel mini-panel">
+        <h3>数据工具</h3>
+        <div class="row-actions">
+          <button class="mini" id="me_export">⬇ 导出全部数据</button>
+          <button class="mini" id="me_import">⬆ 导入数据</button>
+          <button class="mini" id="me_copyall">📋 复制 JSON</button>
+        </div>
+        <input type="file" id="me_file" accept="application/json" class="hidden">
+      </section>
+      <section class="panel mini-panel">
+        <h3>快捷入口</h3>
+        <div class="row-actions">
+          <a class="mini" href="index.html">🛒 顾客端首页</a>
+          <a class="mini" href="admin.html">🖥️ 电脑版后台</a>
+          <a class="mini" href="orders.html">🧾 订单后台</a>
+          <a class="mini" href="chat-admin.html">💬 顾客聊天</a>
+          <a class="mini" href="join.html">🏪 商家报名</a>
+          <a class="mini" href="tuiguang.html">👥 推广链接</a>
+        </div>
+      </section>
     </section>
 
     <div class="wb-foot" id="connTip">正在读取数据…</div>

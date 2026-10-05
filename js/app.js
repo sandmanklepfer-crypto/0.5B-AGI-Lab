@@ -34,6 +34,11 @@
     renderBar();
     buildTimeOptions();
     bindEvents();
+    /* 实时通道：商家在工作台改价/改资料时，这里即时刷新（不改界面） */
+    window.addEventListener('lh:data', () => {
+      if (window.OVR && OVR.products) { S.products = OVR.products; renderCats(); renderGrid(); renderBar(); }
+      if (window.OVR && OVR.settings) { Object.assign(S.settings, OVR.settings); renderHero(); renderBar(); }
+    });
     // 探测支付服务器（异步，不影响首屏）
     detectPayServer().then(() => {
       buildPayOptions();
@@ -560,6 +565,8 @@
   function recordOrder(o) {
     const my = LH.LS.get('lh_orders', []);
     my.unshift(o); LH.LS.set('lh_orders', my.slice(0, 30));
+    /* 订单同步给商家工作台（公共 MQTT，免 Token） */
+    if (window.OVR && OVR.publishOrder) { try { OVR.publishOrder(o); } catch (e) {} }
     if (o.coupon) {
       const used = LH.LS.get('lh_used_coupon', {});
       used[o.coupon] = (used[o.coupon] || 0) + 1; LH.LS.set('lh_used_coupon', used);
