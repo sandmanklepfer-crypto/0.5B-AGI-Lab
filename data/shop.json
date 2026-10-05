@@ -1,0 +1,28 @@
+{
+  "shopName": "",
+  "score": "4.5",
+  "banner": {
+    "on": true,
+    "text": "盛世华诞启新章 好物相伴度金秋"
+  },
+  "metrics": {
+    "autoFromOrders": true,
+    "salesToday": 0,
+    "pendingOrders": 0
+  },
+  "hot": {
+    "title": "爆款榜单",
+    "tag": "热门",
+    "limit": 3
+  },
+  "stock": {
+    "title": "精选现货",
+    "tag": "New",
+    "limit": 1
+  },
+  "service": {
+    "phone": "",
+    "wechat": "",
+    "note": ""
+  }
+}

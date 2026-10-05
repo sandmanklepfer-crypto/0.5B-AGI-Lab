@@ -8,6 +8,7 @@
 |---|---|---|
 | 顾客 | `.../index.html` | 看菜单、加购物车、填地址电话、扫码付款下单 |
 | 老板（你） | `.../admin.html` | 上架商品、改价格、发优惠券、改配送费、传收款码 |
+| 老板（手机） | `.../shop.html` | **商家工作台**：一屏看销售额/订单/商品，快捷进各功能 |
 
 后台网址别人打开也没关系：**没有你的 GitHub Token 就改不了任何东西。**
 
@@ -82,16 +83,37 @@ python3 -m http.server 8000
 ```
 index.html          顾客端页面
 admin.html          老板端后台
+shop.html           商家工作台（移动端店面风格，独立新页面）
 pay.html            微信支付收银台
 css/style.css       全部样式
+css/shop.css        商家工作台专用样式
 js/store.js         公共工具（读数据、算钱、算券）
 js/gh.js            GitHub 接口（把仓库当数据库用）
 js/app.js           顾客端逻辑
 js/admin.js         后台逻辑
+js/shop.js          商家工作台逻辑
 js/pay.js           收银台逻辑
 data/settings.json  店铺信息、配送费、收款码、在线支付开关
 data/products.json  商品
 data/coupons.json   优惠券
+data/shop.json      商家工作台配置（横幅/体验分/手填统计，独立于店铺数据）
 img/                图片（商品图、收款码）
 server/             微信支付服务器（零依赖 Node，见 server/README.md）
 ```
+
+## 商家工作台（shop.html）
+
+和顾客端、后台**互不影响**，是一个单独打开的移动端页面，界面仿电商商家端首页：
+
+- 顶部：店铺头像 / 店名 / 商家体验分 / 联系客服
+- 数据卡：今日销售额、待处理订单、商品总数
+- 活动横幅 + 九宫格功能入口（商品管理、订单管理、商家体验分、智能选品…）
+- 爆款榜单、精选现货（直接来自 `data/products.json`）
+- 底部导航：首页 / 选品 / 分析 / 消息 / 我的
+
+**后端同样走 GitHub**：右上角 `⋮` →「连接 GitHub 后端」填一次 Token（和后台共用），
+它就会直接读仓库里的 `data/settings.json`、`data/products.json`、`data/coupons.json`；
+在工作台里改的横幅文案、体验分等，会写回 `data/shop.json`，不碰商品和价格。
+
+- 若仓库里有 `data/orders.json`（例如接了订单后台导出的数据），今日销售额 / 待处理订单会自动按真实订单统计；
+- 没有该文件时，用「工作台设置」里手填的数字兜底。

@@ -1,0 +1,163 @@
+/* ===== 商家工作台（移动端）· 独立样式 ===== */
+body.wb{
+  padding-bottom:0;
+  background:#eceff3;
+  color:#2a2f38;
+}
+body.wb .phone{
+  max-width:430px;margin:0 auto;min-height:100vh;position:relative;
+  background:linear-gradient(180deg,#ffe4d9 0,#fff3ee 210px,#f3f2f6 420px,#f3f2f6 100%);
+  box-shadow:0 0 40px rgba(40,50,70,.10);
+  padding-bottom:calc(74px + env(safe-area-inset-bottom));
+}
+body.wb .wb-body{padding-bottom:8px}
+
+/* 顶部图标统一尺寸 */
+.ic{width:22px;height:22px;flex:0 0 auto}
+
+/* ---------- 门店信息 ---------- */
+.shop-head{display:flex;align-items:center;gap:10px;padding:20px 14px 4px}
+.shop-head .dots{font-size:24px;line-height:1;color:#3a3f48;width:26px;text-align:center;padding:0}
+.shop-head .avatar{
+  width:56px;height:56px;border-radius:50%;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  background:radial-gradient(circle at 35% 30%,#ffd9a8,#ffb27a 45%,#ff8f6b 100%);
+  border:2px solid #fff;box-shadow:0 4px 12px rgba(255,140,100,.35);
+  color:#7a4a20;font-size:10px;font-weight:800;line-height:1.15;padding:6px;overflow:hidden;
+}
+.shop-head .shop-id{min-width:0;flex:1}
+.shop-head .shop-name{font-size:19px;font-weight:800;color:#222;letter-spacing:.3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shop-head .shop-score{font-size:12.5px;color:#8a8f99;margin-top:3px}
+.shop-head .shop-score b{color:#3a3f48;font-weight:700}
+.service-btn{
+  margin-left:auto;flex:0 0 auto;display:flex;align-items:center;gap:5px;
+  background:#fff;border-radius:999px;padding:9px 14px;font-size:13px;color:#2a2f38;
+  box-shadow:0 4px 12px rgba(120,90,140,.16);font-weight:600;
+}
+.service-btn .ic{width:18px;height:18px;color:#3a3f48}
+
+/* ---------- 数据统计 ---------- */
+.stat-card{
+  display:flex;background:#fff;border-radius:18px;margin:12px 14px 0;
+  padding:16px 6px;box-shadow:0 8px 22px rgba(255,140,110,.14);
+}
+.stat-card .stat{flex:1;text-align:center;position:relative}
+.stat-card .stat+.stat::before{content:"";position:absolute;left:0;top:14%;height:72%;width:1px;background:#f0eef2}
+.stat-card .k{font-size:13px;color:#8a8f99}
+.stat-card .v{font-size:21px;font-weight:800;color:#222;margin-top:7px;letter-spacing:.4px}
+.stat-card .v.money{color:#222}
+
+/* ---------- 面板通用 ---------- */
+.panel{background:#fff;border-radius:18px;margin:12px 14px 0;box-shadow:0 8px 22px rgba(120,90,140,.10);overflow:hidden}
+
+/* ---------- 活动横幅 ---------- */
+.banner{
+  width:100%;display:flex;align-items:center;gap:9px;text-align:left;
+  background:linear-gradient(90deg,#ff5a3c,#ff8a52);color:#fff;
+  padding:13px 15px;font-size:15px;font-weight:700;letter-spacing:.4px;
+}
+.banner .ic{width:20px;height:20px}
+
+/* ---------- 功能菜单 ---------- */
+.menu-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px 0;padding:18px 4px 20px}
+.menu-item{position:relative;display:flex;flex-direction:column;align-items:center;gap:7px;padding:0 2px}
+.menu-item .mi-ic{
+  width:50px;height:50px;border-radius:15px;display:flex;align-items:center;justify-content:center;
+  color:#3f7fe0;background:linear-gradient(180deg,#eef4ff,#dbe8ff);
+  box-shadow:inset 0 0 0 1px rgba(120,160,230,.28);
+}
+.menu-item .mi-ic .ic{width:26px;height:26px;stroke-width:1.7}
+.menu-item .mi-tx{font-size:12.5px;color:#333;white-space:nowrap}
+.menu-item .mi-badge{
+  position:absolute;top:-3px;left:calc(50% + 4px);min-width:17px;height:17px;padding:0 4px;
+  background:#f5333f;color:#fff;font-size:10px;font-weight:800;border-radius:999px;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px #fff;
+}
+
+/* ---------- 榜单 / 现货 ---------- */
+.pick-card{padding:15px 14px 16px}
+.pick-head{display:flex;align-items:center;gap:8px;margin-bottom:13px}
+.pick-head h2{margin:0;font-size:18px;font-weight:800;letter-spacing:.4px;color:#222}
+.tag{font-size:12px;font-weight:800;color:#fff;padding:2px 8px;border-radius:8px;line-height:1.5}
+.tag.hot{background:linear-gradient(90deg,#ff8a1f,#ff4d2e)}
+.tag.new{background:#2f9bff}
+.pick-head .more{margin-left:auto;font-size:13px;color:#9aa0ab}
+
+.hot-row{display:flex;gap:10px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.hot-row::-webkit-scrollbar{display:none}
+
+.goods{flex:0 0 134px;width:134px}
+.goods .thumb{
+  position:relative;width:134px;height:134px;border-radius:13px;overflow:hidden;background:#f2f3f5;
+  display:flex;align-items:center;justify-content:center;
+}
+.goods .thumb img{width:100%;height:100%;object-fit:cover}
+.goods .thumb .ph{font-size:32px;font-weight:800;color:#c7d1de}
+.goods .rank{
+  position:absolute;top:0;left:0;z-index:2;color:#fff;font-size:11px;font-weight:800;
+  padding:3px 9px;border-radius:13px 0 13px 0;
+  background:linear-gradient(90deg,#ff9b1f,#ff5a1f);
+}
+.goods .ship{
+  position:absolute;top:0;left:52px;z-index:2;background:#2f9bff;color:#fff;
+  font-size:11px;font-weight:700;padding:3px 8px;border-radius:0 0 10px 10px;
+}
+.goods .nm{
+  font-size:13px;line-height:1.35;color:#2a2f38;margin-top:8px;height:35px;overflow:hidden;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+}
+.goods .pr{color:#f5333f;font-weight:800;font-size:15.5px;margin-top:3px}
+.goods .sl{font-size:11.5px;color:#9aa0ab;margin-top:2px}
+
+.stock{display:flex;gap:13px;align-items:stretch}
+.stock .thumb{
+  width:98px;height:98px;border-radius:13px;overflow:hidden;background:#f2f3f5;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;
+}
+.stock .thumb img{width:100%;height:100%;object-fit:cover}
+.stock .thumb .ph{font-size:30px;font-weight:800;color:#c7d1de}
+.stock .info{flex:1;min-width:0;display:flex;flex-direction:column}
+.stock .nm{
+  font-size:14px;line-height:1.42;color:#2a2f38;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.stock .meta{font-size:12.5px;color:#8a8f99;margin-top:7px}
+.stock .bottom{margin-top:auto;display:flex;align-items:flex-end;justify-content:space-between;gap:8px}
+.stock .price{font-size:12.5px;color:#8a8f99}
+.stock .price b{color:#f5333f;font-size:17px;font-weight:800;margin-left:3px}
+.stock .views{font-size:11.5px;color:#ff8a1f;white-space:nowrap}
+.empty-tip{font-size:13px;color:#9aa0ab;padding:12px 2px;line-height:1.7}
+
+/* ---------- 底部导航 ---------- */
+.tabbar{
+  position:fixed;left:0;right:0;bottom:0;z-index:40;max-width:430px;margin:0 auto;
+  display:flex;background:#fff;border-top:1px solid #f0eef2;
+  padding:8px 6px calc(6px + env(safe-area-inset-bottom));
+  box-shadow:0 -6px 20px rgba(40,50,70,.06);
+}
+.tb{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;color:#9aa0ab;font-size:11.5px;position:relative;padding:2px 0}
+.tb .ic{width:24px;height:24px;stroke-width:1.8}
+.tb.on{color:#2f7bf6;font-weight:700}
+.tb .dot{position:absolute;top:0;right:calc(50% - 15px);width:8px;height:8px;border-radius:50%;background:#f5333f;box-shadow:0 0 0 2px #fff}
+
+/* ---------- 底部连接状态 ---------- */
+.wb-foot{text-align:center;font-size:11.5px;color:#a3a8b2;padding:14px 16px 4px;line-height:1.7}
+.wb-foot a{color:#2f7bf6}
+
+/* ---------- 抽屉内小件 ---------- */
+.sheet .conn-chips{display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 12px}
+.sheet .chip{font-size:12px;padding:4px 10px;border-radius:999px;background:#eef4ff;color:#1b4f9c}
+.sheet .kv{font-size:13.5px;line-height:2;color:#2a2f38}
+.sheet .kv b{color:#8a8f99;font-weight:600;display:inline-block;min-width:74px}
+.sheet .big-num{font-size:26px;font-weight:800;color:#f0512c}
+.sheet .tip{font-size:12.5px;color:#8a8f99;line-height:1.8;margin-top:8px}
+.sheet .plist{display:flex;flex-direction:column;gap:10px}
+.sheet .plist .row{display:flex;gap:10px;align-items:center;padding-bottom:10px;border-bottom:1px dashed #f0eef2}
+.sheet .plist .row:last-child{border-bottom:0}
+.sheet .plist .t{width:52px;height:52px;border-radius:11px;background:#f2f3f5;overflow:hidden;flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:#c7d1de;font-weight:800}
+.sheet .plist .t img{width:100%;height:100%;object-fit:cover}
+.sheet .plist .m{flex:1;min-width:0}
+.sheet .plist .m b{font-size:13.5px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sheet .plist .m small{font-size:12px;color:#8a8f99}
+.sheet .plist .p{color:#f5333f;font-weight:800;font-size:14px;white-space:nowrap}
