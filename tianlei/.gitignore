@@ -1,0 +1,23 @@
+# 构建产物（不入库）
+/build/
+*.apk
+*.idsig
+*.unsigned.apk
+
+# 密钥 / 签名（绝不入库）
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+server/.env
+.env
+
+# 系统
+node_modules/
+.DS_Store
+Thumbs.db
+
+# 调试产物
+/tmp/
+*.log

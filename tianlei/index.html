@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="screen-orientation" content="landscape">
+<meta name="creative-medium" content="mini-game">
+<title>天泪纪元：学院篇</title>
+<link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+<!-- Fullscreen Launch Overlay -->
+<div id="fsOverlay" class="fs-overlay">
+  <div class="fs-overlay-bg"></div>
+  <div class="fs-overlay-content">
+    <div class="fs-logo">
+      <h1 class="fs-title">天泪纪元</h1>
+      <p class="fs-subtitle">学 院 篇</p>
+    </div>
+    <button id="fsEnterBtn" class="fs-enter-btn">
+      <span class="fs-btn-text">进 入 全 屏 游 戏</span>
+      <span class="fs-btn-glow"></span>
+    </button>
+    <p class="fs-hint">建议横屏体验 · 点击按钮开始</p>
+    <p class="fs-device-tip" id="fsDeviceTip"></p>
+  </div>
+</div>
+
+<div id="gameContainer">
+  <canvas id="gameCanvas"></canvas>
+  
+  <!-- UI Overlay Layer -->
+  <div id="uiLayer">
+    <!-- Opening Scene -->
+    <div id="openingScene" class="scene hidden">
+      <div class="opening-overlay"></div>
+      <div class="opening-particles" id="openingParticles"></div>
+      <div class="opening-title">
+        <h1 class="title-main">天泪纪元</h1>
+        <h2 class="title-sub">学 院 篇</h2>
+        <div class="title-divider"></div>
+        <p class="title-tagline">虚空禁锢者 · 鹤允</p>
+      </div>
+      <div class="opening-enter">
+        <div class="enter-btn">点 击 进 入</div>
+        <div class="enter-hint">▶</div>
+      </div>
+    </div>
+
+    <!-- Main Menu -->
+    <div id="menuScene" class="scene hidden">
+      <video id="menuVideoBg" class="menu-video-bg" muted loop autoplay playsinline webkit-playsinline preload="auto"></video>
+      <div class="menu-bg"></div>
+      <div class="menu-content">
+        <div class="menu-title">
+          <h1>天泪纪元</h1>
+          <p>学院篇</p>
+        </div>
+        <div class="menu-buttons">
+          <button class="menu-btn primary" data-action="newGame">联 机 世 界</button>
+          <button class="menu-btn" data-action="storyMode">剧 情 模 式</button>
+          <button class="menu-btn" data-action="continueGame">继 续 游 戏</button>
+          <button class="menu-btn" data-action="settings">设　　置</button>
+          <button class="menu-btn" data-action="codex">图 鉴 / 音 乐</button>
+        </div>
+        <div class="menu-version">v1.0.0 · 天泪纪元工作室</div>
+      </div>
+    </div>
+
+    <!-- Settings Panel -->
+    <div id="settingsPanel" class="modal-panel hidden">
+      <div class="modal-content settings-content">
+        <h2>游 戏 设 置</h2>
+        <div class="setting-item">
+          <span>背景音乐</span>
+          <div class="toggle-switch" id="musicToggle"><div class="toggle-thumb"></div></div>
+        </div>
+        <div class="setting-item">
+          <span>游戏音效</span>
+          <div class="toggle-switch active" id="sfxToggle"><div class="toggle-thumb"></div></div>
+        </div>
+        <div class="setting-item">
+          <span>屏幕震动</span>
+          <div class="toggle-switch active" id="vibrationToggle"><div class="toggle-thumb"></div></div>
+        </div>
+        <div class="setting-item">
+          <span>摇杆大小</span>
+          <input type="range" id="joystickSize" min="60" max="120" value="90">
+        </div>
+        <div class="setting-item">
+          <span>全屏模式</span>
+          <div class="toggle-switch active" id="fullscreenToggle"><div class="toggle-thumb"></div></div>
+        </div>
+        <button class="modal-close" data-close="settingsPanel">确 定</button>
+      </div>
+    </div>
+
+    <!-- Codex Panel -->
+    <div id="codexPanel" class="modal-panel hidden">
+      <div class="modal-content codex-content">
+        <h2>图 鉴 / 音 乐 鉴 赏</h2>
+        <div class="codex-tabs">
+          <button class="codex-tab active" data-tab="characters">角色</button>
+          <button class="codex-tab" data-tab="bosses">Boss</button>
+          <button class="codex-tab" data-tab="music">音乐</button>
+        </div>
+        <div class="codex-body" id="codexBody">
+          <!-- dynamic content -->
+        </div>
+        <button class="modal-close" data-close="codexPanel">返 回</button>
+      </div>
+    </div>
+
+    <!-- Story / Dialogue -->
+    <div id="storyScene" class="scene hidden">
+      <div class="story-bg"></div>
+      <div class="story-character" id="storyCharacter">
+        <img id="storyCharImg" src="" alt="">
+      </div>
+      <div class="dialogue-box">
+        <div class="dialogue-name" id="dialogueName">鹤允</div>
+        <div class="dialogue-text" id="dialogueText"></div>
+        <div class="dialogue-continue">▼</div>
+      </div>
+    </div>
+
+    <!-- Hub Scene -->
+    <div id="hubScene" class="scene hidden">
+      <canvas id="hubCanvas"></canvas>
+      <div class="hub-ui">
+        <div class="hub-topbar">
+          <div class="hub-currency">
+            <span class="currency-gold">金币: <b id="hubGold">0</b></span>
+            <span class="currency-star">星砾: <b id="hubStar">0</b></span>
+            <span class="currency-level">Lv.<b id="hubLevel">1</b></span>
+          </div>
+          <div class="hub-objective" id="hubObjective">当前目标：击败结界锚点 0/4</div>
+          <div class="hub-topbtns">
+            <button class="hub-btn" data-action="inventory">背包</button>
+            <button class="hub-btn" data-action="quests">任务</button>
+            <button class="hub-btn" data-action="menuBtn">菜单</button>
+          </div>
+        </div>
+        <div class="hub-hint" id="hubHint">移动到关卡入口进入战斗</div>
+      </div>
+    </div>
+
+    <!-- Inventory Panel -->
+    <div id="inventoryPanel" class="modal-panel hidden">
+      <div class="modal-content inventory-content">
+        <h2>背 包 / 装 备</h2>
+        <div class="inv-tabs">
+          <button class="inv-tab active" data-tab="equipment">装备栏</button>
+          <button class="inv-tab" data-tab="relics">遗物</button>
+          <button class="inv-tab" data-tab="skills">技能</button>
+        </div>
+        <div class="inv-body" id="invBody"></div>
+        <button class="modal-close" data-close="inventoryPanel">关 闭</button>
+      </div>
+    </div>
+
+    <!-- Quest Panel -->
+    <div id="questPanel" class="modal-panel hidden">
+      <div class="modal-content quest-content">
+        <h2>任 务 列 表</h2>
+        <div class="quest-list" id="questList"></div>
+        <button class="modal-close" data-close="questPanel">关 闭</button>
+      </div>
+    </div>
+
+    <!-- Hub Menu -->
+    <div id="hubMenuPanel" class="modal-panel hidden">
+      <div class="modal-content hubmenu-content">
+        <h2>游 戏 菜 单</h2>
+        <button class="menu-btn" data-action="saveGame">保 存 游 戏</button>
+        <button class="menu-btn" data-action="hubSettings">设 置</button>
+        <button class="menu-btn" data-action="returnMenu">返回主菜单</button>
+        <button class="modal-close" data-close="hubMenuPanel">继 续 游 戏</button>
+      </div>
+    </div>
+
+    <!-- ===== World Scene · 联机 RPG 开放世界（取代原大厅） ===== -->
+    <div id="worldScene" class="scene hidden">
+      <canvas id="worldCanvas"></canvas>
+      <div class="world-ui">
+        <div class="world-topbar">
+          <div class="world-left">
+            <span class="world-region" id="worldRegion">学院大门</span>
+            <span class="world-net-status offline" id="worldNetStatus">○ 未连接</span>
+          </div>
+          <div class="world-bossbar" id="worldBossBar" style="display:none"></div>
+          <div class="world-right">
+            <span class="w-coin">金币 <b id="worldGold">0</b></span>
+            <span class="w-star">星砾 <b id="worldStar">0</b></span>
+            <span class="w-lv">Lv.<b id="worldLevel">1</b></span>
+            <span class="w-obj" id="worldObjective">锚点 0/4</span>
+            <button class="hub-btn" data-action="inventory">背包</button>
+            <button class="hub-btn" data-action="quests">任务</button>
+            <button class="hub-btn" data-action="multiplayer">联机</button>
+            <button class="hub-btn" data-action="menuBtn">菜单</button>
+          </div>
+        </div>
+
+        <div class="world-hint" id="worldHint" style="display:none"></div>
+        <div class="world-alerts" id="worldAlerts"></div>
+
+        <div class="world-vitals">
+          <div class="wv-bar"><div class="wv-fill hp" id="worldHpFill"></div></div>
+          <div class="wv-bar"><div class="wv-fill mp" id="worldMpFill"></div></div>
+        </div>
+
+        <div class="world-joystick" id="worldJoystick">
+          <div class="world-joystick-stick" id="worldJoystickStick"></div>
+        </div>
+
+        <div class="skill-buttons world-skills">
+          <div class="skill-row bottom-row">
+            <div class="skill-btn skill-s2" data-skill="2">
+              <div class="skill-icon">✦</div><div class="skill-key">K</div><div class="skill-name">虚空禁锢</div>
+            </div>
+            <div class="skill-btn skill-attack" data-skill="attack">
+              <div class="skill-icon">⚔</div><div class="skill-key">J</div><div class="skill-name">普攻</div>
+            </div>
+            <div class="skill-btn skill-s3" data-skill="3">
+              <div class="skill-icon">◈</div><div class="skill-key">L</div><div class="skill-name">空间切割</div>
+            </div>
+          </div>
+          <div class="skill-row top-row">
+            <div class="skill-btn skill-s1" data-skill="1">
+              <div class="skill-icon">➤</div><div class="skill-key">U</div><div class="skill-name">虚空闪现</div>
+            </div>
+            <div class="skill-btn skill-ultimate" data-skill="ult">
+              <div class="skill-icon">✹</div><div class="skill-key">I</div><div class="skill-name">虚空领域</div>
+            </div>
+            <div class="skill-btn skill-dodge" data-skill="dodge">
+              <div class="skill-icon">➜</div><div class="skill-key">O</div><div class="skill-name">闪避</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="world-chat">
+          <div class="world-chat-log" id="worldChatLog"></div>
+          <div class="world-chat-bar">
+            <input id="worldChatInput" type="text" placeholder="世界频道 · 回车发送" autocomplete="off" maxlength="80">
+            <button onclick="WorldMgr.sendChatFromBox()">发送</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 联机设置面板 -->
+    <div id="multiplayerPanel" class="modal-panel hidden">
+      <div class="modal-content">
+        <h2>多 人 联 机</h2>
+        <div class="setting-item">
+          <span>昵称</span>
+          <input id="mpName" type="text" maxlength="12" style="flex:1;margin-left:12px;">
+        </div>
+        <div class="setting-item">
+          <span>频道</span>
+          <input id="mpRoom" type="text" maxlength="16" value="main" style="flex:1;margin-left:12px;">
+        </div>
+        <button class="menu-btn primary" id="mpConnectBtn">连 接 / 重 连</button>
+        <button class="menu-btn" id="mpPvpBtn">PVP：开启</button>
+        <p class="mp-tip" id="mpStatus">未连接</p>
+        <p class="mp-tip">走公共 MQTT 实时通道（免注册、免服务器），同一「频道」的人就能一起玩。</p>
+        <button class="modal-close" data-close="multiplayerPanel">关 闭</button>
+      </div>
+    </div>
+
+    <!-- Battle Scene -->
+    <div id="battleScene" class="scene hidden">
+      <canvas id="battleCanvas"></canvas>
+      
+      <!-- Boss HP Bar -->
+      <div class="boss-hp-container">
+        <div class="boss-name" id="bossName">虚空行者</div>
+        <div class="boss-hp-bar">
+          <div class="boss-hp-fill" id="bossHpFill"></div>
+          <div class="boss-phase-indicator" id="bossPhaseIndicator"></div>
+        </div>
+        <div class="boss-stage" id="bossStage"></div>
+      </div>
+
+      <!-- Player HUD -->
+      <div class="player-hud">
+        <div class="player-stats">
+          <div class="hp-bar-wrap">
+            <div class="hp-bar"><div class="hp-fill" id="playerHpFill"></div></div>
+            <span class="hp-text" id="playerHpText">100/100</span>
+          </div>
+          <div class="mp-bar-wrap">
+            <div class="mp-bar"><div class="mp-fill" id="playerMpFill"></div></div>
+            <span class="mp-text" id="playerMpText">50/50</span>
+          </div>
+          <div class="exp-bar-wrap">
+            <div class="exp-bar"><div class="exp-fill" id="playerExpFill"></div></div>
+            <span class="exp-text" id="playerExpText">EXP 0/100</span>
+          </div>
+        </div>
+        <div class="combo-display" id="comboDisplay"></div>
+      </div>
+
+      <!-- Virtual Joystick -->
+      <div class="joystick-container" id="joystickContainer">
+        <div class="joystick-base" id="joystickBase">
+          <div class="joystick-stick" id="joystickStick"></div>
+        </div>
+      </div>
+
+      <!-- Skill Buttons (MOBA style) -->
+      <div class="skill-buttons">
+        <div class="skill-row bottom-row">
+          <div class="skill-btn skill-s2" id="skillBtn2" data-skill="2">
+            <div class="skill-icon">
+              <svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="14" fill="none" stroke="#a855f7" stroke-width="2"/><path d="M8 20 L32 20 M20 8 L20 32" stroke="#a855f7" stroke-width="1.5"/><circle cx="20" cy="20" r="5" fill="#a855f7" opacity="0.6"/></svg>
+            </div>
+            <div class="skill-cooldown" id="skillCd2"></div>
+            <div class="skill-key">K</div>
+            <div class="skill-name">虚空禁锢</div>
+          </div>
+          <div class="skill-btn skill-attack" id="skillBtnAttack" data-skill="attack">
+            <div class="skill-icon">
+              <svg viewBox="0 0 40 40"><polygon points="20,6 28,20 20,34 12,20" fill="#fbbf24" stroke="#92400e" stroke-width="2"/></svg>
+            </div>
+            <div class="skill-key">J</div>
+            <div class="skill-name">普攻</div>
+          </div>
+          <div class="skill-btn skill-s3" id="skillBtn3" data-skill="3">
+            <div class="skill-icon">
+              <svg viewBox="0 0 40 40"><path d="M6 30 L20 8 L34 30 Z" fill="none" stroke="#ec4899" stroke-width="2"/><path d="M12 28 L20 14 L28 28" stroke="#ec4899" stroke-width="1.5" fill="none"/></svg>
+            </div>
+            <div class="skill-cooldown" id="skillCd3"></div>
+            <div class="skill-key">L</div>
+            <div class="skill-name">空间切割</div>
+          </div>
+        </div>
+        <div class="skill-row top-row">
+          <div class="skill-btn skill-s1" id="skillBtn1" data-skill="1">
+            <div class="skill-icon">
+              <svg viewBox="0 0 40 40"><path d="M10 20 Q20 5 30 20 Q20 35 10 20" fill="none" stroke="#22d3ee" stroke-width="2"/><circle cx="30" cy="20" r="4" fill="#22d3ee"/></svg>
+            </div>
+            <div class="skill-cooldown" id="skillCd1"></div>
+            <div class="skill-key">U</div>
+            <div class="skill-name">虚空闪现</div>
+          </div>
+          <div class="skill-btn skill-ultimate" id="skillBtnUlt" data-skill="ult">
+            <div class="skill-icon">
+              <svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="15" fill="url(#ultGrad)" stroke="#7c3aed" stroke-width="2"/><defs><radialGradient id="ultGrad"><stop offset="0%" stop-color="#c084fc"/><stop offset="100%" stop-color="#4c1d95"/></radialGradient></defs><path d="M20 5 L20 35 M5 20 L35 20" stroke="#fff" stroke-width="1.5" opacity="0.7"/><circle cx="20" cy="20" r="6" fill="#fff" opacity="0.3"/></svg>
+            </div>
+            <div class="skill-cooldown" id="skillCdUlt"></div>
+            <div class="skill-key">I</div>
+            <div class="skill-name">虚空领域</div>
+          </div>
+          <div class="skill-btn skill-dodge" id="skillBtnDodge" data-skill="dodge">
+            <div class="skill-icon">
+              <svg viewBox="0 0 40 40"><path d="M8 25 Q14 10 25 10 Q35 10 35 22 Q35 32 22 32" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round"/><path d="M20 18 L26 12 L26 20" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div class="skill-cooldown" id="skillCdDodge"></div>
+            <div class="skill-key">O</div>
+            <div class="skill-name">闪避</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Skill Range Indicator (shown when holding skill) -->
+      <div class="skill-indicator hidden" id="skillIndicator"></div>
+
+      <!-- Damage Numbers Layer -->
+      <div id="damageNumbers"></div>
+
+      <!-- Pause Button -->
+      <button class="battle-pause" id="battlePause">⏸</button>
+    </div>
+
+    <!-- Battle Pause Menu -->
+    <div id="battlePausePanel" class="modal-panel hidden">
+      <div class="modal-content">
+        <h2>游 戏 暂 停</h2>
+        <button class="menu-btn" data-action="resumeBattle">继 续 战 斗</button>
+        <button class="menu-btn" data-action="battleSettings">设 置</button>
+        <button class="menu-btn danger" data-action="retreatBattle">撤 退</button>
+      </div>
+    </div>
+
+    <!-- Victory Screen -->
+    <div id="victoryScene" class="scene hidden">
+      <div class="victory-bg"></div>
+      <div class="victory-content">
+        <h1 class="victory-title">胜 利 !</h1>
+        <div class="victory-boss" id="victoryBoss">击败 虚空行者</div>
+        <div class="victory-rewards">
+          <div class="reward-item">
+            <span class="reward-label">金币</span>
+            <span class="reward-value" id="rewardGold">+500</span>
+          </div>
+          <div class="reward-item">
+            <span class="reward-label">星砾</span>
+            <span class="reward-value" id="rewardStar">+3</span>
+          </div>
+          <div class="reward-item">
+            <span class="reward-label">经验</span>
+            <span class="reward-value" id="rewardExp">+200</span>
+          </div>
+          <div class="reward-item item-drop" id="rewardDrop">
+            <span class="reward-label">获得遗物</span>
+            <span class="reward-value" id="rewardItemName">断裂的怀表</span>
+          </div>
+        </div>
+        <div class="victory-levelup hidden" id="levelUpNotice">
+          <h3>等 级 提 升 !</h3>
+          <p>Lv.<span id="newLevel">2</span>  属性提升</p>
+        </div>
+        <button class="menu-btn primary" data-action="victoryContinue">继 续</button>
+      </div>
+    </div>
+
+    <!-- Game Over -->
+    <div id="gameOverScene" class="scene hidden">
+      <div class="gameover-bg"></div>
+      <div class="gameover-content">
+        <h1 class="gameover-title">失 败</h1>
+        <p class="gameover-text">结界的力量太过强大...</p>
+        <button class="menu-btn primary" data-action="retryBattle">再 次 挑 战</button>
+        <button class="menu-btn" data-action="returnHub">返 回 中 枢</button>
+      </div>
+    </div>
+
+    <!-- Ending Scene -->
+    <div id="endingScene" class="scene hidden">
+      <div class="ending-bg"></div>
+      <div class="ending-content">
+        <h1 class="ending-title">结界已破</h1>
+        <div class="ending-text">
+          <p>当最后一枚锚点崩碎，时之结界如琉璃般剥落。</p>
+          <p>阳光重新洒落在魔法学院的尖顶上，</p>
+          <p>鹤允与竹阳并肩走出了这座时间的囚笼。</p>
+          <p class="ending-line">——但这只是新旅程的开始。</p>
+        </div>
+        <div class="credits">
+          <h3>制 作 名 单</h3>
+          <p>原　　作：天泪纪元工作室</p>
+          <p>角色设计：鹤允 · 竹阳</p>
+          <p>程序开发：妙搭 Code Agent</p>
+          <p>美术资源：天泪纪元美术组</p>
+          <p>音乐音效：天泪纪元音娱部</p>
+          <p class="thanks">感谢游玩</p>
+        </div>
+        <button class="menu-btn primary" data-action="endingContinue">回 到 主 菜 单</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audio Elements -->
+  <audio id="bgmMain" loop preload="none">
+    <source src="assets/audio/bgm_main.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="bgmBoss" loop preload="none">
+    <source src="assets/audio/bgm_boss.mp3" type="audio/mpeg">
+  </audio>
+</div>
+
+<!-- Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/layout.js"></script>
+    <script src="js/core.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/sprite.js"></script>
+    <script src="js/parallax.js"></script>
+    <script src="js/video-bg.js"></script>
+    <script src="js/enemies.js"></script>
+    <script src="js/mqtt.js"></script>
+    <script src="js/net.js"></script>
+    <script src="js/debug.js"></script>
+    <script src="js/world.js"></script>
+    <script src="js/fullscreen.js"></script>
+<script src="js/player.js"></script>
+<script src="js/boss.js"></script>
+    <script src="js/battle.js"></script>
+    <script src="js/chapter.js"></script>
+    <script src="js/scenes.js"></script>
+    <script src="js/main.js"></script>
+    <script>
+    /* ------------------------------------------------------------------
+       【关键修复】本工程的对象都是用 const 声明的，const 不会自动成为
+       window 的属性。而运行期大量使用 window.X 判断（例如 HubMgr.start 里的
+       window.WorldMgr、撤退时的 window.HubMgr/BattleSys），若不显式挂载，
+       这些判断全部为 false → 世界起不来、联机/调试通道失效。
+       这里在全部脚本加载后统一补齐。
+       ------------------------------------------------------------------ */
+    (function () {
+      function grab(n) { try { return eval(n); } catch (e) { return undefined; } }
+      [
+        'CONFIG', 'Utils', 'GameState', 'AudioMgr', 'InputMgr', 'ParticleSys',
+        'DamageNumberSys', 'ScreenShake', 'Player', 'EnemySys', 'BossSys', 'BattleSys',
+        'ChapterMgr', 'SceneMgr', 'StoryMgr', 'CodexMgr', 'InventoryMgr', 'QuestMgr',
+        'HubMgr', 'LayoutMgr', 'FullscreenMgr', 'SpriteSheet', 'ParallaxSys', 'VideoBgMgr',
+        'NetMgr', 'WorldSim', 'WorldMgr', 'DebugConsole'
+      ].forEach(function (n) {
+        var v = grab(n);
+        if (v !== undefined) window[n] = v;
+      });
+      console.log('[globals] exposed:',
+        ['WorldMgr', 'NetMgr', 'WorldSim', 'DebugConsole'].filter(function (n) { return !!window[n]; }).join(','));
+    })();
+    </script>
+    </body>
+</html>
