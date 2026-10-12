@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>天泪纪元 · HD-2D 3D环境</title>
+<style>
+  html,body{margin:0;background:#05060a;overflow:hidden;font-family:"Noto Serif SC",serif;color:#e8e0f0;
+    -webkit-user-select:none;user-select:none;touch-action:none}
+  #cv{display:block;position:absolute;inset:0;width:100%;height:100%}
+  .octhud{display:none}   /* 旧按钮栏隐藏（战斗 HUD 已含 视角/后处理/薄雾）*/
+  .octhud button{background:rgba(30,20,50,.82);color:#e8e0f0;border:1px solid rgba(168,85,247,.5);
+    border-radius:8px;padding:7px 12px;font-size:13px;font-family:inherit}
+  .hud button.on{background:rgba(168,85,247,.5);border-color:#c084fc}
+  #log{position:absolute;left:14px;bottom:150px;z-index:12;font-size:13px;color:#d8c8ff;
+    text-shadow:0 2px 6px #000;line-height:1.7;pointer-events:none}
+  #joy{position:absolute;left:26px;bottom:26px;width:118px;height:118px;z-index:11;display:none;
+    border-radius:50%;background:rgba(120,80,200,.13);border:2px solid rgba(168,85,247,.28)}
+  #joy .k{position:absolute;left:50%;top:50%;width:50px;height:50px;margin:-25px 0 0 -25px;
+    border-radius:50%;background:rgba(168,85,247,.55);box-shadow:0 0 18px rgba(168,85,247,.6)}
+  .tip{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:10;
+    background:rgba(10,6,24,.72);border-radius:9px;padding:8px 16px;font-size:12.5px}
+  #perf{position:absolute;right:12px;top:8px;z-index:10;font:12px monospace;color:#9f8fd0;text-align:right;
+    text-shadow:0 0 6px #000}
+
+  :root{
+    --neon:#c084fc; --cy:#22d3ee; --hp:#ff4d6d; --am:#ffd166; --ok:#4ade80; --bad:#f87171;
+    --panel:rgba(10,8,22,.72); --line:rgba(168,85,247,.42);
+  }
+  html,body{margin:0;height:100%;background:#05060a;overflow:hidden;color:#e8e0f0;
+    font-family:"Noto Sans SC","Noto Serif SC",system-ui,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none}
+  #cv{display:block;position:absolute;inset:0;width:100%;height:100%}
+  .hud{position:absolute;inset:0;pointer-events:none;z-index:10}
+  button,.clickable{pointer-events:auto}
+  .hud .hrbtns button,.hud #chatBar button,.hud #chatInput,.hud #board button{pointer-events:auto}
+
+  #xhair{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;z-index:14;opacity:.95;transition:transform .06s}
+  #xhair .l{position:absolute;background:var(--cy);box-shadow:0 0 6px rgba(34,211,238,.9)}
+  #xhair .l.v{left:50%;width:2px;height:9px;margin-left:-1px}
+  #xhair .l.h{top:50%;height:2px;width:9px;margin-top:-1px}
+  #xhair .v.t{top:0}#xhair .v.b{bottom:0}#xhair .h.lf{left:0}#xhair .h.rt{right:0}
+  #xhair .d{position:absolute;left:50%;top:50%;width:3px;height:3px;margin:-1.5px 0 0 -1.5px;border-radius:50%;background:#fff;box-shadow:0 0 8px #fff}
+  #xhair.hit .l{background:#ff5f6d}
+  #xhair.kill .l{background:#ffd166}
+
+  .topbar{position:absolute;top:0;left:0;right:0;z-index:6;display:flex;justify-content:space-between;align-items:flex-start;padding:8px 12px;gap:10px;font-size:13px;text-shadow:0 2px 6px #000}
+  .chip{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:5px 10px;display:flex;gap:10px;align-items:center}
+  .chip b{color:#fff}
+  #netChip .dot{width:8px;height:8px;border-radius:50%;background:#666;box-shadow:0 0 6px #666}
+  #netChip.on .dot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+  .hrbtns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .hrbtns button{background:var(--panel);color:#e8e0f0;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12.5px;font-family:inherit}
+  .hrbtns button.on{background:rgba(168,85,247,.35);border-color:var(--neon)}
+
+  #bossBar{position:absolute;left:50%;top:74px;transform:translateX(-50%);width:min(58vw,560px);z-index:15;text-align:center}
+  #bossBar .bn{font-size:15px;letter-spacing:3px;color:#ffd166;text-shadow:0 2px 8px #000}
+  #bossBar .bb{height:11px;border-radius:6px;background:rgba(0,0,0,.6);border:1px solid rgba(255,120,0,.55);overflow:hidden;margin-top:3px}
+  #bossBar .bf{height:100%;width:100%;background:linear-gradient(90deg,#ff3d3d,#ffb43d)}
+  #bossBar .bs{font-size:11px;color:#c9bce8;margin-top:2px}
+  #killfeed{position:absolute;top:52px;right:12px;width:290px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;font-size:12.5px;z-index:12}
+  #killfeed div{background:rgba(8,6,18,.72);border-right:3px solid var(--neon);padding:3px 8px;border-radius:5px 0 0 5px;animation:kfIn .18s ease-out;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  @keyframes kfIn{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
+
+  #vitals{position:absolute;left:14px;bottom:14px;width:min(38vw,320px);z-index:12}
+  .vrow{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+  .vtag{font-size:11px;color:#c9bce8;width:26px;text-align:right;letter-spacing:1px}
+  .vbar{flex:1;height:13px;border-radius:7px;background:rgba(0,0,0,.55);border:1px solid var(--line);overflow:hidden;position:relative}
+  .vfill{height:100%;width:100%;transition:width .12s linear}
+  .vfill.hp{background:linear-gradient(90deg,#ff2d55,#ff8fa3);box-shadow:0 0 12px rgba(255,45,85,.6)}
+  .vfill.ar{background:linear-gradient(90deg,#38bdf8,#a5f3fc)}
+  #hpNum{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10.5px;color:#fff;text-shadow:0 1px 3px #000;letter-spacing:.5px}
+
+  #gunbox{position:absolute;right:14px;bottom:14px;text-align:right;z-index:12}
+  #gunName{font-size:13px;color:#e9d5ff;letter-spacing:1px}
+  #gunAmmo{font-size:34px;line-height:1;font-weight:700;color:#fff;text-shadow:0 0 14px rgba(255,209,102,.55)}
+  #gunAmmo small{font-size:15px;color:#c9bce8}
+  #gunAmmo.reloading{color:var(--am);animation:blink .5s infinite}
+  @keyframes blink{50%{opacity:.4}}
+  #wlist{display:flex;gap:6px;justify-content:flex-end;margin-top:6px}
+  #wlist .w{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:3px 9px;font-size:11.5px;color:#b9a8e0}
+  #wlist .w.on{background:rgba(255,209,102,.22);border-color:var(--am);color:#fff}
+
+  #touchpad{position:absolute;inset:0;z-index:1;pointer-events:none;display:none}
+  .tbtn{position:absolute;z-index:4;border-radius:50%;background:rgba(28,18,48,.55);border:2px solid var(--line);color:#f0e6ff;display:flex;align-items:center;justify-content:center;font-size:12px;letter-spacing:.5px;pointer-events:auto;text-align:center;line-height:1.1}
+  .tbtn:active,.tbtn.on{background:rgba(168,85,247,.5);border-color:var(--neon)}
+  #btnFire{right:18px;bottom:84px;width:120px;height:120px;font-size:18px;font-weight:700;background:radial-gradient(circle at 35% 30%,rgba(255,77,109,.65),rgba(120,20,40,.6));border-color:rgba(255,77,109,.8)}
+  #btnAds{right:124px;bottom:150px;width:56px;height:56px}
+  #btnJump{right:26px;bottom:200px;width:56px;height:56px}
+  #btnReload{right:124px;bottom:74px;width:56px;height:56px}
+  #btnSwap{right:196px;bottom:118px;width:52px;height:52px}
+  #btnGrenade{right:196px;bottom:190px;width:52px;height:52px}
+  #joy{position:absolute;left:24px;bottom:96px;width:124px;height:124px;z-index:4;display:none;border-radius:50%;background:rgba(120,80,200,.13);border:2px solid rgba(168,85,247,.3);z-index:12;pointer-events:auto}
+  #joy .k{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(168,85,247,.55);box-shadow:0 0 18px rgba(168,85,247,.6)}
+  #lookZone{position:absolute;right:0;top:62px;width:58%;height:calc(100% - 62px);z-index:1;pointer-events:auto;display:none}
+
+  #mapWrap{position:absolute;left:14px;top:52px;width:158px;height:158px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:rgba(4,4,10,.68);z-index:12}
+  #minimap{width:100%;height:100%;display:block}
+
+  #dmgLayer{position:absolute;inset:0;z-index:13;overflow:hidden;pointer-events:none}
+  .dmg{position:absolute;font-weight:700;font-size:17px;color:#ffe08a;text-shadow:0 2px 5px #000;will-change:transform,opacity}
+  .dmg.crit{color:#ff5f6d;font-size:23px}
+  .dmg.self{color:#ff8080}
+  #centerMsg{position:absolute;left:50%;top:26%;transform:translateX(-50%);text-align:center;z-index:16;font-size:22px;letter-spacing:2px;text-shadow:0 3px 12px #000;opacity:0;transition:opacity .2s}
+  #centerMsg.on{opacity:1}
+  #centerMsg small{display:block;font-size:13px;color:#c9bce8;letter-spacing:1px;margin-top:6px}
+  #hitmark{position:absolute;left:50%;top:50%;z-index:15;transform:translate(-50%,-50%);font-size:26px;color:#ff5f6d;opacity:0;font-weight:700}
+  #dmgVig{position:absolute;inset:0;z-index:9;pointer-events:none;opacity:0;transition:opacity .28s;box-shadow:inset 0 0 120px 30px rgba(255,0,40,.75)}
+
+  #board{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;display:none;background:rgba(8,6,18,.94);border:1px solid var(--line);border-radius:12px;padding:16px 18px;min-width:440px}
+  #board h3{margin:0 0 10px;font-size:16px;color:#e9d5ff;letter-spacing:2px;text-align:center}
+  #board table{width:100%;border-collapse:collapse;font-size:13px}
+  #board th,#board td{padding:5px 9px;text-align:left;border-bottom:1px solid rgba(168,85,247,.16)}
+  #board th{color:#a78bfa;font-weight:500;font-size:11.5px;letter-spacing:1px}
+  #board tr.me td{color:#ffd166}
+
+  #chatWrap{position:absolute;left:14px;bottom:252px;width:min(38vw,330px);z-index:5}
+  #chatLog{max-height:66px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;font-size:12.5px;margin-bottom:5px;text-shadow:0 2px 5px #000}
+  #chatLog div span{color:#c084fc}
+  #chatLog div.sys{color:#ffd166}
+  #chatBar{display:flex;gap:6px;pointer-events:auto}
+  #chatInput{flex:1;background:rgba(8,6,18,.8);border:1px solid var(--line);border-radius:8px;color:#fff;padding:6px 9px;font-size:12.5px;font-family:inherit;outline:none;pointer-events:auto}
+  #chatBar button{background:rgba(168,85,247,.35);border:1px solid var(--neon);color:#fff;border-radius:8px;padding:6px 12px;font-size:12.5px;font-family:inherit}
+
+  #startPanel{position:absolute;inset:0;z-index:30;background:linear-gradient(150deg,#0a0618,#160c2c 60%,#05060a);display:flex;align-items:center;justify-content:center;overflow:auto}
+  #startBox{width:min(92vw,720px);background:rgba(12,8,26,.86);border:1px solid var(--line);border-radius:16px;padding:22px 24px;box-shadow:0 20px 70px rgba(0,0,0,.7)}
+  #startBox h1{margin:0 0 2px;font-size:30px;letter-spacing:6px;background:linear-gradient(90deg,#c084fc,#22d3ee);-webkit-background-clip:text;background-clip:text;color:transparent}
+  #startBox .sub{color:#a78bfa;font-size:12.5px;letter-spacing:3px;margin-bottom:16px}
+  .frow{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+  .fld{flex:1;min-width:150px}
+  .fld label{display:block;font-size:11.5px;color:#a78bfa;letter-spacing:1px;margin-bottom:4px}
+  .fld input,.fld select{width:100%;box-sizing:border-box;background:rgba(6,4,14,.9);border:1px solid var(--line);color:#fff;border-radius:8px;padding:9px 10px;font-size:14px;font-family:inherit;outline:none}
+  .modeSel{display:flex;gap:10px;margin:6px 0 14px}
+  .modeSel .m{flex:1;border:1px solid var(--line);border-radius:10px;padding:10px;cursor:pointer;background:rgba(8,6,18,.7);transition:.15s}
+  .modeSel .m.on{border-color:var(--neon);background:rgba(168,85,247,.24);box-shadow:0 0 22px rgba(168,85,247,.3)}
+  .modeSel .m b{display:block;font-size:14px;color:#fff;margin-bottom:3px}
+  .modeSel .m span{font-size:11.5px;color:#a78bfa}
+  #goBtn{width:100%;padding:14px;font-size:17px;letter-spacing:4px;border-radius:11px;cursor:pointer;border:1px solid var(--neon);color:#fff;font-family:inherit;background:linear-gradient(90deg,rgba(168,85,247,.75),rgba(34,211,238,.6))}
+  #goBtn:active{filter:brightness(1.2)}
+  .tips{margin-top:12px;font-size:11.5px;color:#8b7cb0;line-height:1.7}
+  .tips b{color:#c9bce8}
+  #log{position:absolute;left:14px;bottom:44px;z-index:8;font-size:11px;color:#8b7cb0;opacity:.55;pointer-events:none}
+  #perf{position:absolute;right:12px;top:34px;z-index:8;font:11px monospace;color:#8b7cb0;text-align:right;text-shadow:0 0 6px #000;opacity:.8;pointer-events:none}
+  #tipTxt{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);z-index:8;font-size:11px;color:#8b7cb0;opacity:.6;pointer-events:none}
+  #respBar{position:absolute;left:50%;top:56%;transform:translateX(-50%);width:240px;z-index:16;display:none}
+  #respBar .rb{height:7px;border-radius:4px;background:rgba(0,0,0,.6);border:1px solid var(--line);overflow:hidden}
+  #respBar .rf{height:100%;width:0;background:linear-gradient(90deg,#ff4d6d,#ffd166)}
+  #respBar p{margin:0 0 6px;text-align:center;font-size:13px;color:#ffd166;letter-spacing:2px}
+  /* ★ 关键：body 上的 touch-action:none 会禁掉 range 滑条的触摸拖动 → 单独放开 */
+  input[type=range]{touch-action:auto !important;pointer-events:auto !important;-webkit-appearance:auto;appearance:auto}
+
+</style></head><body>
+<canvas id="cv"></canvas>
+<div id="log"></div>
+<div id="joy"><div class="k"></div></div>
+<div class="tip" id="tipTxt">WASD/摇杆 移动 · 真 3D 地面 + 真阴影</div>
+<div id="perf"></div>
+
+<script src="js/tiles.js?v=1791844736"></script>
+<script src="js/vendor/three.min.js?v=1791844736"></script>
+<script src="js/vendor/GLTFLoader.js?v=1791844736"></script>
+
+
+<script src="assets3d/tree_green.js"></script>
+<script src="assets3d/tree_sakura.js"></script>
+<script>
+"use strict";
+/* ==========================================================================
+   HD-2D · 真 3D 环境版（iso3d）
+   --------------------------------------------------------------------------
+   与 iso.html 的区别：
+     · 地面 = 真 3D 网格（连续 PBR 贴图，世界空间 UV → 天然无缝）
+     · 光   = 真方向光 + ShadowMap（真阴影）+ 路灯点光
+     · 建筑 = 真 3D 体块（投出真影子）
+     · 道具 = 2D 立绘公告板（保留 HD-2D 招牌）+ 接地影
+     · 角色 = 2D 立绘公告板（8 方向）
+     · 后处理：泛光 Bloom + 移轴景深 Tilt-Shift + 调色
+   相机 = 正交 + 45° 锁死，像素尺度与 2D iso 完全一致：
+     +u(世界X) → (+32,+16) 像素 ／ +v(世界Z) → (-32,+16) 像素   (TW=64,TH=32)
+   ========================================================================== */
+const TW = TileWorld.TW, TH = TileWorld.TH, MW = TileWorld.MW, MH = TileWorld.MH;
+const at = TileWorld.at, T = TileWorld.T, HEIGHT = TileWorld.HEIGHT;
+const BUILDINGS = TileWorld.buildings;
+
+const cv = document.getElementById('cv'), hudLog = document.getElementById('log'), perf = document.getElementById('perf');
+window.onerror = function(m, u, l, c){ try{ document.getElementById('log').textContent='❌ '+m+' @'+(l||'')+':'+(c||''); }catch(e){} };
+addEventListener('unhandledrejection', e=>{ try{ document.getElementById('log').textContent='❌ '+e.reason; }catch(_){} });
+const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: false, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
+renderer.shadowMap.enabled = false;   // 改用接地影（成熟解法）
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+if (THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
+if (THREE.ACESFilmicToneMapping) renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.35;
+
+const scene = new THREE.Scene();   // 不用距离雾（正交下会整片变黑）
+/* ★ 反射探针 CubeCamera（正交下正确：湿地面按法线取环境霓虹，不重影） */
+const cubeRT = new THREE.WebGLCubeRenderTarget(128);
+const cubeCam = new THREE.CubeCamera(0.5, 400, cubeRT);
+cubeCam.position.set(36, 3.0, 34); scene.add(cubeCam);
+scene.background = new THREE.Color(0x05070f);
+// 注意：正交相机在 ~260 单位外，距离雾会把整个场景吃掉 → 不用距离雾
+
+/* ---------------- 相机（正交 · 45° 锁死 · 像素级对齐 2D iso） ---------------- */
+let W = 1, H = 1, hw = 1, vh = 1, UNIT_PX = 45.26, zoomH = 1, zoomW = 0;
+const CAM_DIR = new THREE.Vector3(Math.cos(Math.PI / 6) * Math.cos(Math.PI / 4), Math.sin(Math.PI / 6), Math.cos(Math.PI / 6) * Math.sin(Math.PI / 4)); // 仰角30° 方位45°
+const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 100, 520);
+/* ★ 视角切换：正交(HD-2D 原样) ↔ 透视(3D 自由视角) —— 正交路径一行不改 */
+const camP = new THREE.PerspectiveCamera(70, 1, 0.1, 900);
+let CAM_MODE = 'hd2d';
+// ★ 透视专用（俯视玩家）
+const camPS = { yaw: 0.9, pitch: -0.32, dist: 6.0 };   // ★ 之前那个透视版本（复用）
+function CAM() { return CAM_MODE === 'persp' ? camP : cam; }
+const camTarget = new THREE.Vector3(36, 0, 30);
+const reflCam = new THREE.OrthographicCamera(-1,1,1,-1,100,520);
+let reflRT = null;
+const groundMeshes = []; let waterMesh = null;
+const GROUND_UNI = { uRefl:{value:null}, uRes:{value:new THREE.Vector2(1,1)}, uReflAmt:{value:0.85} };
+
+function resize() {
+  W = innerWidth; H = innerHeight;
+  renderer.setSize(W, H, false);
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  // 关键：让 1 世界单位 X = TW/2 像素（与 2D 菱形完全同尺度）
+  hw = 0.7071 * W / TW / zoomH;                    // ★ zoomH 越大 = 视野越小 = 放大
+  vh = hw * H / W;
+  if (zoomW > 0) hw = zoomW * 0.7071 * W / TW / 1; // ★ zoomW 独立控制宽度（0=自适应）
+  cam.left = -hw; cam.right = hw; cam.top = vh; cam.bottom = -vh;
+  cam.updateProjectionMatrix();
+  camP.aspect = W / (H || 1); camP.updateProjectionMatrix();
+  reflCam.left = -hw; reflCam.right = hw; reflCam.top = vh; reflCam.bottom = -vh;
+  reflCam.updateProjectionMatrix();
+  const _dpr = renderer.getPixelRatio();
+  if (!reflRT) reflRT = new THREE.WebGLRenderTarget(1,1,{ minFilter:THREE.LinearFilter, magFilter:THREE.LinearFilter });
+  reflRT.setSize(W*_dpr, H*_dpr);
+  GROUND_UNI.uRefl.value = reflRT.texture;
+  GROUND_UNI.uRes.value.set(W*_dpr, H*_dpr);
+  UNIT_PX = W / (2 * hw);
+  if (typeof onResizeFx === 'function') onResizeFx();
+}
+
+/* ---------------- 材质 ---------------- */
+const L = new THREE.TextureLoader();
+const TEX_CACHE = {};
+function loadTex(name, kind) {
+  const key = name + '|' + kind;
+  if (TEX_CACHE[key]) return TEX_CACHE[key];
+  const url = kind === 'albedo' ? ('assets/tex/' + name + '.jpg')
+            : ('assets/tex/' + name + '_' + (kind === 'normal' ? 'n' : 'r') + '.png');
+  const t = L.load(url);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  if (kind === 'albedo' && THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding;
+  t.anisotropy = Math.min(8, (renderer.capabilities && renderer.capabilities.getMaxAnisotropy) ? renderer.capabilities.getMaxAnisotropy() : 8);
+  TEX_CACHE[key] = t; return t;
+}
+function pbrMat(name, opt) {
+  opt = opt || {};
+  const m = new THREE.MeshStandardMaterial({
+    map: loadTex(name, 'albedo'),
+    normalMap: loadTex(name, 'normal'),
+    roughnessMap: loadTex(name, 'rough'),
+    metalness: 0.0, roughness: 0.95,
+  });
+  Object.assign(m, opt);
+  return m;
+}
+
+
+/* ==========================================================
+   ★ 烘焙 GI（世界坐标）—— 移动不穿帮的关键
+   对每个格子，从光源出发做遮挡步进，累加带颜色的辐照度。
+   结果写进一张 MW×MH 的贴图，按世界坐标采样 → 永远钉在地上。
+   ========================================================== */
+function bakeGI(){
+  const em=[];
+  for(let v=0;v<MH;v++)for(let u=0;u<MW;u++){
+    const t=at(u,v);
+    if(t===T.LAMP) em.push([u+.5,v+.5, 1.00,0.60,0.26, 1.0]);
+    else if(t===T.FOUNTAIN) em.push([u+.5,v+.5, 0.30,0.55,0.95, 0.7]);
+    else if(t===T.ALTAR) em.push([u+.5,v+.5, 0.55,0.35,1.00, 0.8]);
+    else if(t===T.CAULDRON) em.push([u+.5,v+.5, 1.00,0.42,0.14, 0.8]);
+  }
+  const NEO=[[1.0,0.28,0.62],[0.24,0.86,1.0],[1.0,0.72,0.24],[0.52,1.0,0.46]];
+  BUILDINGS.forEach((b,i)=>{ const c=NEO[i%NEO.length]; em.push([b.x-0.6, b.y+b.h/2, c[0],c[1],c[2], 1.2]); });
+  const data=new Uint8Array(MW*MH*4);
+  for(let v=0;v<MH;v++)for(let u=0;u<MW;u++){
+    let r=0,g=0,b=0;
+    for(const e of em){
+      const du=e[0]-(u+0.5), dv=e[1]-(v+0.5), d=Math.hypot(du,dv);
+      if(d>26) continue;
+      let vis=1; const K=9;                       // 遮挡步进
+      for(let k=1;k<=K;k++){ const f=k/(K+1);
+        const su=u+0.5+du*f, sv=v+0.5+dv*f;
+        const tx=Math.max(0,Math.min(MW-1,Math.floor(su))), ty=Math.max(0,Math.min(MH-1,Math.floor(sv)));
+        if((HEIGHT[at(tx,ty)]||0)>14){ vis=0; break; } }
+      const att=vis*e[5]/(1+d*d*0.09);
+      r+=e[2]*att; g+=e[3]*att; b+=e[4]*att;
+    }
+    const i=(v*MW+u)*4;
+    data[i]=Math.min(255, r*120); data[i+1]=Math.min(255, g*120); data[i+2]=Math.min(255, b*120); data[i+3]=255;
+  }
+  const tex=new THREE.DataTexture(data, MW, MH, THREE.RGBAFormat);
+  tex.needsUpdate=true; tex.minFilter=THREE.LinearFilter; tex.magFilter=THREE.LinearFilter;
+  tex.wrapS=tex.wrapT=THREE.ClampToEdgeWrapping;
+  return tex;
+}
+const GI_TEX = bakeGI();
+function injectGround(mat){
+  mat.onBeforeCompile=(sh)=>{
+    sh.uniforms.uGI={value:GI_TEX};
+    sh.uniforms.uRefl=GROUND_UNI.uRefl; sh.uniforms.uRes=GROUND_UNI.uRes; sh.uniforms.uReflAmt=GROUND_UNI.uReflAmt;
+    sh.uniforms.uEnv={ value: cubeRT.texture };
+    sh.vertexShader=sh.vertexShader
+      .replace('#include <common>','#include <common>\nvarying vec2 vWPx;')
+      .replace('#include <begin_vertex>','#include <begin_vertex>\nvWPx=(modelMatrix*vec4(transformed,1.0)).xz;');
+    sh.fragmentShader=sh.fragmentShader
+      .replace('#include <common>','#include <common>\nuniform sampler2D uGI,uRefl;uniform samplerCube uEnv;uniform vec2 uRes;uniform float uReflAmt;varying vec2 vWPx;')
+      .replace('#include <dithering_fragment>',[
+        '#include <dithering_fragment>',
+        // 烘焙 GI（世界坐标，移动不穿帮）
+        '  vec3 gi=texture2D(uGI, vWPx/vec2('+MW+'.0,'+MH+'.0)).rgb;',
+        '  gl_FragColor.rgb += gi*1.15;',
+        // ★ 湿地面真平面反射（水洼掩膜调制，避免整体塑料感）
+        // ★ 反射探针：按法线扰动取环境色 → 湿地面霓虹反射（正交下正确）
+        // 湿面反光：几乎平的法线（去掉波纹），只在积水处、很弱
+        '  vec3 nrm=vec3(0.02, 1.0, 0.02);',   // 极平法线，杜绝摩尔纹
+        '  vec3 env=textureCube(uEnv, reflect(vec3(-0.5,-0.72,-0.5), nrm)).rgb;',
+        '  float pud=smoothstep(0.55,0.85, 0.5+0.5*sin(vWPx.x*0.17)*cos(vWPx.y*0.13));',   // 大尺度、低频积水
+        '  gl_FragColor.rgb += env*pud*0.28;'
+      ].join('\n'));
+  };
+  mat.needsUpdate=true;
+}
+
+/* ---------------- 地面：真 3D 网格（世界空间 UV → 无缝） ---------------- */
+function injectCharGI(root){                 // ★ 让 3D 角色也吃烘焙 GI（被霓虹染色）
+  root.traverse(o=>{ if(o.isMesh && o.material){
+    o.material.onBeforeCompile=(sh)=>{
+      sh.uniforms.uGI={value:GI_TEX};
+      sh.uniforms.uTime={value:0}; sh.uniforms.uSway={value:0};
+      sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec2 vWPx;\nuniform float uTime; uniform float uSway;')
+        .replace('#include <begin_vertex>','#include <begin_vertex>\n{ float low=max(0.0,(0.95-transformed.y)); float k=low*low*0.16*(0.5+uSway); transformed.x += sin(uTime*2.6 + position.y*3.0 + position.x*2.0)*k; transformed.z += cos(uTime*2.1 + position.y*2.6)*k*0.7; float sy=clamp(transformed.y/1.86,0.0,1.0); float sc=0.88+0.26*sy; transformed.x*=sc; transformed.z*=sc; }\nvWPx=(modelMatrix*vec4(transformed,1.0)).xz;')
+      sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform sampler2D uGI;varying vec2 vWPx;')
+        .replace('#include <dithering_fragment>','#include <dithering_fragment>\n  vec3 gi=texture2D(uGI, vWPx/vec2('+MW+'.0,'+MH+'.0)).rgb;\n  gl_FragColor.rgb += gi*1.7;');
+      o.material.userData.sh=sh;
+    };
+    o.material.needsUpdate=true;
+  }});
+}
+const REPEAT = 6;                      // 1 张贴图 = 6 格（越大越清楚）
+function buildGround() {
+  const groups = {};                   // name -> {pos,uv,idx,base}
+  const waterCells = [];
+  for (let v = 0; v < MH; v++) for (let u = 0; u < MW; u++) {
+    const t = at(u, v);
+    let name;
+    if (t === T.WATER) { name = 'dirt'; waterCells.push([u, v]); }   // 水底铺泥，水面另画
+    else {
+      const gt = (TileWorld.GROUND_OF[t] !== undefined) ? TileWorld.GROUND_OF[t] : t;
+      name = TileWorld.TEX2TILE[gt] || 'grass';
+    }
+    name='city';   // ★ 全部地面 = 王炸雨夜沥青
+    let g = groups[name]; if (!g) g = groups[name] = { pos: [], uv: [], idx: [], base: 0 };
+    const R = REPEAT, x0 = u, z0 = v, x1 = u + 1, z1 = v + 1;
+    g.pos.push(x0, 0, z0, x1, 0, z0, x1, 0, z1, x0, 0, z1);
+    g.uv.push(u / R, v / R, (u + 1) / R, v / R, (u + 1) / R, (v + 1) / R, u / R, (v + 1) / R);
+    const b = g.base; g.idx.push(b, b + 1, b + 2, b, b + 2, b + 3); g.base += 4;
+  }
+  for (const name in groups) {
+    const g = groups[name];
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(g.pos, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(g.uv, 2));
+    geo.setIndex(g.idx);
+    geo.computeVertexNormals();
+    const mat = pbrMat(name); injectGround(mat); mat.side = THREE.DoubleSide;
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.receiveShadow = true;
+    scene.add(mesh); groundMeshes.push(mesh);
+  }
+  return waterCells;
+}
+const WATER_CELLS = buildGround();
+
+/* ---------------- 水面：独立半透明高光面 ---------------- */
+(function buildWater() {
+  if (!WATER_CELLS.length) return;
+  const pos = [], uv = [], idx = []; let base = 0;
+  for (const [u, v] of WATER_CELLS) {
+    pos.push(u, 0, v, u + 1, 0, v, u + 1, 0, v + 1, u, 0, v + 1);
+    uv.push(u, v, u + 1, v, u + 1, v + 1, u, v + 1);
+    idx.push(base, base + 1, base + 2, base, base + 2, base + 3); base += 4;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.setIndex(idx); geo.computeVertexNormals();
+  const mat = new THREE.MeshStandardMaterial({
+    map: loadTex('water', 'albedo'), normalMap: loadTex('water', 'normal'),
+    metalness: 0.55, roughness: 0.08, transparent: true, opacity: 0.9,
+    color: 0x9fd4ff, side: THREE.DoubleSide,
+  });
+  const m = new THREE.Mesh(geo, mat); m.position.y = 0.06; m.receiveShadow = true; scene.add(m); waterMesh = m;
+})();
+
+/* ---------------- 精灵表（tile -> 图片 / 显示高） ---------------- */
+const SPR_MAP = {
+  [T.TREE]: 'tree_green', [T.SAKURA]: 'tree_sakura', [T.BUSH]: 'bush', [T.LAMP]: 'lamp',
+  [T.FENCE]: 'fence', [T.CROP]: 'crop', [T.CRATE]: 'crate', [T.BARREL]: 'barrel',
+  [T.ALTAR]: 'altar', [T.FOUNTAIN]: 'fountain', [T.BED]: 'desk',
+  [T.STAIR_UP]: 'stairs_up', [T.STAIR_DN]: 'stairs_dn',
+};
+const SPR_H = { tree_green: 104, tree_sakura: 108, bush: 52, lamp2: 130, fence: 62, crop: 50,
+  crate: 54, barrel: 54, altar: 64, fountain: 72, desk: 54, stairs_up: 56, stairs_dn: 56 };
+
+const SPR_TEX = {};
+function sprTex(name) { if (!SPR_TEX[name]) { const t = L.load('assets/tiles/' + name + '.png'); if (THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding; SPR_TEX[name] = t; } return SPR_TEX[name]; }
+
+/* ---------------- 道具：2D 立绘公告板 + 真阴影投影面 ---------------- */
+const SHADOW_YAWS = -2.15;   // 投影面朝向（大致垂直于主光）
+function addBillboard(tex, x, z, hPx, faceCam, castShadow) {
+  const hU = hPx / UNIT_PX;
+  const img = tex.image;
+  const aspect = (img && img.width) ? img.width / img.height : 1;
+  const wU = hU * aspect;
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, alphaTest: 0.35, depthWrite: true });
+  const s = new THREE.Sprite(mat);
+  s.scale.set(wU, hU, 1); s.center.set(0.5, 0);          // 原点=脚底
+  s.position.set(x, 0, z);
+  scene.add(s);
+  if (castShadow) {
+    // 竖直投影面（朝向固定，与公告板解耦）→ 用 alpha 抠出轮廓投真影
+    const g2 = new THREE.PlaneGeometry(wU, hU);
+    const mm = new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.45, colorWrite: false, depthWrite: false });
+    const mp = new THREE.Mesh(g2, mm);
+    mp.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: 0.45 });
+    mp.castShadow = true;
+    mp.position.set(x, hU / 2, z);
+    mp.rotation.y = SHADOW_YAWS;
+    scene.add(mp);
+  }
+  return s;
+}
+
+/* ==========================================================
+   ★ 真 3D 模型：解码混元生成的网格 → InstancedMesh
+   ========================================================== */
+function decodeMesh(name){
+  const b64=(window.MESHES||{})[name]; if(!b64) return null;
+  const bin=atob(b64), n=bin.length, buf=new Uint8Array(n);
+  for(let i=0;i<n;i++) buf[i]=bin.charCodeAt(i);
+  const dv=new DataView(buf.buffer);
+  if(dv.getUint32(0,false)!==0x54334431){ console.warn('mesh magic bad',name); return null; }
+  const nv=dv.getUint32(4,true), nf=dv.getUint32(8,true);
+  let o=12;
+  const pos=new Float32Array(buf.buffer,o,nv*3); o+=nv*12;
+  const nrm=new Float32Array(buf.buffer,o,nv*3); o+=nv*12;
+  const uv =new Float32Array(buf.buffer,o,nv*2); o+=nv*8;
+  const idx=new Uint32Array(buf.buffer,o,nf*3);
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  g.setAttribute('normal',new THREE.BufferAttribute(nrm,3));
+  g.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+  g.setIndex(new THREE.BufferAttribute(idx,1));
+  g.computeBoundingSphere();
+  return g;
+}
+function placeTrees(){
+  const layers=[ {t:T.TREE, name:'tree_green', h:4.6}, {t:T.SAKURA, name:'tree_sakura', h:4.8} ];
+  let total=0;
+  for(const ly of layers){
+    const geo=decodeMesh(ly.name); if(!geo){ console.warn('缺少网格',ly.name); continue; }
+    const t2=L.load('assets3d/'+ly.name+'_tex.jpg'); if(THREE.sRGBEncoding) t2.encoding=THREE.sRGBEncoding;
+    t2.anisotropy=4;
+    const mat=new THREE.MeshStandardMaterial({ map:t2, roughness:0.88, metalness:0.0 });
+    const cells=[];
+    for(let v=0;v<MH;v++)for(let u=0;u<MW;u++) if(at(u,v)===ly.t) cells.push([u+0.5,v+0.5]);
+    if(!cells.length) continue;
+    const inst=new THREE.InstancedMesh(geo, mat, cells.length);
+    inst.castShadow=true; inst.receiveShadow=true;
+    const m=new THREE.Matrix4(), q=new THREE.Quaternion(), sc=new THREE.Vector3(ly.h,ly.h,ly.h), pv=new THREE.Vector3();
+    cells.forEach((c,i)=>{ pv.set(c[0],0,c[1]); m.compose(pv,q,sc); inst.setMatrixAt(i,m); });
+    inst.instanceMatrix.needsUpdate=true;
+    scene.add(inst); total+=cells.length;
+  }
+  window.__realTrees=total; return total;
+}
+
+function buildProps() {
+  let n = 0;
+  for (let v = 0; v < MH; v++) for (let u = 0; u < MW; u++) {
+    const t = at(u, v);
+    if (t === T.WALL_S || t === T.WALL_W) continue;
+    if (t === T.TREE || t === T.SAKURA) continue;          // ★ 树改由真 3D 网格处理
+    if (!HEIGHT[t]) continue;
+    const name = SPR_MAP[t]; if (!name) continue;
+    addBillboard(sprTex(name), u + 0.5, v + 0.5, SPR_H[name] || 96, true, true);
+    n++;
+  }
+  return n;
+}
+
+/* ---------------- 建筑：真 3D 体块（投真阴影） ---------------- */
+function buildBuildings() {
+  const wall = pbrMat('marble'); wall.roughness = 0.7;
+  const roofM = pbrMat('wood'); roofM.roughness = 0.8;
+  for (const b of BUILDINGS) {
+    const cx = b.x + b.w / 2, cz = b.y + b.h / 2;
+    const hgt = 4.6;
+    const box = new THREE.Mesh(new THREE.BoxGeometry(b.w, hgt, b.h), wall);
+    box.position.set(cx, hgt / 2, cz);
+    box.castShadow = true; box.receiveShadow = true;
+    scene.add(box);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(b.w + 0.8, 0.5, b.h + 0.8), roofM);
+    roof.position.set(cx, hgt + 0.25, cz);
+    roof.castShadow = true; roof.receiveShadow = true;
+    scene.add(roof);
+    // ★ 真正的门：门框(石) + 内凹暗部 + 里面暖光（能"看到里面"）
+    const dx = b.door.x + 0.5, dz = b.y + b.h + 0.015, DH = 2.5, DW = 1.7;
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x6a6458, roughness: 0.85 });
+    // 内凹暗部（退后一点，制造纵深）
+    const inner = new THREE.Mesh(new THREE.PlaneGeometry(DW, DH), new THREE.MeshStandardMaterial({ color: 0x0d0a08, roughness: 1 }));
+    inner.position.set(dx, DH/2, dz - 0.12); scene.add(inner);
+    // 里面暖光（门厅灯）
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(DW*0.7, DH*0.5),
+      new THREE.MeshBasicMaterial({ color: 0xffbf6a, transparent:true, opacity:0.75, blending:THREE.AdditiveBlending, depthWrite:false }));
+    glow.position.set(dx, DH*0.42, dz - 0.10); scene.add(glow);
+    // 门框（左右立柱 + 上楣）
+    const post1 = new THREE.Mesh(new THREE.BoxGeometry(0.22, DH, 0.30), frameMat);
+    post1.position.set(dx - DW/2 - 0.11, DH/2, dz - 0.05); scene.add(post1);
+    const post2 = post1.clone(); post2.position.x = dx + DW/2 + 0.11; scene.add(post2);
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(DW + 0.44, 0.28, 0.34), frameMat);
+    lintel.position.set(dx, DH + 0.14, dz - 0.05); scene.add(lintel);
+  }
+  return BUILDINGS.length;
+}
+
+
+
+
+
+/* ---------------- 地面柔光池（灯/霓虹在湿地上的柔光，不立光柱）---------------- */
+(function buildLightPools(){
+  const c=document.createElement('canvas'); c.width=c.height=128; const g2=c.getContext('2d');
+  const gr=g2.createRadialGradient(64,64,0,64,64,64);
+  gr.addColorStop(0,'rgba(255,255,255,0.55)'); gr.addColorStop(0.35,'rgba(255,255,255,0.20)'); gr.addColorStop(1,'rgba(255,255,255,0)');
+  g2.fillStyle=gr; g2.fillRect(0,0,128,128);
+  const tex=new THREE.CanvasTexture(c);
+  function pool(x,z,color,r){
+    const m=new THREE.Mesh(new THREE.PlaneGeometry(r,r),
+      new THREE.MeshBasicMaterial({ map:tex, color:color, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false }));
+    m.rotation.x=-Math.PI/2; m.position.set(x,0.025,z); scene.add(m);
+  }
+  for(let v=0;v<MH;v++)for(let u=0;u<MW;u++){
+    if(at(u,v)===T.LAMP) pool(u+0.5,v+0.5,0xcc8a3a, 4.0);
+    else if(at(u,v)===T.FOUNTAIN) pool(u+0.5,v+0.5,0x4488bb, 3.0);
+  }
+  // 建筑霓虹在门前地面的光池
+  const NEO=[0xff3d8b,0x36e0ff,0xffb43d,0x7cff6a];
+  BUILDINGS.forEach((b,i)=>pool(b.x-1.2, b.y+b.h/2, NEO[i%4], 5.0));
+})();
+
+/* ---------------- 光照 ---------------- */
+const hemi = new THREE.HemisphereLight(0x3a4a86, 0x141a28, 1.05);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xaec4ff, 1.15);
+sun.position.set(-34, 46, 20);      // 斜射 → 影子偏移拉长（像真方向光）
+sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096);
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 400;
+const SH = 52;
+sun.shadow.camera.left = -SH; sun.shadow.camera.right = SH;
+sun.shadow.camera.top = SH; sun.shadow.camera.bottom = -SH;
+sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
+sun.target.position.set(36, 0, 36);
+scene.add(sun); scene.add(sun.target);
+// 暖色补光（模拟天光暖侧）
+const fill = new THREE.DirectionalLight(0xff9a5a, 0.55);
+fill.position.set(30, 40, 30); scene.add(fill);
+
+/* ---------------- 角色（2D 立绘 + 8 方向） ---------------- */
+const DIRS = ['S', 'SE', 'E', 'NE', 'N', 'NW', 'W', 'SW'];
+const CH_ANG = { S: 0, SE: 45, E: 90, NE: 135, N: 180, NW: 225, W: 270, SW: 315 };
+const CH = {};
+DIRS.forEach(d => { const t = L.load('assets/ch/dir_' + d + '.png'); if (THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding; CH[d] = t; });
+function dirFromAngle(a) { a = ((a % 360) + 360) % 360; let best = 'S', bd = 999; for (const d of DIRS) { const k = Math.abs(((CH_ANG[d] - a + 540) % 360) - 180); if (k < bd) { bd = k; best = d; } } return best; }
+
+const hero = { x: 36.5, y: 21.5, dir: 'S', t: 0, speed: 5.2, vx: 0, vy: 0 };
+window.__hero = hero;
+/* ★ 角色改为「吃光的公告板」：采样烘焙 GI + 方向光 + 边缘光 → 与场景交互 */
+CH.S.anisotropy = 8; CH.S.minFilter = THREE.LinearMipmapLinearFilter;
+const heroUni = { uMap:{value:CH.S}, uGI:{value:GI_TEX}, uAmb:{value:0.45},
+  uSunDir:{value:new THREE.Vector3(-0.6,0.5,-0.4).normalize()}, uSunC:{value:new THREE.Color(0.72,0.80,1.0)} };
+const HERO_H = 118 / UNIT_PX, HERO_W = HERO_H * 0.56;   // ★ 加大
+const heroMat = new THREE.ShaderMaterial({
+  transparent:true, depthWrite:true, uniforms: heroUni,
+  vertexShader:`varying vec2 vUv; varying vec3 vWP; varying vec3 vN;
+    void main(){ vUv=uv; vec4 wp=modelMatrix*vec4(position,1.0); vWP=wp.xyz;
+      vN=normalize(mat3(modelMatrix)*vec3(0.0,0.0,1.0)); gl_Position=projectionMatrix*viewMatrix*wp; }`,
+  fragmentShader:`uniform sampler2D uMap,uGI; uniform float uAmb; uniform vec3 uSunDir,uSunC;
+    varying vec2 vUv; varying vec3 vWP; varying vec3 vN;
+    void main(){ vec4 t=texture2D(uMap,vUv); if(t.a<0.35) discard;
+      vec3 gi=texture2D(uGI, vWP.xz/vec2(${MW}.0,${MH}.0)).rgb;
+      float ndl=max(dot(vN,uSunDir),0.0);
+      vec3 lit=vec3(uAmb)+gi*2.4+uSunC*ndl*0.75;
+      float rim=pow(1.0-abs(dot(vN, vec3(0.0,0.0,1.0))),3.0);
+      gl_FragColor=vec4(t.rgb*lit + rim*gi*0.8, t.a); }`
+});
+const heroGeo = new THREE.PlaneGeometry(HERO_W, HERO_H); heroGeo.translate(0, HERO_H/2, 0);  // 原点=脚底
+const heroMesh = new THREE.Mesh(heroGeo, heroMat);
+heroMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), CAM_DIR);
+const HERO_Q0 = heroMesh.quaternion.clone();   // ★ 正交模式的原始朝向（切回时恢复，保证一模一样）
+heroMesh.position.set(hero.x, 0, hero.y); scene.add(heroMesh);
+
+/* ==========================================================
+   ★ 真 3D 角色（混元：图生3D → 绑骨骼 → 动画；Y-up 直立）
+   ========================================================== */
+let charRoot=null, charReady=false, charPhase=0;
+const BONES={};
+const CHAR_YAW0 = 0;              // 模型朝向基准（0=面朝 -Z）
+const _UNUSED_MAP = {
+  'Pelvis':'Hips',
+  'L_Hip':'LeftUpLeg','L_Knee':'LeftLeg','L_Ankle':'LeftFoot','L_Foot':'LeftToeBase',
+  'R_Hip':'RightUpLeg','R_Knee':'RightLeg','R_Ankle':'RightFoot','R_Foot':'RightToeBase',
+  'Spine1':'Spine','Spine2':'Spine1','Spine3':'Spine2','Neck':'Neck','Head':'Head',
+  'L_Collar':'LeftShoulder','L_Shoulder':'LeftArm','L_Elbow':'LeftForeArm','L_Wrist':'LeftHand',
+  'R_Collar':'RightShoulder','R_Shoulder':'RightArm','R_Elbow':'RightForeArm','R_Wrist':'RightHand'
+};
+(function loadChar(){ if(!window.__USE_3D_CHAR) return;   // 2D 八方向模式下不加载 3D 角色
+  function b64buf(b64){ const bin=atob(b64); const n=bin.length,u=new Uint8Array(n); for(let i=0;i<n;i++)u[i]=bin.charCodeAt(i); return u.buffer; }
+  const loader=new THREE.GLTFLoader();
+  loader.parse(b64buf(window.RIGGED_B64||''), '', (g)=>{
+    charRoot=g.scene;
+    charRoot.scale.setScalar(1.62);                 // ★ 放大到与 2D 相称（≈3.0 世界单位）
+    charRoot.traverse(o=>{ if(o.isMesh){ o.frustumCulled=false; if(o.material){ o.material.metalness=Math.min(o.material.metalness||0,0.1); o.material.side=THREE.FrontSide; } } });
+    charRoot.rotation.order='YXZ'; charRoot.rotation.x=0.30;   // ★ 后仰 → 仰视感（脸朝相机）
+    charRoot.position.set(hero.x, 0, hero.y); scene.add(charRoot);
+    injectCharGI(charRoot); window.__charMats=[]; charRoot.traverse(o=>{ if(o.isMesh&&o.material) window.__charMats.push(o.material); });
+    // 收集骨骼（用「程序化动画」，不用对不上的 AI 动画）
+    charRoot.traverse(o=>{ if(o.isBone){ BONES[o.name]=o; if(!o.userData.rest){ o.userData.rest=o.rotation.clone(); o.userData.restY=o.position.y; } } });
+    charReady=true; if(heroMesh) heroMesh.visible=false;
+    say('✅ 真 3D 角色（'+Object.keys(BONES).length+' 骨骼，程序化动画）');
+  }, ()=>{ say('⚠ 3D 角色加载失败'); });
+})();
+
+/* ★ 接地影（软黑椭圆，锁在脚下 → 不飘） */
+const contactTex = (function(){ const c=document.createElement('canvas'); c.width=c.height=128; const g=c.getContext('2d');
+  const gr=g.createRadialGradient(64,64,0,64,64,64); gr.addColorStop(0,'rgba(255,255,255,1)'); gr.addColorStop(0.5,'rgba(255,255,255,0.5)'); gr.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=gr; g.fillRect(0,0,128,128); return new THREE.CanvasTexture(c); })();
+function addContact(x,z,r,op){ const m=new THREE.Mesh(new THREE.PlaneGeometry(r,r),
+  new THREE.MeshBasicMaterial({ map:contactTex, color:0x000000, transparent:true, opacity:op||0.5, depthWrite:false }));
+  m.rotation.x=-Math.PI/2; m.position.set(x, 0.03, z); scene.add(m); return m; }
+
+
+/* ---------------- 输入（键盘 + 虚拟摇杆） ---------------- */
+const keys = {};
+addEventListener('keydown', e => keys[e.key.toLowerCase()] = 1);
+addEventListener('keyup', e => keys[e.key.toLowerCase()] = 0);
+const jo = { x: 0, y: 0, on: false, id: null }, joEl = document.getElementById('joy');
+const IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+if (IS_TOUCH) joEl.style.display = 'block';
+function joyMove(t) {
+  const r = joEl.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  let dx = t.clientX - cx, dy = t.clientY - cy; const L2 = Math.hypot(dx, dy) || 1, m = Math.min(L2, 44);
+  dx = dx / L2 * m; dy = dy / L2 * m; jo.x = dx / 44; jo.y = dy / 44;
+  joEl.querySelector('.k').style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+}
+joEl.addEventListener('touchstart', e => { jo.on = true; jo.id = e.changedTouches[0].identifier; joyMove(e.changedTouches[0]); e.preventDefault(); }, { passive: false });
+joEl.addEventListener('touchmove', e => { if (!jo.on) return; const t = [...e.changedTouches].find(x => x.identifier === jo.id); if (t) { joyMove(t); e.preventDefault(); } }, { passive: false });
+joEl.addEventListener('touchend', () => { jo.on = false; jo.x = jo.y = 0; joEl.querySelector('.k').style.transform = ''; });
+
+const CAMP_W = (window.TileWorld && window.TileWorld.MW) ? window.TileWorld.MW : 72;   // ★ octo 的 TW 是瓦片尺寸，不能拿它取 MW
+const solid = (x, y) => {
+  if (x < CAMP_W) return TileWorld.isSolid(x, y);          // 营地：原版碰撞
+  var C = window.__CITY3D;                                  // 城市：用 arena3d 的地形（墙/楼挡人，城门可进）
+  if (C && C.Ground) { try { return (C.Ground.h(x - CAMP_W, y) > 1.0); } catch (e) { return false; } }
+  return false;
+};
+function tryMove(nx, ny) { if (!solid(nx, hero.y)) hero.x = nx; if (!solid(hero.x, ny)) hero.y = ny; }
+function say(t) { hudLog.innerHTML = t; }
+
+/* ---------------- 后处理：Bloom + TiltShift + Grade ---------------- */
+const fxOn = { v: true };
+let rtScene, rtBright, rtBlur, mBright, mBlurX, mBlurY, mComp, quad, quadScene, quadCam;
+function initFX() {
+  const opt = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
+  rtScene = new THREE.WebGLRenderTarget(1, 1, opt);
+  rtBright = new THREE.WebGLRenderTarget(1, 1, opt);
+  rtBlur = new THREE.WebGLRenderTarget(1, 1, opt);
+  quadScene = new THREE.Scene();
+  quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), null); quadScene.add(quad);
+  const VS = 'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}';
+  const BRIGHT = 'uniform sampler2D tDiffuse;uniform float uThr;varying vec2 vUv;void main(){vec3 c=texture2D(tDiffuse,vUv).rgb;float l=dot(c,vec3(0.299,0.587,0.114));float k=max(0.0,l-uThr)/max(0.001,1.0-uThr);gl_FragColor=vec4(c*k,1.0);}';
+  const BLUR = 'uniform sampler2D tDiffuse;uniform vec2 uDir;varying vec2 vUv;void main(){vec3 s=vec3(0.0);float w[5];w[0]=0.227;w[1]=0.194;w[2]=0.121;w[3]=0.054;w[4]=0.016;s+=texture2D(tDiffuse,vUv).rgb*w[0];for(int i=1;i<5;i++){s+=texture2D(tDiffuse,vUv+uDir*float(i)).rgb*w[i];s+=texture2D(tDiffuse,vUv-uDir*float(i)).rgb*w[i];}gl_FragColor=vec4(s,1.0);}';
+  const COMP = 'uniform sampler2D tScene,tBloom;uniform vec2 uTexel;uniform float uHaze;varying vec2 vUv;void main(){float d=abs(vUv.y-0.52);float r=clamp((d-0.20)/0.26,0.0,1.0);r=r*r*6.0;vec3 col=vec3(0.0);float tot=0.0;for(int i=-3;i<=3;i++){for(int j=-3;j<=3;j++){vec2 o=vec2(float(i),float(j))*uTexel*r;float w=1.0/(1.0+float(i*i+j*j));col+=texture2D(tScene,vUv+o).rgb*w;tot+=w;}}col/=tot;vec3 bl=texture2D(tBloom,vUv).rgb;col+=bl*0.5;float l=dot(col,vec3(0.299,0.587,0.114));col=mix(col*vec3(0.92,0.95,1.12),col*vec3(1.10,1.03,0.92),smoothstep(0.12,0.85,l));col=mix(vec3(l),col,1.38);col=mix(vec3(0.5),col,0.90);float hz=smoothstep(0.35,1.0, length((vUv-0.5)*vec2(1.15,1.0))*1.45);vec3 glow=vec3(0.34,0.30,0.44)+vec3(0.10,0.07,0.04);col+=glow*hz*uHaze*0.42;col=mix(col,col*1.06+vec3(0.04,0.035,0.05),uHaze*hz*0.5);gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);}';
+  const mk = (fs, u) => new THREE.ShaderMaterial({ uniforms: u, vertexShader: VS, fragmentShader: fs, depthTest: false, depthWrite: false });
+  mBright = mk(BRIGHT, { tDiffuse: { value: null }, uThr: { value: 0.70 } });
+  mBlurX = mk(BLUR, { tDiffuse: { value: null }, uDir: { value: new THREE.Vector2() } });
+  mBlurY = mk(BLUR, { tDiffuse: { value: null }, uDir: { value: new THREE.Vector2() } });
+  mComp = mk(COMP, { tScene: { value: null }, tBloom: { value: null }, uTexel: { value: new THREE.Vector2() }, uHaze: { value: 0 } });
+}
+function onResizeFx() {
+  const dpr = renderer.getPixelRatio();
+  rtScene.setSize(W * dpr, H * dpr);
+  const bw = Math.max(2, (W * dpr * 0.25) | 0), bh = Math.max(2, (H * dpr * 0.25) | 0);
+  rtBright.setSize(bw, bh); rtBlur.setSize(bw, bh);
+  mBlurX.uniforms.uDir.value.set(1.6 / bw, 0);
+  mBlurY.uniforms.uDir.value.set(0, 1.6 / bh);
+  mComp.uniforms.uTexel.value.set(1 / (W * dpr), 1 / (H * dpr));
+}
+initFX();
+function blit(mat) { quad.material = mat; renderer.render(quadScene, quadCam); }
+
+/* ---------------- 构建场景 ---------------- */
+const nRealTrees = placeTrees();
+const nProps = buildProps();
+const nBld = buildBuildings();
+if (IS_TOUCH) document.getElementById('tipTxt').textContent = '左下摇杆移动 · 真 3D 地面 + 真阴影';
+say('🌍 3D 世界：真 3D 树 ' + nRealTrees + ' · 道具 ' + nProps + ' · 建筑 ' + nBld);
+
+/* ---------------- 主循环 ---------------- */
+let last = performance.now(), frames = 0, lastF = last, fps = 0;
+function loop(now) {
+  const dt = Math.min((now - last) / 1000, 0.05); last = now;
+
+  let mx = 0, my = 0;
+  if (keys['a'] || keys['arrowleft']) mx -= 1;
+  if (keys['d'] || keys['arrowright']) mx += 1;
+  if (keys['w'] || keys['arrowup']) my -= 1;
+  if (keys['s'] || keys['arrowdown']) my += 1;
+  if (jo.on) { mx = jo.x; my = jo.y; }
+  // ★ 模拟量移动：轻推慢走、重推快跑、松手有惯性（可微调）
+  let inX = mx, inY = my;
+  const mag = Math.min(1, Math.hypot(inX, inY));
+  if (mag > 0.02) {
+    inX /= Math.max(Math.hypot(inX, inY), 1e-4); inY /= Math.max(Math.hypot(inX, inY), 1e-4);
+  } else { inX = inY = 0; }
+  // 目标速度：幅度 0~1 平方 → 低推极慢（微调），满推 = hero.speed
+  const curve = mag * mag;
+  const tvx = inX * hero.speed * curve, tvy = inY * hero.speed * curve;
+  const accel = (mag > 0.02 ? 9.0 : 14.0) * dt;      // 手上有输入加速，松手快速收
+  hero.vx += (tvx - hero.vx) * Math.min(1, accel);
+  hero.vy += (tvy - hero.vy) * Math.min(1, accel);
+  const sp = Math.hypot(hero.vx, hero.vy);
+  if (sp > 0.02) {
+    // ★ 统一旋转式：_a = 相机水平朝向（正交=45°原样；透视=camPS.yaw+180°，与 camDir 定义对齐）
+    const _a = (CAM_MODE === 'persp') ? (camPS.yaw + Math.PI) : (Math.PI / 4);
+    const _ca = Math.cos(_a), _sa = Math.sin(_a);
+    const wx = hero.vx * _ca + hero.vy * _sa, wz = -hero.vx * _sa + hero.vy * _ca;   // ★ 前进→相机朝前，右移→相机右
+    tryMove(hero.x + wx * dt, hero.y + wz * dt);
+    if (CAM_MODE === 'persp') {
+      // ★ 透视：按「移动方向 vs 相机朝向」选立绘（远离相机=背面/后脑勺，朝向相机=正面）
+      const moveAng = Math.atan2(wx, wz) * 180 / Math.PI;
+      const rel = moveAng - (camPS.yaw + Math.PI) * 180 / Math.PI;   // ★ 与移动同一基准(+π)，否则朝向差 180°
+      hero.dir = dirFromAngle(((180 - rel) % 360 + 360) % 360);
+    } else {
+      const scrAng = Math.atan2(hero.vy, hero.vx) * 180 / Math.PI;
+      hero.dir = dirFromAngle(90 - scrAng);      // 正交：原样（一模一样）
+    }
+    hero.t += dt * (0.4 + 1.2 * Math.min(1, sp / hero.speed));
+  }
+  if (CH[hero.dir] && heroUni.uMap.value !== CH[hero.dir]) { heroUni.uMap.value = CH[hero.dir]; }
+  const bob = sp > 0.12 ? Math.abs(Math.sin(hero.t * 9)) * 3.0 : 0;                 // 走动起伏
+  const breathe = Math.sin(now/1000 * 2.2) * 0.018;                                  // 待机呼吸
+  heroMesh.position.set(hero.x, (bob/UNIT_PX), hero.y);
+  if (charReady && charRoot) {
+    charRoot.position.set(hero.x, 0, hero.y);
+    const sp = Math.hypot(hero.vx, hero.vy);
+    const moving = sp > 0.15;
+    if (moving) {
+      const wx2=(hero.vx*0.7071+hero.vy*0.7071), wz2=(-hero.vx*0.7071+hero.vy*0.7071);
+      charRoot.rotation.y = Math.atan2(wx2, wz2) + CHAR_YAW0;
+      charPhase += dt*9.0;
+    } else { charPhase += dt*1.6; }
+    const R=(n,x)=>{ const b=BONES[n]; if(b) b.rotation.x = b.userData.rest.x + x; };
+    // 基础姿态：把举起的手臂放下（试 z 轴，两侧反向）
+    if (BONES.LeftArm){  BONES.LeftArm.rotation.z  = BONES.LeftArm.userData.rest.z  + 1.15; }
+    if (BONES.RightArm){ BONES.RightArm.rotation.z = BONES.RightArm.userData.rest.z - 1.15; }
+    if (BONES.LeftForeArm){  BONES.LeftForeArm.rotation.z  = BONES.LeftForeArm.userData.rest.z  + 0.15; }
+    if (BONES.RightForeArm){ BONES.RightForeArm.rotation.z = BONES.RightForeArm.userData.rest.z - 0.15; }
+    if (moving) {
+      const sw=Math.sin(charPhase);
+      R('LeftUpLeg',  sw*0.75); R('RightUpLeg', -sw*0.75);
+      R('LeftLeg',  Math.max(0,-sw)*1.0); R('RightLeg', Math.max(0,sw)*1.0);
+      R('LeftArm', -sw*0.55); R('RightArm', sw*0.55);
+      R('Spine',  Math.sin(charPhase*2)*0.05);
+      if(BONES.Hips) BONES.Hips.position.y = BONES.Hips.userData.restY + Math.abs(Math.sin(charPhase))*0.03;
+    } else {
+      const br=Math.sin(charPhase)*0.04;
+      R('Spine', br*0.6); R('LeftArm', br*0.5); R('RightArm', br*0.5);
+      R('LeftUpLeg',0); R('RightUpLeg',0); R('LeftLeg',0); R('RightLeg',0);
+    }
+  }
+  heroMesh.scale.set(1, 1 + breathe + (sp>0.12?0.02:0), 1);                          // 脚底为锚点
+  if (!window.__heroContact) window.__heroContact = addContact(hero.x, hero.y, HERO_H*0.62, 0.5);
+  window.__heroContact.position.set(hero.x, 0.03, hero.y);
+  window.__heroContact.scale.setScalar(sp>0.12 ? 1.02 : 1.0);
+
+  // 相机跟随（正交 + 45°）
+  camTarget.lerp(new THREE.Vector3(hero.x, 0, hero.y), Math.min(1, dt * 7));
+  cam.position.copy(camTarget).addScaledVector(CAM_DIR, 260);
+  cam.lookAt(camTarget);   // ★ 正交：octo 原样（固定 45°）
+  if (CAM_MODE === 'persp') {                       // ★ 透视：自由视角
+    const cp = Math.cos(camPS.pitch), sp2 = Math.sin(camPS.pitch);
+    const fx = Math.sin(camPS.yaw) * cp, fy = sp2, fz = Math.cos(camPS.yaw) * cp;
+    camP.position.set(hero.x - fx * camPS.dist, 1.5 - fy * camPS.dist, hero.y - fz * camPS.dist);
+    camP.lookAt(hero.x, 1.5, hero.y);
+    heroMesh.quaternion.copy(camP.quaternion);
+  } else {
+    heroMesh.quaternion.copy(HERO_Q0);              // ★ 正交：octo 原样
+  }
+  // ★ 太阳固定在世界，不跟随玩家 → 影子锁定世界
+
+  // ★ 反射探针：低频更新（跟主角）
+  if (Math.floor(now/250) !== window.__cubeT) {
+    window.__cubeT = Math.floor(now/250);
+    cubeCam.position.set(Math.round(hero.x), 3.0, Math.round(hero.y));
+    cubeCam.update(renderer, scene);
+  }
+  // ★ 湿地面平面反射 pass（已停用）
+  if (false && reflRT) {
+    reflCam.position.set(cam.position.x, -cam.position.y, cam.position.z);
+    reflCam.up.set(0, -1, 0);
+    reflCam.lookAt(camTarget.x, -camTarget.y, camTarget.z);
+    const _saved = [];
+    for (const g of groundMeshes) { _saved.push([g, g.visible]); g.visible = false; }
+    if (waterMesh) { _saved.push([waterMesh, waterMesh.visible]); waterMesh.visible = false; }
+    renderer.setRenderTarget(reflRT); renderer.clear(); renderer.render(scene, reflCam);
+    for (const [o, v] of _saved) o.visible = v;
+  }
+  if (fxOn.v) {
+    renderer.setRenderTarget(rtScene); renderer.clear(); renderer.render(scene, CAM());
+    mBright.uniforms.tDiffuse.value = rtScene.texture;
+    renderer.setRenderTarget(rtBright); blit(mBright);
+    mBlurX.uniforms.tDiffuse.value = rtBright.texture; renderer.setRenderTarget(rtBlur); blit(mBlurX);
+    mBlurY.uniforms.tDiffuse.value = rtBlur.texture; renderer.setRenderTarget(rtBright); blit(mBlurY);
+    mComp.uniforms.tScene.value = rtScene.texture; mComp.uniforms.tBloom.value = rtBright.texture;
+    if (mComp.uniforms.uHaze) mComp.uniforms.uHaze.value = (window.__fogOn ? 1 : 0);
+    renderer.setRenderTarget(null); blit(mComp);
+  } else {
+    renderer.setRenderTarget(null); renderer.render(scene, CAM());
+  }
+
+  frames++; if (now - lastF > 1000) {
+    fps = frames * 1000 / (now - lastF); frames = 0; lastF = now;
+    perf.textContent = W + 'x' + H + '  ' + fps.toFixed(0) + ' fps\n真3D地面 · ShadowMap · PBR · Bloom · TiltShift';
+  }
+  if (window.Shooter && window.Shooter.tick) { try { window.Shooter.tick(dt); } catch (e) { window.__stErr = String((e && e.message) || e); } }
+  if (window.__CITY3D && window.__CITY3D.update) { try { window.__CITY3D.update(dt, cam.position); } catch (e) { window.__cityUpdErr = String((e && e.message) || e); } }
+  requestAnimationFrame(loop);
+}
+addEventListener('resize', resize); resize();
+
+addEventListener('keydown', function (e) { if (e.key.toLowerCase() === 'c') document.getElementById('bView').click(); });
+(function () {                                       // 透视模式：拖动转视角（正交模式不响应）
+  let drag = false, lx = 0, ly = 0;
+  cv.addEventListener('pointerdown', function (e) { if (CAM_MODE !== 'persp') return; drag = true; lx = e.clientX; ly = e.clientY; });
+  addEventListener('pointerup', function () { drag = false; });
+  addEventListener('pointermove', function (e) {
+    if (!drag || CAM_MODE !== 'persp') return;
+    camPS.yaw -= (e.clientX - lx) * 0.005; camPS.pitch -= (e.clientY - ly) * 0.005;
+    camPS.pitch = Math.max(-1.2, Math.min(0.6, camPS.pitch)); lx = e.clientX; ly = e.clientY;
+  });
+})();
+
+
+var _bb = document.getElementById('bBack'); if (_bb) _bb.style.display = 'none';   // HD-2D 即主场景（空安全）
+requestAnimationFrame(loop);
+/* ★ 导出世界接口（供联机/战斗/建造等模块复用这个 HD-2D 世界） */
+window.__OCTO = {
+  scene: scene, renderer: renderer, cam: cam, camP: camP, CAM_DIR: CAM_DIR, hero: hero,
+  resize: resize, blit: blit, initFX: initFX, TW: TW, MW: MW, MH: MH,
+  get mode() { return CAM_MODE; },
+  setMode: function (m) { if ((m === 'persp') && (camPS.pitch > -0.06 || camPS.dist < 2)) { camPS.pitch = -0.32; camPS.dist = 6.0; } CAM_MODE = (m === 'persp') ? 'persp' : 'hd2d'; var b = document.getElementById('bView'); if (b) { b.textContent = '视角：' + (CAM_MODE === 'hd2d' ? 'HD-2D' : '透视'); b.classList.toggle('on', CAM_MODE === 'persp'); } },
+  camPS: camPS,
+  camPS: camPS,
+  look: function (dyaw, dpitch) { camPS.yaw -= dyaw; camPS.pitch = Math.max(-1.25, Math.min(-0.06, camPS.pitch + dpitch)); },   // ★ 只允许俯视（不钻地）
+  getFx: function () { return fxOn.v; },
+  setFx: function (v) { fxOn.v = !!v; },
+  getFog: function () { return !!window.__fogOn; },
+  setFog: function (v) { window.__fogOn = !!v; if (window.__fogOn && !fxOn.v) fxOn.v = true; },
+  zoomH: 1, zoomW: 0,
+  setZoom: function (h, w) { zoomH = Math.max(0.25, Math.min(20, h || 1)); zoomW = (w && w > 0) ? Math.max(0.25, Math.min(60, w)) : 0; resize(); },
+};
+
+</script><div class="hud">
+  <div class="topbar">
+    <div style="display:flex;gap:8px">
+      <div class="chip" id="netChip"><span class="dot"></span><span id="netText">离线 · 单机</span></div>
+      <div class="chip" id="scoreChip">
+        <span>击杀 <b id="kKill">0</b></span><span>死亡 <b id="kDeath">0</b></span>
+        <span>积分 <b id="kScore">0</b></span><span>波次 <b id="kWave">1</b></span>
+      </div>
+    </div>
+    <div class="hrbtns">
+      <button id="bFx">后处理</button>
+      <button id="bFog">薄雾</button>
+      <button id="bGround">地面</button>
+      <button id="bRain" class="on">下雨</button>
+      <button id="bSL" class="on">探照灯</button>
+      <button id="bCam">机位:居中</button>
+      <button id="bView">视角:HD-2D</button>
+      <span id="distBox" style="display:flex;align-items:center;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:3px 8px;font-size:11.5px">
+        高<input id="camDist" type="range" min="3" max="45" value="9" style="width:62px"> 宽<input id="camHW" type="range" min="0" max="60" value="0" style="width:62px">
+      </span>
+      <button id="bHist">历史</button>
+      <button id="bInv">邀请</button>
+      <button id="bAim">辅助:关</button>
+      <button id="bBoard">战况</button>
+      <button id="bHelp">操作</button>
+    </div>
+  </div>
+
+  <div id="bossBar" style="display:none">
+    <div class="bn" id="bossName">虚空行者</div>
+    <div class="bb"><div class="bf" id="bossHpFill"></div></div>
+    <div class="bs" id="bossTag"></div>
+  </div>
+  <div id="killfeed"></div>
+  <div id="mapWrap"><canvas id="minimap" width="316" height="316"></canvas></div>
+
+  <div id="xhair">
+    <div class="l v t"></div><div class="l v b"></div><div class="l h lf"></div><div class="l h rt"></div><div class="d"></div>
+  </div>
+  <div id="hitmark">&#10005;</div>
+
+  <div id="vitals">
+    <div class="vrow"><span class="vtag">HP</span>
+      <div class="vbar"><div class="vfill hp" id="hpFill"></div><div id="hpNum">100 / 100</div></div></div>
+    <div class="vrow"><span class="vtag">护甲</span>
+      <div class="vbar"><div class="vfill ar" id="arFill"></div></div></div>
+  </div>
+
+  <div id="gunbox">
+    <div id="gunName">虚空突击步枪</div>
+    <div id="gunAmmo">30<small> / 120</small></div>
+    <div id="wlist"></div>
+  </div>
+
+  <div id="centerMsg"></div>
+  <div id="respBar"><p>阵亡 · 复活中</p><div class="rb"><div class="rf"></div></div></div>
+
+  <div id="chatWrap">
+    <div id="chatLog"></div>
+    <div id="chatBar">
+      <input id="chatInput" type="text" maxlength="90" placeholder="世界频道 · 回车发送" autocomplete="off">
+      <button id="chatSend">发送</button>
+    </div>
+  </div>
+
+  <div id="touchpad">
+    <div id="joy"><div class="k"></div></div>
+    <div id="lookZone"></div>
+    <div class="tbtn" id="btnFire">开火</div>
+    <div class="tbtn" id="btnAds">机瞄</div>
+    <div class="tbtn" id="btnJump">跳跃</div>
+    <div class="tbtn" id="btnReload">换弹</div>
+    <div class="tbtn" id="btnSwap">切枪</div>
+    <div class="tbtn" id="btnGrenade">手雷</div>
+  </div>
+
+  <div id="board">
+    <h3>战 况 记 分 板</h3>
+    <table><thead><tr><th>#</th><th>玩家</th><th>击杀</th><th>死亡</th><th>积分</th><th>PING</th></tr></thead>
+      <tbody id="boardBody"></tbody></table>
+  </div>
+
+  <div id="histPanel" style="display:none;position:absolute;right:12px;top:110px;z-index:22;width:min(44vw,430px);max-height:58vh;overflow:auto;background:rgba(10,8,22,.93);border:1px solid var(--line);border-radius:12px;padding:10px 13px;box-shadow:0 8px 30px rgba(0,0,0,.55)">
+    <h3 style="margin:0 0 8px;font-size:14px;color:#c084fc;letter-spacing:2px">📜 历 史 事 件 大 厅 <span id="histClose" style="float:right;cursor:pointer;color:#a78bfa">✕</span></h3>
+    <div id="histBody" style="font-size:12.5px;line-height:1.95;color:#d8c8ff"></div>
+  </div>
+  <style>#histBody .hev{border-bottom:1px dashed rgba(168,85,247,.18);padding:2px 0}#histBody .hev i{color:#8b7cc0;font-style:normal;margin-right:6px}</style>
+  <div id="dmgVig"></div>
+</div>
+<div id="dmgLayer"></div><script>
+window.__ATTACH_CITY = true;
+window.__ATTACH_RENDERER = window.__OCTO.renderer;
+window.__ATTACH_SCENE = window.__OCTO.scene;
+</script>
+<script src="js/arena3d.js?v=1791844736"></script>
+<script>window.__HD2D_HOST = true;</script>
+<script src="js/mqtt.js?v=1791844736"></script>
+<script src="js/hd2d_arena.js?v=1791844736"></script>
+<script src="js/shooter.js?v=1791844736"></script>
+<script src="js/kernel.js?v=1791844736"></script>
+</body></html>

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="screen-orientation" content="landscape">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>天泪纪元 · 3D 枪战联机</title>
+<style>
+  :root{
+    --neon:#c084fc; --cy:#22d3ee; --hp:#ff4d6d; --am:#ffd166; --ok:#4ade80; --bad:#f87171;
+    --panel:rgba(10,8,22,.72); --line:rgba(168,85,247,.42);
+  }
+  html,body{margin:0;height:100%;background:#05060a;overflow:hidden;color:#e8e0f0;
+    font-family:"Noto Sans SC","Noto Serif SC",system-ui,sans-serif;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none}
+  #cv{display:block;position:absolute;inset:0;width:100%;height:100%}
+  .hud{position:absolute;inset:0;pointer-events:none;z-index:10}
+  button,.clickable{pointer-events:auto}
+  .hud .hrbtns button,.hud #chatBar button,.hud #chatInput,.hud #board button{pointer-events:auto}
+
+  #xhair{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;z-index:14;opacity:.95;transition:transform .06s}
+  #xhair .l{position:absolute;background:var(--cy);box-shadow:0 0 6px rgba(34,211,238,.9)}
+  #xhair .l.v{left:50%;width:2px;height:9px;margin-left:-1px}
+  #xhair .l.h{top:50%;height:2px;width:9px;margin-top:-1px}
+  #xhair .v.t{top:0}#xhair .v.b{bottom:0}#xhair .h.lf{left:0}#xhair .h.rt{right:0}
+  #xhair .d{position:absolute;left:50%;top:50%;width:3px;height:3px;margin:-1.5px 0 0 -1.5px;border-radius:50%;background:#fff;box-shadow:0 0 8px #fff}
+  #xhair.hit .l{background:#ff5f6d}
+  #xhair.kill .l{background:#ffd166}
+
+  .topbar{position:absolute;top:0;left:0;right:0;z-index:6;display:flex;justify-content:space-between;align-items:flex-start;padding:8px 12px;gap:10px;font-size:13px;text-shadow:0 2px 6px #000}
+  .chip{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:5px 10px;display:flex;gap:10px;align-items:center}
+  .chip b{color:#fff}
+  #netChip .dot{width:8px;height:8px;border-radius:50%;background:#666;box-shadow:0 0 6px #666}
+  #netChip.on .dot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+  .hrbtns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .hrbtns button{background:var(--panel);color:#e8e0f0;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12.5px;font-family:inherit}
+  .hrbtns button.on{background:rgba(168,85,247,.35);border-color:var(--neon)}
+
+  #bossBar{position:absolute;left:50%;top:74px;transform:translateX(-50%);width:min(58vw,560px);z-index:15;text-align:center}
+  #bossBar .bn{font-size:15px;letter-spacing:3px;color:#ffd166;text-shadow:0 2px 8px #000}
+  #bossBar .bb{height:11px;border-radius:6px;background:rgba(0,0,0,.6);border:1px solid rgba(255,120,0,.55);overflow:hidden;margin-top:3px}
+  #bossBar .bf{height:100%;width:100%;background:linear-gradient(90deg,#ff3d3d,#ffb43d)}
+  #bossBar .bs{font-size:11px;color:#c9bce8;margin-top:2px}
+  #killfeed{position:absolute;top:52px;right:12px;width:290px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;font-size:12.5px;z-index:12}
+  #killfeed div{background:rgba(8,6,18,.72);border-right:3px solid var(--neon);padding:3px 8px;border-radius:5px 0 0 5px;animation:kfIn .18s ease-out;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  @keyframes kfIn{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
+
+  #vitals{position:absolute;left:14px;bottom:14px;width:min(38vw,320px);z-index:12}
+  .vrow{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+  .vtag{font-size:11px;color:#c9bce8;width:26px;text-align:right;letter-spacing:1px}
+  .vbar{flex:1;height:13px;border-radius:7px;background:rgba(0,0,0,.55);border:1px solid var(--line);overflow:hidden;position:relative}
+  .vfill{height:100%;width:100%;transition:width .12s linear}
+  .vfill.hp{background:linear-gradient(90deg,#ff2d55,#ff8fa3);box-shadow:0 0 12px rgba(255,45,85,.6)}
+  .vfill.ar{background:linear-gradient(90deg,#38bdf8,#a5f3fc)}
+  #hpNum{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10.5px;color:#fff;text-shadow:0 1px 3px #000;letter-spacing:.5px}
+
+  #gunbox{position:absolute;right:14px;bottom:14px;text-align:right;z-index:12}
+  #gunName{font-size:13px;color:#e9d5ff;letter-spacing:1px}
+  #gunAmmo{font-size:34px;line-height:1;font-weight:700;color:#fff;text-shadow:0 0 14px rgba(255,209,102,.55)}
+  #gunAmmo small{font-size:15px;color:#c9bce8}
+  #gunAmmo.reloading{color:var(--am);animation:blink .5s infinite}
+  @keyframes blink{50%{opacity:.4}}
+  #wlist{display:flex;gap:6px;justify-content:flex-end;margin-top:6px}
+  #wlist .w{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:3px 9px;font-size:11.5px;color:#b9a8e0}
+  #wlist .w.on{background:rgba(255,209,102,.22);border-color:var(--am);color:#fff}
+
+  #touchpad{position:absolute;inset:0;z-index:1;pointer-events:none;display:none}
+  .tbtn{position:absolute;z-index:4;border-radius:50%;background:rgba(28,18,48,.55);border:2px solid var(--line);color:#f0e6ff;display:flex;align-items:center;justify-content:center;font-size:12px;letter-spacing:.5px;pointer-events:auto;text-align:center;line-height:1.1}
+  .tbtn:active,.tbtn.on{background:rgba(168,85,247,.5);border-color:var(--neon)}
+  #btnFire{right:18px;bottom:84px;width:120px;height:120px;font-size:18px;font-weight:700;background:radial-gradient(circle at 35% 30%,rgba(255,77,109,.65),rgba(120,20,40,.6));border-color:rgba(255,77,109,.8)}
+  #btnAds{right:124px;bottom:150px;width:56px;height:56px}
+  #btnJump{right:26px;bottom:200px;width:56px;height:56px}
+  #btnReload{right:124px;bottom:74px;width:56px;height:56px}
+  #btnSwap{right:196px;bottom:118px;width:52px;height:52px}
+  #btnGrenade{right:196px;bottom:190px;width:52px;height:52px}
+  #joy{position:absolute;left:24px;bottom:96px;width:124px;height:124px;z-index:4;display:none;border-radius:50%;background:rgba(120,80,200,.13);border:2px solid rgba(168,85,247,.3);z-index:12;pointer-events:auto}
+  #joy .k{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(168,85,247,.55);box-shadow:0 0 18px rgba(168,85,247,.6)}
+  #lookZone{position:absolute;right:0;top:62px;width:58%;height:calc(100% - 62px);z-index:1;pointer-events:auto;display:none}
+
+  #mapWrap{position:absolute;left:14px;top:52px;width:158px;height:158px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:rgba(4,4,10,.68);z-index:12}
+  #minimap{width:100%;height:100%;display:block}
+
+  #dmgLayer{position:absolute;inset:0;z-index:13;overflow:hidden;pointer-events:none}
+  .dmg{position:absolute;font-weight:700;font-size:17px;color:#ffe08a;text-shadow:0 2px 5px #000;will-change:transform,opacity}
+  .dmg.crit{color:#ff5f6d;font-size:23px}
+  .dmg.self{color:#ff8080}
+  #centerMsg{position:absolute;left:50%;top:26%;transform:translateX(-50%);text-align:center;z-index:16;font-size:22px;letter-spacing:2px;text-shadow:0 3px 12px #000;opacity:0;transition:opacity .2s}
+  #centerMsg.on{opacity:1}
+  #centerMsg small{display:block;font-size:13px;color:#c9bce8;letter-spacing:1px;margin-top:6px}
+  #hitmark{position:absolute;left:50%;top:50%;z-index:15;transform:translate(-50%,-50%);font-size:26px;color:#ff5f6d;opacity:0;font-weight:700}
+  #dmgVig{position:absolute;inset:0;z-index:9;pointer-events:none;opacity:0;transition:opacity .28s;box-shadow:inset 0 0 120px 30px rgba(255,0,40,.75)}
+
+  #board{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;display:none;background:rgba(8,6,18,.94);border:1px solid var(--line);border-radius:12px;padding:16px 18px;min-width:440px}
+  #board h3{margin:0 0 10px;font-size:16px;color:#e9d5ff;letter-spacing:2px;text-align:center}
+  #board table{width:100%;border-collapse:collapse;font-size:13px}
+  #board th,#board td{padding:5px 9px;text-align:left;border-bottom:1px solid rgba(168,85,247,.16)}
+  #board th{color:#a78bfa;font-weight:500;font-size:11.5px;letter-spacing:1px}
+  #board tr.me td{color:#ffd166}
+
+  #chatWrap{position:absolute;left:14px;bottom:252px;width:min(38vw,330px);z-index:5}
+  #chatLog{max-height:66px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;font-size:12.5px;margin-bottom:5px;text-shadow:0 2px 5px #000}
+  #chatLog div span{color:#c084fc}
+  #chatLog div.sys{color:#ffd166}
+  #chatBar{display:flex;gap:6px;pointer-events:auto}
+  #chatInput{flex:1;background:rgba(8,6,18,.8);border:1px solid var(--line);border-radius:8px;color:#fff;padding:6px 9px;font-size:12.5px;font-family:inherit;outline:none;pointer-events:auto}
+  #chatBar button{background:rgba(168,85,247,.35);border:1px solid var(--neon);color:#fff;border-radius:8px;padding:6px 12px;font-size:12.5px;font-family:inherit}
+
+  #startPanel{position:absolute;inset:0;z-index:30;background:linear-gradient(150deg,#0a0618,#160c2c 60%,#05060a);display:flex;align-items:center;justify-content:center;overflow:auto}
+  #startBox{width:min(92vw,720px);background:rgba(12,8,26,.86);border:1px solid var(--line);border-radius:16px;padding:22px 24px;box-shadow:0 20px 70px rgba(0,0,0,.7)}
+  #startBox h1{margin:0 0 2px;font-size:30px;letter-spacing:6px;background:linear-gradient(90deg,#c084fc,#22d3ee);-webkit-background-clip:text;background-clip:text;color:transparent}
+  #startBox .sub{color:#a78bfa;font-size:12.5px;letter-spacing:3px;margin-bottom:16px}
+  .frow{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+  .fld{flex:1;min-width:150px}
+  .fld label{display:block;font-size:11.5px;color:#a78bfa;letter-spacing:1px;margin-bottom:4px}
+  .fld input,.fld select{width:100%;box-sizing:border-box;background:rgba(6,4,14,.9);border:1px solid var(--line);color:#fff;border-radius:8px;padding:9px 10px;font-size:14px;font-family:inherit;outline:none}
+  .modeSel{display:flex;gap:10px;margin:6px 0 14px}
+  .modeSel .m{flex:1;border:1px solid var(--line);border-radius:10px;padding:10px;cursor:pointer;background:rgba(8,6,18,.7);transition:.15s}
+  .modeSel .m.on{border-color:var(--neon);background:rgba(168,85,247,.24);box-shadow:0 0 22px rgba(168,85,247,.3)}
+  .modeSel .m b{display:block;font-size:14px;color:#fff;margin-bottom:3px}
+  .modeSel .m span{font-size:11.5px;color:#a78bfa}
+  #goBtn{width:100%;padding:14px;font-size:17px;letter-spacing:4px;border-radius:11px;cursor:pointer;border:1px solid var(--neon);color:#fff;font-family:inherit;background:linear-gradient(90deg,rgba(168,85,247,.75),rgba(34,211,238,.6))}
+  #goBtn:active{filter:brightness(1.2)}
+  .tips{margin-top:12px;font-size:11.5px;color:#8b7cb0;line-height:1.7}
+  .tips b{color:#c9bce8}
+  #log{position:absolute;left:14px;bottom:44px;z-index:8;font-size:11px;color:#8b7cb0;opacity:.55;pointer-events:none}
+  #perf{position:absolute;right:12px;top:34px;z-index:8;font:11px monospace;color:#8b7cb0;text-align:right;text-shadow:0 0 6px #000;opacity:.8;pointer-events:none}
+  #tipTxt{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);z-index:8;font-size:11px;color:#8b7cb0;opacity:.6;pointer-events:none}
+  #respBar{position:absolute;left:50%;top:56%;transform:translateX(-50%);width:240px;z-index:16;display:none}
+  #respBar .rb{height:7px;border-radius:4px;background:rgba(0,0,0,.6);border:1px solid var(--line);overflow:hidden}
+  #respBar .rf{height:100%;width:0;background:linear-gradient(90deg,#ff4d6d,#ffd166)}
+  #respBar p{margin:0 0 6px;text-align:center;font-size:13px;color:#ffd166;letter-spacing:2px}
+  /* ★ 关键：body 上的 touch-action:none 会禁掉 range 滑条的触摸拖动 → 单独放开 */
+  input[type=range]{touch-action:auto !important;pointer-events:auto !important;-webkit-appearance:auto;appearance:auto}
+</style></head><body>
+<canvas id="cv"></canvas>
+
+<div class="hud">
+  <div class="topbar">
+    <div style="display:flex;gap:8px">
+      <div class="chip" id="netChip"><span class="dot"></span><span id="netText">离线 · 单机</span></div>
+      <div class="chip" id="scoreChip">
+        <span>击杀 <b id="kKill">0</b></span><span>死亡 <b id="kDeath">0</b></span>
+        <span>积分 <b id="kScore">0</b></span><span>波次 <b id="kWave">1</b></span>
+      </div>
+    </div>
+    <div class="hrbtns">
+      <button id="bFx">后处理</button>
+      <button id="bFog">薄雾</button>
+      <button id="bGround">地面</button>
+      <button id="bRain" class="on">下雨</button>
+      <button id="bSL" class="on">探照灯</button>
+      <button id="bCam">机位:居中</button>
+      <button id="bView">视角:HD-2D</button>
+      <span id="distBox" style="display:flex;align-items:center;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:3px 8px;font-size:11.5px">
+        高<input id="camDist" type="range" min="3" max="45" value="9" style="width:62px"> 宽<input id="camHW" type="range" min="0" max="60" value="0" style="width:62px">
+      </span>
+      <button id="bHist">历史</button>
+      <button id="bInv">邀请</button>
+      <button id="bAim">辅助:关</button>
+      <button id="bBoard">战况</button>
+      <button id="bHelp">操作</button>
+    </div>
+  </div>
+
+  <div id="bossBar" style="display:none">
+    <div class="bn" id="bossName">虚空行者</div>
+    <div class="bb"><div class="bf" id="bossHpFill"></div></div>
+    <div class="bs" id="bossTag"></div>
+  </div>
+  <div id="killfeed"></div>
+  <div id="mapWrap"><canvas id="minimap" width="316" height="316"></canvas></div>
+
+  <div id="xhair">
+    <div class="l v t"></div><div class="l v b"></div><div class="l h lf"></div><div class="l h rt"></div><div class="d"></div>
+  </div>
+  <div id="hitmark">&#10005;</div>
+
+  <div id="vitals">
+    <div class="vrow"><span class="vtag">HP</span>
+      <div class="vbar"><div class="vfill hp" id="hpFill"></div><div id="hpNum">100 / 100</div></div></div>
+    <div class="vrow"><span class="vtag">护甲</span>
+      <div class="vbar"><div class="vfill ar" id="arFill"></div></div></div>
+  </div>
+
+  <div id="gunbox">
+    <div id="gunName">虚空突击步枪</div>
+    <div id="gunAmmo">30<small> / 120</small></div>
+    <div id="wlist"></div>
+  </div>
+
+  <div id="centerMsg"></div>
+  <div id="respBar"><p>阵亡 · 复活中</p><div class="rb"><div class="rf"></div></div></div>
+
+  <div id="chatWrap">
+    <div id="chatLog"></div>
+    <div id="chatBar">
+      <input id="chatInput" type="text" maxlength="90" placeholder="世界频道 · 回车发送" autocomplete="off">
+      <button id="chatSend">发送</button>
+    </div>
+  </div>
+
+  <div id="touchpad">
+    <div id="joy"><div class="k"></div></div>
+    <div id="lookZone"></div>
+    <div class="tbtn" id="btnFire">开火</div>
+    <div class="tbtn" id="btnAds">机瞄</div>
+    <div class="tbtn" id="btnJump">跳跃</div>
+    <div class="tbtn" id="btnReload">换弹</div>
+    <div class="tbtn" id="btnSwap">切枪</div>
+    <div class="tbtn" id="btnGrenade">手雷</div>
+  </div>
+
+  <div id="board">
+    <h3>战 况 记 分 板</h3>
+    <table><thead><tr><th>#</th><th>玩家</th><th>击杀</th><th>死亡</th><th>积分</th><th>PING</th></tr></thead>
+      <tbody id="boardBody"></tbody></table>
+  </div>
+
+  <div id="histPanel" style="display:none;position:absolute;right:12px;top:110px;z-index:22;width:min(44vw,430px);max-height:58vh;overflow:auto;background:rgba(10,8,22,.93);border:1px solid var(--line);border-radius:12px;padding:10px 13px;box-shadow:0 8px 30px rgba(0,0,0,.55)">
+    <h3 style="margin:0 0 8px;font-size:14px;color:#c084fc;letter-spacing:2px">📜 历 史 事 件 大 厅 <span id="histClose" style="float:right;cursor:pointer;color:#a78bfa">✕</span></h3>
+    <div id="histBody" style="font-size:12.5px;line-height:1.95;color:#d8c8ff"></div>
+  </div>
+  <style>#histBody .hev{border-bottom:1px dashed rgba(168,85,247,.18);padding:2px 0}#histBody .hev i{color:#8b7cc0;font-style:normal;margin-right:6px}</style>
+  <div id="dmgVig"></div>
+</div>
+<div id="dmgLayer"></div>
+<div id="log"></div>
+<div id="perf"></div>
+<div id="tipTxt">WASD 移动 · 鼠标瞄准 · 左键开火 · R 换弹 · 1/2/3 切枪 · Shift 疾跑 · 空格 跳</div>
+
+<div id="startPanel"><div id="startBox">
+  <h1>天 泪 纪 元</h1>
+  <div class="sub">H D - 2 D × 3 D · 同 一 世 界</div>
+  <div class="frow">
+    <div class="fld"><label>昵称</label><input id="inName" maxlength="10" placeholder="旅人"></div>
+    <div class="fld"><label>频道 / 房间</label><input id="inRoom" maxlength="14" value="arena"></div>
+    <div class="fld"><label>服务器</label><select id="inMode">
+      <option value="auto">自动（公共 MQTT）</option>
+      <option value="solo">单机（不联网）</option>
+    </select></div>
+  </div>
+  <div class="modeSel">
+    <div class="m on" data-mode="coop"><b>PVE 清怪</b><span>大厅怪物已搬进 3D：三种 3D 魔物成波刷新</span></div>
+    <div class="m" data-mode="pvp"><b>PVP 死斗</b><span>玩家互射 + 怪物搅局，击杀计分</span></div>
+  </div>
+  <button id="goBtn">进 入 世 界</button>
+  <div class="tips">
+    <b>联机原理：</b>走公共 MQTT(WSS) 实时通道，免注册、免服务器；同一个「频道」的人自动同场。<br>
+    <b>手机：</b>左摇杆移动 · 右半屏拖动转视角 · 开火键带自动瞄准辅助 · 右侧跳跃/换弹/切枪/手雷。<br>
+    <b>桌面：</b>WASD 移动 · 鼠标瞄准（点画面锁定指针）· 左键开火 · R 换弹 · 1/2/3/4 切枪 · G 手雷。
+  </div>
+</div></div>
+
+<script src="js/vendor/three.min.js?v=1791844736"></script>
+<script src="js/tiles.js?v=1791844736"></script>
+<script src="assets3d/tree_green.js?v=V1"></script>
+<script src="assets3d/tree_sakura.js?v=V1"></script>
+<script src="js/arena3d.js?v=1791844736"></script>
+<script src="js/tileworld3d.js?v=1791844736"></script>
+<script src="js/mqtt.js?v=1791844736"></script>
+<script src="js/shooter.js?v=1791844736"></script>
+<script src="js/kernel.js?v=1791844736"></script>
+
+<div id="diag" style="display:none;position:fixed;left:4px;top:4px;z-index:99999;background:rgba(0,0,0,.78);color:#4f4;font:10px/1.35 monospace;padding:3px 6px;border-radius:4px;pointer-events:none;white-space:pre;max-width:96vw"></div>
+<script>
+/* ★ 独立诊断层：不受渲染循环影响，黑屏时也能显示真相 */
+if(/[?&]diag=1/.test(location.search)) document.getElementById('diag').style.display='block';
+setInterval(function(){
+  try{
+    var a=window.ARENA,c=window.SHOOTER,p=window.FXp,d=document.getElementById('diag');
+    var calls=(a&&a.renderer)?a.renderer.info.render.calls:'-';
+    var vis=0,tot=0;
+    if(a&&a.scene)a.scene.traverse(function(o){if(o.isMesh||o.isSprite||o.isInstancedMesh){tot++;if(o.visible)vis++;}});
+    var P=c?[Math.round(c.P.x),Math.round(c.P.z)]:'-';
+    var cam=a?[Math.round(a.getCam().position.x),Math.round(a.getCam().position.y),Math.round(a.getCam().position.z)]:'-';
+    var err=window.__loopErr||window.__logicErr||window.__renderErr||window.__aerr||window.__t3dErr||window.__serr||'none';
+    var lvl=window.__perfLevel,pf=window.SHOOTER&&window.SHOOTER.Perf;var mb=window.SHOOTER?window.SHOOTER.Host.mobs.filter(function(m){return m.alive;}).length:0;
+d.textContent='calls='+calls+'  vis='+vis+'/'+tot+'  怪物='+mb+'  档='+lvl+'  '+(pf?pf.fps.toFixed(0):'?')+'fps  mode='+(a?a.getCamMode():'-')+'  post='+(p?p.on:'-')+
+      '  fps='+((document.getElementById('perf')||{}).textContent||'').split(' ').filter(function(x){return /fps/.test(x);}).join('')+'\nP='+P+'  cam='+cam+'\n'+String(window.__spawnInfo||'spawn=?')+'\ncalls='+calls+'  err='+String(err).slice(0,110);
+  }catch(e){try{document.getElementById('diag').textContent='DIAG-ERR '+e.message;}catch(_){}}
+},700);
+</script>
+
+</body></html>
