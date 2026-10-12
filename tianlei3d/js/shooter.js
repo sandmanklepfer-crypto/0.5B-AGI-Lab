@@ -241,15 +241,28 @@ var Voice = {
       clearTimeout(to); self.hasMic = true; self.stream = s; cb(s);
     }).catch(function () { clearTimeout(to); self.hasMic = false; cb(null); });
   },
+  muted: false,
   init: function () {
-    var self = this;
+    // ★ 绝不在这里 getUserMedia：否则一进游戏就一直占用麦克风，系统显示"录音中"、
+    //   而且关不掉 → 整个手机静音失效。改为「按住说话那一刻」才申请。
+    try { if (!navigator.mediaDevices || !window.MediaRecorder) this.hasMic = false; } catch (e) { this.hasMic = false; }
+  },
+  /* ★ 释放麦克风：松开按钮 / 关开关 / 切后台 都要调，确保不占着设备 */
+  release: function () {
     try {
-      if (!navigator.mediaDevices || !window.MediaRecorder) { self.hasMic = false; return; }
-      this._getMic(function (s) { });
-    } catch (e) { self.hasMic = false; }
+      if (this.rec && this.rec.state === 'recording') { try { this.rec.stop(); } catch (e) {} }
+      if (this.stream) { this.stream.getTracks().forEach(function (t) { try { t.stop(); } catch (e) {} }); this.stream = null; }
+      var b = $('btnVoice'); if (b) b.className = b.className.replace('rec', '').trim();
+    } catch (e) {}
+  },
+  mute: function (on) {
+    this.muted = !!on;
+    if (this.muted) this.release();
+    try { localStorage.setItem('tl_mic', this.muted ? '0' : '1'); } catch (e) {}
   },
   start: function () {
     var self = this;
+    if (this.muted) { HUD.center('麦克风已关闭', '点 ☰ → 麦克风:开', 1600); return; }
     if (this.rec && this.rec.state === 'recording') return;
     this._getMic(function (s) {
       if (!s) { self.panel(); return; }
@@ -270,7 +283,10 @@ var Voice = {
     });
   },
   stop: function () {
-    if (this.rec && this.rec.state === 'recording') { try { this.rec.stop(); } catch (e) {} }
+    if (this.rec && this.rec.state === 'recording') {
+      var self = this;
+      try { this.rec.onstop = function () { self.finish(); self.release(); }; this.rec.stop(); } catch (e) { this.release(); }
+    } else { this.release(); }
     var b = $('btnVoice'); if (b) b.className = '';
   },
   finish: function () {
@@ -2099,6 +2115,7 @@ function loopBody(dt, now) {
   Recoil.p = lerp(Recoil.p, 0, Math.min(1, dt * 7.5));    // 后坐力自动回落
   Recoil.y = lerp(Recoil.y, 0, Math.min(1, dt * 6.5));
   if (P.alive && Cam.autoAim) aimAssist();   // ★ 默认不自动转视角（会抢走你正在瞄的目标）
+  try { Build.rescue(dt, !!(Input.mx || Input.my || Input.keys['w'] || Input.keys['a'] || Input.keys['s'] || Input.keys['d'])); } catch (e) {}
   CamIntro.update();
   if (!HOST) updateCamera(dt);
   if (!HOST) updateHero(dt, elapsed);
@@ -2245,6 +2262,13 @@ var Build = {
     else { this.list.delete(k); this.rmMesh(k); }
   },
   place: function (x, z) {
+    // ★ 禁止把方块放在玩家自己（或别人）身上 → 从源头杜绝"把自己埋住/围死"
+    if (Math.floor(x) === Math.floor(P.x) && Math.floor(z) === Math.floor(P.z)) {
+      HUD.center('不能放在自己脚下', '离开一格再放', 1400); Sfx.deny(); return;
+    }
+    if (Math.hypot(x - P.x, z - P.z) < 1.2) {
+      HUD.center('离自己太近', '站远一点再放', 1400); Sfx.deny(); return;
+    }
     var k = this.key(x, z), o = { t: this.kind, by: Net.name, at: Date.now() };
     Net.pub(Net.base() + 'blk/' + k, JSON.stringify(o), true);   // 先广播（retain 当存储）
     this.apply(k, o);                                            // 本地立刻可见
@@ -2257,6 +2281,30 @@ var Build = {
     Sfx.deny(); HUD.center('已拆除', '', 900);
   },
   // 屏幕坐标 → 地面 → 放置/拆除
+  _stuck: 0,
+  rescue: function (dt, wantMove) {
+    if (!this.list.size) { this._stuck = 0; return; }
+    var h = window.__OCTO && window.__OCTO.hero;
+    if (!h) return;
+    if (!wantMove) { this._stuck = 0; this._lx = h.x; this._lz = h.y; return; }
+    var m = Math.hypot(h.x - (this._lx === undefined ? h.x : this._lx), h.y - (this._lz === undefined ? h.y : this._lz));
+    this._lx = h.x; this._lz = h.y;
+    this._stuck = (m < 0.008) ? this._stuck + dt : 0;
+    if (this._stuck < 0.7) return;
+    this._stuck = 0;
+    // 找离玩家最近的一格拆掉（只拆"挡住去路"的那一格）
+    var best = null, bd = 1e9;
+    this.list.forEach(function (v, k) {
+      var px = k.split(','), cx = +px[0] + 0.5, cz = +px[1] + 0.5;
+      var d = Math.hypot(cx - h.x, cz - h.y);
+      if (d < bd) { bd = d; best = k; }
+    });
+    if (best) {
+      var q = best.split(',');
+      this.remove(+q[0], +q[1]);
+      HUD.center('自动脱困', '已拆掉挡路的方块', 1600);
+    }
+  },
   tap: function (nx, ny) {
     if (!this.on) return false;
     try {
@@ -2267,7 +2315,9 @@ var Build = {
       var x = hit.x, z = hit.z, d = Math.hypot(x - P.x, z - P.z);
       if (d > 16) { HUD.center('太远了', '走近一点再放', 1200); return false; }
       if (G.h(x, z) > 0.35) { HUD.center('这里放不了', '找一块平地', 1200); return false; }
-      if (this.solidAt(x, z)) this.remove(x, z); else this.place(x, z);
+      if (this.mode === 'del') {
+        if (this.solidAt(x, z)) this.remove(x, z); else HUD.center('这里没有方块', '', 900);
+      } else if (this.solidAt(x, z)) this.remove(x, z); else this.place(x, z);
       return true;
     } catch (e) { window.__buildErr = String((e && e.message) || e); return false; }
   },
@@ -2289,13 +2339,26 @@ var Build = {
     this.kind = this.KINDS[(i + 1) % this.KINDS.length];
     HUD.center('建造 · ' + this.names[this.kind], '', 1100); Sfx.ui();
   },
+  mode: 'place',                                  // place=放置 / del=拆除
   toggle: function () {
     this.on = !this.on;
-    var b = $('bBuild'); if (b) b.className = this.on ? 'on' : '';
     if (!this.on && this.ghost) this.ghost.visible = false;
+    this.bar();
     HUD.center(this.on ? '建造模式 · 开' : '建造模式 · 关',
-      this.on ? '点地面放置 · 再点一次拆除' : '', 2000);
+      this.on ? '点地面放置 · 点已有方块即拆除' : '', 2200);
     Sfx.ui();
+  },
+  setKind: function (k) { this.kind = k; this.mode = 'place'; this.bar(); Sfx.ui(); HUD.center('方块 · ' + (this.names[k] || k), '', 900); },
+  setMode: function (m) { this.mode = m; this.bar(); Sfx.ui(); HUD.center(m === 'del' ? '拆除模式' : '放置模式', '', 900); },
+  bar: function () {
+    var el = $('buildBar'); if (!el) return;
+    el.style.display = this.on ? 'flex' : 'none';
+    var b = $('bBuild'); if (b) b.className = this.on ? 'on' : '';
+    var self = this;
+    ['crate', 'wall', 'lamp', 'crystal'].forEach(function (k) {
+      var e = $('bk_' + k); if (e) e.className = (self.kind === k) ? 'on' : '';
+    });
+    var pd = $('bk_del'); if (pd) pd.className = (this.mode === 'del') ? 'on' : '';
   },
 };
 
@@ -2450,6 +2513,12 @@ function bindUI() {
   })();
   _on('bBuild', 'click', function () { Build.toggle(); });
   _on('bKind', 'click', function () { Build.cycleKind(); });
+  _on('bk_crate', 'click', function () { Build.setKind('crate'); });
+  _on('bk_wall', 'click', function () { Build.setKind('wall'); });
+  _on('bk_lamp', 'click', function () { Build.setKind('lamp'); });
+  _on('bk_crystal', 'click', function () { Build.setKind('crystal'); });
+  _on('bk_del', 'click', function () { Build.setMode(Build.mode === 'del' ? 'place' : 'del'); });
+  _on('bk_close', 'click', function () { if (Build.on) Build.toggle(); });
   _on('bSandbox', 'click', function () {
     SANDBOX = !SANDBOX; save('tl_sandbox', SANDBOX ? '1' : '0');
     applySandbox();
@@ -2476,6 +2545,22 @@ function bindUI() {
   _on('bRoot', 'click', function () { var p = $('treePanel'); if (!p) return; var on = p.style.display !== 'block'; p.style.display = on ? 'block' : 'none'; if (on) Sfx.ui(); });
   _on('bMusic', 'click', function () { Sfx.resume(); var on = Music.toggle(); this.textContent = '音乐' + (on ? ':开' : ':关'); this.className = on ? 'on' : ''; save('tl_music', on ? '1' : '0'); });
   _on('bSfx', 'click', function () { Sfx.on = !Sfx.on; this.textContent = '音效' + (Sfx.on ? ':开' : ':关'); this.className = Sfx.on ? 'on' : ''; save('tl_sfx', Sfx.on ? '1' : '0'); if (Sfx.on) Sfx.ui(); });
+  _on('bMic', 'click', function () {
+    Voice.mute(!Voice.muted);
+    this.textContent = '麦克风:' + (Voice.muted ? '关' : '开');
+    this.className = Voice.muted ? '' : 'on';
+    HUD.center(Voice.muted ? '麦克风已关闭' : '麦克风已开启',
+      Voice.muted ? '已释放占用 · 可正常静音' : '按住 🎤 说话', 1600);
+    Sfx.ui();
+  });
+  _on('bMic', 'click', function () {
+    Voice.mute(!Voice.muted);                    // 关→开 / 开→关
+    this.textContent = '麦克风:' + (Voice.muted ? '关' : '开');
+    this.className = Voice.muted ? '' : 'on';
+    HUD.center(Voice.muted ? '麦克风已关闭' : '麦克风已开启',
+      Voice.muted ? '已释放麦克风占用 · 可静音' : '按住 🎤 说话', 1600);
+    Sfx.ui();
+  });
   _on('bMap', 'click', function () { var m = $('mapWrap'); if (!m) return; var on = m.style.display !== 'block'; m.style.display = on ? 'block' : 'none'; this.className = on ? 'on' : ''; });
   _on('bChat', 'click', function () { var c = $('chatWrap'); if (!c) return; var on = !c.classList.contains('on'); c.classList.toggle('on', on); this.className = on ? 'on' : ''; if (on) { var ci = $('chatInput'); if (ci) try { ci.focus(); } catch (e) {} } });
   _on('bBoard', 'click', function () { var b = $('board'); var show = b.style.display !== 'block'; HUD.board(); b.style.display = show ? 'block' : 'none'; });
@@ -2549,6 +2634,10 @@ function restorePrefs() {
   SANDBOX = load('tl_sandbox', '1') !== '0';
   if ($('bSandbox')) { $('bSandbox').textContent = SANDBOX ? '模式:沙盒' : '模式:战斗'; $('bSandbox').className = SANDBOX ? 'on' : ''; }
   Sfx.on = load('tl_sfx', '1') !== '0';
+  Voice.muted = load('tl_mic', '1') === '0';
+  if ($('bMic')) { $('bMic').textContent = '麦克风:' + (Voice.muted ? '关' : '开'); $('bMic').className = Voice.muted ? '' : 'on'; }
+  Voice.muted = load('tl_mic', '1') === '0';
+  if ($('bMic')) { $('bMic').textContent = '麦克风:' + (Voice.muted ? '关' : '开'); $('bMic').className = Voice.muted ? '' : 'on'; }
   if ($('bSfx')) { $('bSfx').textContent = '音效' + (Sfx.on ? ':开' : ':关'); $('bSfx').className = Sfx.on ? 'on' : ''; }
   if (load('tl_music', '1') !== '0') setTimeout(function () { Sfx.resume(); if (Sfx.ctx && !Music.on) { Music.start(); if ($('bMusic')) { $('bMusic').textContent = '音乐:开'; $('bMusic').className = 'on'; } } }, 400);
   if ($('bAim')) { $('bAim').textContent = '辅助:' + (Cam.autoAim ? '开' : '关'); $('bAim').className = Cam.autoAim ? 'on' : ''; }
@@ -2564,6 +2653,8 @@ function sendChat() {
 Net.load();
 Voice.init();
 Build.init();
+document.addEventListener('visibilitychange', function () { if (document.hidden) Voice.release(); });
+window.addEventListener('pagehide', function () { Voice.release(); });
 /* ★ 链接即进服：URL 带 room/n → 无感直接进入（不显示开始面板） */
 if (!HOST && Net.fromLink) setTimeout(function () { try { if (!running) startGame(); } catch (e) { window.__autoJoinErr = String((e && e.message) || e); } }, 90);
 initFXpass();
@@ -2588,6 +2679,7 @@ else {   // ★ 宿主模式：暴露给 HD-2D 页每帧调用；并自动初始
       Net.onPlayers = function () { HUD.board(); };
       Net.onHist = function () { HUD.hist(); };
       placeAtSpawn();                                // ★ 统一出生点（宿主模式也必须调）
+      try { Build.bar(); } catch (e) {}
       try { HUD.vitals(); HUD.ammo(); HUD.score(); HUD.chat(); } catch (e) {}
       Net.connect();                                 // ★ HD-2D 主场景也自动进全服 */
       HUD.net('连接中…', false);

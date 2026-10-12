@@ -157,6 +157,19 @@
   #voiceLog .vmsg.on{border-color:#22d3ee}
   #btnVoice.rec{background:rgba(255,77,109,.6)!important;border-color:#ff4d6d!important}
 
+
+  /* ★ 建造：主栏按钮 + 底部工具栏 */
+  #bBuild.on{background:rgba(255,209,102,.55)!important;border-color:#ffd166!important}
+  #buildBar{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);z-index:24;display:none;pointer-events:auto;
+    align-items:center;gap:7px;background:rgba(8,6,18,.94);border:1px solid var(--line);border-radius:12px;
+    padding:8px 11px;box-shadow:0 10px 34px rgba(0,0,0,.6);max-width:94vw;flex-wrap:wrap;justify-content:center}
+  #buildBar .bk{min-width:50px;padding:7px 9px;font-size:12px;font-family:inherit;color:#e8e0f0;
+    background:rgba(30,20,50,.85);border:1px solid rgba(168,85,247,.35);border-radius:9px;cursor:pointer}
+  #buildBar .bk.on{background:rgba(255,209,102,.45);border-color:#ffd166;color:#fff}
+  #buildBar .bk.del.on{background:rgba(255,95,109,.5);border-color:#ff5f6d}
+  #buildBar .sep{width:1px;height:22px;background:rgba(168,85,247,.35);margin:0 3px}
+  #buildBar .hint{font-size:11px;color:#8b7cb0;padding:0 4px}
+
 </style></head><body>
 <canvas id="cv"></canvas>
 
@@ -174,6 +187,7 @@
       </div>
     </div>
     <div class="hrbtns">
+      <button id="bBuild" title="建造 / 拆除（点地面放置）">🔨</button>
       <button id="b3D" title="切换 3D 透视视角">3D</button>
       <button id="btnVoice" title="按住说话">🎤</button>
       <button id="bChat" title="聊天">💬</button>
@@ -185,7 +199,7 @@
   <!-- ★ 根目录式菜单：默认只有右上 4 个图标，点 ☰ 才像树一样展开 -->
   <div id="treePanel">
     <div class="tgrp">声 音</div>
-    <div class="tleaf"><button id="bMusic" class="on">音乐:开</button><button id="bSfx" class="on">音效:开</button></div>
+    <div class="tleaf"><button id="bMusic" class="on">音乐:开</button><button id="bSfx" class="on">音效:开</button><button id="bMic" class="on">麦克风:开</button></div>
     <div class="tgrp">显 示</div>
     <div class="tleaf"><button id="bFx">后处理</button><button id="bFog">薄雾</button></div>
     <div class="tleaf"><button id="bRain" class="on">下雨</button><button id="bSL" class="on">探照灯</button></div>
@@ -193,7 +207,7 @@
     <div class="tleaf"><button id="bCam">机位:居中</button><button id="bAim">辅助:关</button></div>
     <div class="tleaf" id="distBox">高<input id="camDist" type="range" min="3" max="45" value="9">宽<input id="camHW" type="range" min="0" max="60" value="0"></div>
     <div class="tgrp">玩 法</div>
-    <div class="tleaf"><button id="bSandbox" class="on">模式:沙盒</button><button id="bBuild">建造模式</button><button id="bKind">换方块</button></div>
+    <div class="tleaf"><button id="bSandbox" class="on">模式:沙盒</button></div>
     <div class="tgrp">世 界</div>
     <div class="tleaf"><button id="bBoard">战况</button><button id="bHist">历史</button><button id="bInv">邀请</button></div>
     <div class="tgrp">帮 助</div>
@@ -248,6 +262,18 @@
     <div class="tbtn" id="btnGrenade">手雷</div>
   </div>
 
+  <!-- ★ 建造工具栏（进建造模式才出现） -->
+  <div id="buildBar">
+    <button class="bk" id="bk_crate">木箱</button>
+    <button class="bk" id="bk_wall">石墙</button>
+    <button class="bk" id="bk_lamp">路灯</button>
+    <button class="bk" id="bk_crystal">晶石</button>
+    <span class="sep"></span>
+    <button class="bk del" id="bk_del">拆除</button>
+    <span class="hint">点地面放置 · 点方块拆除（全服共享）</span>
+    <button class="bk" id="bk_close">✕</button>
+  </div>
+
   <div id="board">
     <h3>战 况 记 分 板</h3>
     <table><thead><tr><th>#</th><th>玩家</th><th>击杀</th><th>死亡</th><th>积分</th><th>PING</th></tr></thead>
@@ -289,15 +315,15 @@
   </div>
 </div></div>
 
-<script src="js/vendor/three.min.js?v=1791846809"></script>
-<script src="js/tiles.js?v=1791846809"></script>
+<script src="js/vendor/three.min.js?v=1791847066"></script>
+<script src="js/tiles.js?v=1791847066"></script>
 <script src="assets3d/tree_green.js?v=V1"></script>
 <script src="assets3d/tree_sakura.js?v=V1"></script>
-<script src="js/arena3d.js?v=1791846809"></script>
-<script src="js/tileworld3d.js?v=1791846809"></script>
-<script src="js/mqtt.js?v=1791846809"></script>
-<script src="js/shooter.js?v=1791846809"></script>
-<script src="js/kernel.js?v=1791846809"></script>
+<script src="js/arena3d.js?v=1791847066"></script>
+<script src="js/tileworld3d.js?v=1791847066"></script>
+<script src="js/mqtt.js?v=1791847066"></script>
+<script src="js/shooter.js?v=1791847066"></script>
+<script src="js/kernel.js?v=1791847066"></script>
 
 <div id="diag" style="display:none;position:fixed;left:4px;top:4px;z-index:99999;background:rgba(0,0,0,.78);color:#4f4;font:10px/1.35 monospace;padding:3px 6px;border-radius:4px;pointer-events:none;white-space:pre;max-width:96vw"></div>
 <script>
