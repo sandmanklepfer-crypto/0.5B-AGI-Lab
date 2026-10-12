@@ -40,6 +40,7 @@ var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, f
    sandbox=true  → 不刷怪、不出 Boss、不打玩家伤害。世界是你的，建造/探索/联机闲聊为主。
    sandbox=false → 原来的 PVE/PVP 射击场。 */
 var SANDBOX = true;
+var BUILD = 'b' + Date.now().toString(36).slice(-6);   // ★ 构建号：界面可见，用于确认版本真的更新了
 
 /* ============================== 音效（纯合成） ============================== */
 var Sfx = {
@@ -2559,6 +2560,12 @@ function bindUI() {
       Build.tap((e.clientX / window.innerWidth) * 2 - 1, -((e.clientY / window.innerHeight) * 2 - 1));
     });
   })();
+  _on('bVer', 'click', function () {
+    var v = '构建 ' + BUILD + ' · 房间 ' + Net.room + ' · ' + (Net.connected ? '在线' : '离线') + ' · ' + Net.peers + ' 人';
+    HUD.center('版本', v, 4000);
+    try { if (navigator.clipboard) navigator.clipboard.writeText('天泪 ' + BUILD + ' ' + location.href); } catch (e) {}
+    this.textContent = BUILD;
+  });
   _on('b3D', 'click', toggle3D);
   _on('bRoot', 'click', function () { var p = $('treePanel'); if (!p) return; var on = p.style.display !== 'block'; p.style.display = on ? 'block' : 'none'; if (on) Sfx.ui(); });
   _on('bMusic', 'click', function () { Sfx.resume(); var on = Music.toggle(); this.textContent = '音乐' + (on ? ':开' : ':关'); this.className = on ? 'on' : ''; save('tl_music', on ? '1' : '0'); });
