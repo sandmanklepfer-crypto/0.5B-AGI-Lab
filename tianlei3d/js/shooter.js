@@ -39,11 +39,21 @@ var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, f
 
 /* ============================== 音效（纯合成） ============================== */
 var Sfx = {
-  ctx: null, master: null, on: true,
+  ctx: null, master: null, sfxBus: null, musicBus: null, comp: null, on: true,
+  vol: 1.0,   // ★ 音效音量（0~1.5）
   init: function () {
     if (this.ctx) return; var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
     try { this.ctx = new AC(); } catch (e) { return; }
-    this.master = this.ctx.createGain(); this.master.gain.value = 0.5; this.master.connect(this.ctx.destination);
+    // ★ 母线：压缩器防爆音 + 总增益拉高（原来 0.5 太小）
+    this.master = this.ctx.createGain(); this.master.gain.value = 0.95;
+    try {
+      this.comp = this.ctx.createDynamicsCompressor();
+      this.comp.threshold.value = -12; this.comp.knee.value = 24; this.comp.ratio.value = 6;
+      this.comp.attack.value = 0.003; this.comp.release.value = 0.25;
+      this.master.connect(this.comp); this.comp.connect(this.ctx.destination);
+    } catch (e) { this.master.connect(this.ctx.destination); }
+    this.sfxBus = this.ctx.createGain(); this.sfxBus.gain.value = 1.0; this.sfxBus.connect(this.master);
+    this.musicBus = this.ctx.createGain(); this.musicBus.gain.value = 0.30; this.musicBus.connect(this.master);
   },
   resume: function () { this.init(); if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
   _noise: function (dur) {
@@ -51,46 +61,281 @@ var Sfx = {
     for (var i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
     var s = this.ctx.createBufferSource(); s.buffer = buf; return s;
   },
+  setVol: function (v) { this.vol = Math.max(0, Math.min(1.5, v)); if (this.sfxBus) this.sfxBus.gain.value = this.vol; if (this.musicBus) this.musicBus.gain.value = 0.30 * this.vol; },
   gun: function (kind, dist) {
     if (!this.on) return; this.init(); if (!this.ctx) return;
     var t = this.ctx.currentTime, g = this.ctx.createGain(), f = this.ctx.createBiquadFilter();
-    var vol = (dist === undefined ? 1 : clamp(1 - dist / 80, 0.05, 1)) * 0.85;
-    var cfg = { rifle: [1100, 0.055, 190, 0.16], smg: [1500, 0.035, 320, 0.10], shotgun: [700, 0.13, 120, 0.30], sniper: [520, 0.30, 90, 0.34] }[kind] || [1000, 0.07, 180, 0.18];
+    var vol = (dist === undefined ? 1 : clamp(1 - dist / 80, 0.05, 1)) * 1.0;
+    var cfg = { rifle: [1100, 0.055, 190, 0.16], smg: [1500, 0.035, 320, 0.10], shotgun: [700, 0.13, 120, 0.30], sniper: [520, 0.30, 90, 0.34],
+      missile: [900, 0.22, 120, 0.42], minigun: [1600, 0.03, 420, 0.09], gl: [560, 0.20, 110, 0.38] }[kind] || [1000, 0.07, 180, 0.18];
     f.type = 'lowpass'; f.frequency.setValueAtTime(cfg[0], t); f.frequency.exponentialRampToValueAtTime(cfg[2], t + cfg[1]);
-    var n = this._noise(cfg[3]); n.connect(f); f.connect(g); g.connect(this.master);
+    var n = this._noise(cfg[3]); n.connect(f); f.connect(g); g.connect(this.sfxBus);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + cfg[3]);
     n.start(t); n.stop(t + cfg[3] + 0.02);
     var o = this.ctx.createOscillator(), og = this.ctx.createGain();
     o.type = 'sine'; o.frequency.setValueAtTime(cfg[1] > 0.1 ? 150 : 220, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.12);
     og.gain.setValueAtTime(vol * 0.7, t); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
-    o.connect(og); og.connect(this.master); o.start(t); o.stop(t + 0.16);
+    o.connect(og); og.connect(this.sfxBus); o.start(t); o.stop(t + 0.16);
   },
   tick: function (freq, dur, vol, type) {
     if (!this.on) return; this.init(); if (!this.ctx) return;
     var t = this.ctx.currentTime, o = this.ctx.createOscillator(), g = this.ctx.createGain();
     o.type = type || 'square'; o.frequency.value = freq || 1200;
-    g.gain.setValueAtTime(vol === undefined ? 0.16 : vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + (dur || 0.06));
-    o.connect(g); g.connect(this.master); o.start(t); o.stop(t + (dur || 0.06) + 0.02);
+    g.gain.setValueAtTime(vol === undefined ? 0.28 : vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + (dur || 0.06));
+    o.connect(g); g.connect(this.sfxBus); o.start(t); o.stop(t + (dur || 0.06) + 0.02);
   },
-  hit: function (crit) { this.tick(crit ? 1900 : 1350, crit ? 0.09 : 0.055, crit ? 0.22 : 0.14, 'triangle'); },
-  hurt: function () { this.tick(180, 0.22, 0.25, 'sawtooth'); },
-  reload: function () { var s = this; this.tick(320, 0.05, 0.14, 'square'); setTimeout(function () { s.tick(210, 0.06, 0.13, 'square'); }, 160); },
-  empty: function () { this.tick(260, 0.04, 0.1, 'square'); },
+  hit: function (crit) { this.tick(crit ? 1900 : 1350, crit ? 0.09 : 0.055, crit ? 0.34 : 0.24, 'triangle'); },
+  hurt: function () { this.tick(180, 0.22, 0.36, 'sawtooth'); },
+  reload: function () { var s = this; this.tick(320, 0.05, 0.24, 'square'); setTimeout(function () { s.tick(210, 0.06, 0.22, 'square'); }, 160); },
+  empty: function () { this.tick(260, 0.04, 0.18, 'square'); },
   boom: function () {
     if (!this.on) return; this.init(); if (!this.ctx) return;
     var t = this.ctx.currentTime, n = this._noise(0.7), f = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
     f.type = 'lowpass'; f.frequency.setValueAtTime(700, t); f.frequency.exponentialRampToValueAtTime(70, t + 0.6);
-    n.connect(f); f.connect(g); g.connect(this.master);
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.85, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
+    n.connect(f); f.connect(g); g.connect(this.sfxBus);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1.0, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
     n.start(t); n.stop(t + 0.72);
   },
+  /* ---- ★ 新增音效（原来只有 6 种，太单调） ---- */
+  step: function (run) {
+    if (!this.on) return; this.init(); if (!this.ctx) return;
+    var t = this.ctx.currentTime, n = this._noise(0.07), f = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
+    f.type = 'bandpass'; f.frequency.value = run ? 1500 : 1050; f.Q.value = 1.1;
+    n.connect(f); f.connect(g); g.connect(this.sfxBus);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(run ? 0.16 : 0.11, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+    n.start(t); n.stop(t + 0.09);
+  },
+  jump: function () {
+    if (!this.on) return; this.init(); if (!this.ctx) return;
+    var t = this.ctx.currentTime, o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(240, t); o.frequency.exponentialRampToValueAtTime(620, t + 0.11);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.22, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
+    o.connect(g); g.connect(this.sfxBus); o.start(t); o.stop(t + 0.15);
+  },
+  land: function () {
+    if (!this.on) return; this.init(); if (!this.ctx) return;
+    var t = this.ctx.currentTime, n = this._noise(0.12), f = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
+    f.type = 'lowpass'; f.frequency.setValueAtTime(520, t); f.frequency.exponentialRampToValueAtTime(120, t + 0.1);
+    n.connect(f); f.connect(g); g.connect(this.sfxBus);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.32, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
+    n.start(t); n.stop(t + 0.15);
+  },
+  kill: function () {   // ★ 击杀确认（双音上行）
+    if (!this.on) return; this.init(); if (!this.ctx) return;
+    var t = this.ctx.currentTime, s = this;
+    [[880, 0], [1320, 0.075]].forEach(function (p) {
+      var o = s.ctx.createOscillator(), g = s.ctx.createGain();
+      o.type = 'triangle'; o.frequency.value = p[0];
+      g.gain.setValueAtTime(0.0001, t + p[1]); g.gain.exponentialRampToValueAtTime(0.26, t + p[1] + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + p[1] + 0.16);
+      o.connect(g); g.connect(s.sfxBus); o.start(t + p[1]); o.stop(t + p[1] + 0.18);
+    });
+  },
+  waveUp: function () {  // ★ 波次提升（和弦上行）
+    if (!this.on) return; this.init(); if (!this.ctx) return;
+    var t = this.ctx.currentTime, s = this;
+    [392, 523, 659, 784].forEach(function (fq, i) {
+      var o = s.ctx.createOscillator(), g = s.ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.value = fq;
+      var f = s.ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 2200;
+      g.gain.setValueAtTime(0.0001, t + i * 0.09); g.gain.exponentialRampToValueAtTime(0.2, t + i * 0.09 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.09 + 0.45);
+      o.connect(f); f.connect(g); g.connect(s.sfxBus); o.start(t + i * 0.09); o.stop(t + i * 0.09 + 0.48);
+    });
+  },
+  ui: function () { this.tick(880, 0.035, 0.16, 'triangle'); },
+  deny: function () { this.tick(160, 0.12, 0.2, 'sawtooth'); },
+  pickup: function () { this.tick(1180, 0.06, 0.2, 'triangle'); setTimeout(function () { Sfx.tick(1560, 0.08, 0.18, 'triangle'); }, 70); },
   growl: function (pitch) {
     if (!this.on) return; this.init(); if (!this.ctx) return;
     var t = this.ctx.currentTime, o = this.ctx.createOscillator(), g = this.ctx.createGain(), f = this.ctx.createBiquadFilter();
     o.type = 'sawtooth'; o.frequency.setValueAtTime(pitch || 90, t); o.frequency.exponentialRampToValueAtTime((pitch || 90) * 0.6, t + 0.5);
     f.type = 'lowpass'; f.frequency.value = 500;
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.2, t + 0.08); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
-    o.connect(f); f.connect(g); g.connect(this.master); o.start(t); o.stop(t + 0.62);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.34, t + 0.08); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+    o.connect(f); f.connect(g); g.connect(this.sfxBus); o.start(t); o.stop(t + 0.62);
+  },
+};
+
+/* ============================== ★ 背景音乐（程序化合成 · 免外部文件） ============================== */
+var Music = {
+  on: false, timer: null, nextT: 0, bar: 0,
+  // Am - F - C - G 循环，暗色调，贴合"雨夜诡都"
+  prog: [[220.00, 261.63, 329.63], [174.61, 220.00, 261.63], [261.63, 329.63, 392.00], [196.00, 246.94, 293.66]],
+  BAR: 2.4,
+  start: function () {
+    if (this.on) return; Sfx.init(); if (!Sfx.ctx) return;
+    this.on = true; this.nextT = Sfx.ctx.currentTime + 0.12; this.bar = 0;
+    var self = this;
+    this.timer = setInterval(function () { self.schedule(); }, 200);
+    this.schedule();
+  },
+  stop: function () { this.on = false; if (this.timer) { clearInterval(this.timer); this.timer = null; } },
+  toggle: function () { if (this.on) { this.stop(); } else { Sfx.resume(); this.start(); } return this.on; },
+  schedule: function () {
+    if (!this.on || !Sfx.ctx) return;
+    var now = Sfx.ctx.currentTime;
+    while (this.nextT < now + 1.0) { this.playBar(this.nextT, this.bar); this.nextT += this.BAR; this.bar++; }
+  },
+  playBar: function (t0, bar) {
+    var self = this, ctx = Sfx.ctx, bus = Sfx.musicBus;
+    var ch = this.prog[bar % 4];
+    // pad：三音铺底，慢起慢落
+    ch.forEach(function (f, i) {
+      var o = ctx.createOscillator(), g = ctx.createGain(), fl = ctx.createBiquadFilter();
+      o.type = 'sawtooth'; o.frequency.value = f / 2; o.detune.value = (i - 1) * 6;
+      fl.type = 'lowpass'; fl.frequency.setValueAtTime(420, t0); fl.frequency.linearRampToValueAtTime(760, t0 + self.BAR * 0.6);
+      g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.10, t0 + 0.7);
+      g.gain.linearRampToValueAtTime(0.0001, t0 + self.BAR);
+      o.connect(fl); fl.connect(g); g.connect(bus); o.start(t0); o.stop(t0 + self.BAR + 0.05);
+    });
+    // bass：根音
+    var bo = ctx.createOscillator(), bg = ctx.createGain();
+    bo.type = 'triangle'; bo.frequency.value = ch[0] / 4;
+    bg.gain.setValueAtTime(0.0001, t0); bg.gain.linearRampToValueAtTime(0.18, t0 + 0.06);
+    bg.gain.exponentialRampToValueAtTime(0.0001, t0 + self.BAR * 0.95);
+    bo.connect(bg); bg.connect(bus); bo.start(t0); bo.stop(t0 + self.BAR);
+    // 鼓：kick 1/3 拍，snare 2/4 拍，hat 8 分
+    var beat = self.BAR / 4;
+    for (var b = 0; b < 4; b++) {
+      var tb = t0 + b * beat;
+      if (b % 2 === 0) {   // kick
+        var ko = ctx.createOscillator(), kg = ctx.createGain();
+        ko.type = 'sine'; ko.frequency.setValueAtTime(150, tb); ko.frequency.exponentialRampToValueAtTime(42, tb + 0.11);
+        kg.gain.setValueAtTime(0.32, tb); kg.gain.exponentialRampToValueAtTime(0.0001, tb + 0.16);
+        ko.connect(kg); kg.connect(bus); ko.start(tb); ko.stop(tb + 0.18);
+      } else {             // snare
+        var sn = Sfx._noise(0.13), sf = ctx.createBiquadFilter(), sg = ctx.createGain();
+        sf.type = 'highpass'; sf.frequency.value = 1400;
+        sn.connect(sf); sf.connect(sg); sg.connect(bus);
+        sg.gain.setValueAtTime(0.16, tb); sg.gain.exponentialRampToValueAtTime(0.0001, tb + 0.13);
+        sn.start(tb); sn.stop(tb + 0.15);
+      }
+      for (var h = 0; h < 2; h++) {   // hat
+        var ht = tb + h * beat / 2, hn = Sfx._noise(0.03), hf = ctx.createBiquadFilter(), hg = ctx.createGain();
+        hf.type = 'highpass'; hf.frequency.value = 7000;
+        hn.connect(hf); hf.connect(hg); hg.connect(bus);
+        hg.gain.setValueAtTime(h * 0.05 + 0.03, ht); hg.gain.exponentialRampToValueAtTime(0.0001, ht + 0.03);
+        hn.start(ht); hn.stop(ht + 0.04);
+      }
+    }
+  },
+};
+
+/* ============================== ★ 语音（真麦克风 / 无权限时降级为快捷语音） ============================== */
+var Voice = {
+  hasMic: null, rec: null, chunks: [], t0: 0, stream: null,
+  PHRASES: ['集合！', '小心 Boss！', '跟我来', '掩护我', '缺弹药', '撤！', '好球！', '救命'],
+  _getMic: function (cb) {
+    var self = this;
+    var st = this.stream;
+    if (st && st.getAudioTracks().some(function (t) { return t.readyState === 'live'; })) { cb(st); return; }
+    this.stream = null;
+    // ★ WebView 二次 getUserMedia 会挂起 → 一次性拿到后长期复用
+    var to = setTimeout(function () { self.hasMic = false; cb(null); }, 6000);
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (s) {
+      clearTimeout(to); self.hasMic = true; self.stream = s; cb(s);
+    }).catch(function () { clearTimeout(to); self.hasMic = false; cb(null); });
+  },
+  init: function () {
+    var self = this;
+    try {
+      if (!navigator.mediaDevices || !window.MediaRecorder) { self.hasMic = false; return; }
+      this._getMic(function (s) { });
+    } catch (e) { self.hasMic = false; }
+  },
+  start: function () {
+    var self = this;
+    if (this.rec && this.rec.state === 'recording') return;
+    this._getMic(function (s) {
+      if (!s) { self.panel(); return; }
+      try {
+        self.chunks = [];
+        var opts = {};
+        try {
+          var cands = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'];
+          for (var ci = 0; ci < cands.length; ci++) { if (MediaRecorder.isTypeSupported(cands[ci])) { opts = { mimeType: cands[ci], audioBitsPerSecond: 16000 }; break; } }
+        } catch (e) {}
+        var mr = new MediaRecorder(s, opts); self.rec = mr;
+        mr.ondataavailable = function (e) { if (e.data && e.data.size) self.chunks.push(e.data); };
+        mr.onstop = function () { self.finish(); };
+        mr.start(); self.t0 = Date.now();
+        var b = $('btnVoice'); if (b) b.className = 'rec';
+        HUD.center('录音中…', '松手发送', 4000);
+      } catch (e) { self.panel(); }
+    });
+  },
+  stop: function () {
+    if (this.rec && this.rec.state === 'recording') { try { this.rec.stop(); } catch (e) {} }
+    var b = $('btnVoice'); if (b) b.className = '';
+  },
+  finish: function () {
+    var ms = Math.max(300, Date.now() - this.t0);
+    var mime = (this.chunks[0] && this.chunks[0].type) || (this.rec && this.rec.mimeType) || 'audio/webm';
+    var blob = new Blob(this.chunks, { type: mime });
+    this.chunks = [];
+    if (!blob.size) { HUD.center('没录到声音', '麦克风权限或按住时间太短'); return; }
+    if (blob.size > 90000) { HUD.center('语音太长', '请控制在 6 秒内'); return; }
+    var fr = new FileReader();
+    fr.onload = function () {
+      var b64 = String(fr.result).split(',')[1];
+      Voice.addMsg({ name: Net.name + '（我）', data: b64, ms: ms, mime: mime, mine: true });
+      if (b64) Net.voiceSend(b64, ms, null, mime);
+    };
+    fr.readAsDataURL(blob);
+  },
+  addMsg: function (o) {
+    var box = $('voiceLog'); if (!box) return;
+    var d = document.createElement('div'); d.className = 'vmsg';
+    d.innerHTML = '<b>' + esc(o.name) + '</b>' + (o.data ? '<span class="vp">▶ 语音 ' + Math.max(1, Math.round((o.ms || 1000) / 1000)) + '″</span>' : esc(o.text || ''));
+    if (o.data) d.querySelector('.vp').onclick = function () { Voice.play(o.data); };
+    box.appendChild(d);
+    while (box.children.length > 4) box.removeChild(box.firstChild);
+    setTimeout(function () { if (d.parentNode) d.parentNode.removeChild(d); }, 22000);
+  },
+  play: function (b64, mime) {
+    try {
+      Sfx.resume();
+      var bin = atob(b64), arr = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      // ★ WebView 里 data: URL 常报 NotSupportedError → 改用 Blob URL
+      var blob = new Blob([arr], { type: mime || 'audio/webm' });
+      var url = URL.createObjectURL(blob);
+      var a = new Audio();
+      a.volume = Math.min(1, 0.95 * (Sfx.vol || 1));
+      a.onended = function () { try { URL.revokeObjectURL(url); } catch (e) {} };
+      a.onerror = function () { try { URL.revokeObjectURL(url); } catch (e) {} Voice.fallback(b64); };
+      a.src = url; a.play().catch(function () { try { URL.revokeObjectURL(url); } catch (e) {} Voice.fallback(b64); });
+    } catch (e) { Voice.fallback(b64); }
+  },
+  _fbTried: {},
+  fallback: function (b64) {          // 万一 webm 播不了 → 试 mp4（Android 原生支持）
+    try {
+      if (this._fbTried[b64.slice(0, 24)]) return; this._fbTried[b64.slice(0, 24)] = 1;
+      var bin = atob(b64), arr = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      var url = URL.createObjectURL(new Blob([arr], { type: 'audio/mp4' }));
+      var a = new Audio(); a.volume = Math.min(1, 0.95 * (Sfx.vol || 1)); a.src = url;
+      a.play().then(function () {}, function () { try { URL.revokeObjectURL(url); } catch (e) {} });
+    } catch (e) {}
+  },
+  speak: function (text) {
+    try { if (!window.speechSynthesis) return; var u = new SpeechSynthesisUtterance(text); u.lang = 'zh-CN'; u.volume = Math.min(1, 0.9 * (Sfx.vol || 1)); speechSynthesis.speak(u); } catch (e) {}
+  },
+  panel: function () {
+    var p = $('voicePanel');
+    if (p) { p.style.display = (p.style.display === 'block') ? 'none' : 'block'; return; }
+    p = document.createElement('div'); p.id = 'voicePanel';
+    p.style.cssText = 'position:absolute;right:60px;top:96px;z-index:26;background:rgba(8,6,18,.95);border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px;min-width:132px';
+    var t = document.createElement('div'); t.textContent = '快 速 语 音';
+    t.style.cssText = 'font-size:11px;color:#8b7cb0;letter-spacing:2px'; p.appendChild(t);
+    this.PHRASES.forEach(function (tx) {
+      var b = document.createElement('button'); b.textContent = tx;
+      b.style.cssText = 'background:rgba(30,20,50,.82);color:#e8e0f0;border:1px solid rgba(168,85,247,.35);border-radius:8px;padding:6px 10px;font-size:12.5px;font-family:inherit';
+      b.onclick = function () { Net.voiceSend(null, 0, tx); Voice.addMsg({ name: Net.name + '（我）', text: tx, mine: true }); p.style.display = 'none'; };
+      p.appendChild(b);
+    });
+    var hud = document.querySelector('.hud'); if (hud) hud.appendChild(p);
   },
 };
 
@@ -298,7 +543,9 @@ var FX = {
       g.fillStyle = gr; g.beginPath(); g.moveTo(32, 2); g.lineTo(58, 56); g.lineTo(6, 56); g.closePath(); g.fill();
       return new THREE.CanvasTexture(c);
     })();
-    for (var q = 0; q < 6; q++) { var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ft, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); sp.visible = false; actionScene.add(sp); this.flash.push({ o: sp, l: null, life: 0 }); }
+    for (var q = 0; q < 6; q++) { var sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: ft, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); sp.visible = false; actionScene.add(sp);
+      var _pl = new THREE.PointLight(0xffd9a0, 0, 14, 2); _pl.visible = false; actionScene.add(_pl);
+      this.flash.push({ o: sp, l: _pl, life: 0 }); }
     // ★ 火线（发光长条：从枪口到命中点）
     var beamGeo = new THREE.BoxGeometry(1, 1, 1);
     for (var b2 = 0; b2 < 26; b2++) {
@@ -354,8 +601,8 @@ var FX = {
     this.glowAt(b, 1.15, 0.2, 0xfff0c0);
   },
   imp: function (p, big) { if (!this.impact.length) return; var i = this.impact[this.it++ % this.impact.length]; i.o.position.copy(p); i.o.visible = true; i.o.material.opacity = 1; var s = big ? 1.6 : 0.6; i.o.scale.set(s, s, 1); i.life = 0.14; },
-  muzzle: function (p) { if (!this.flash.length) return; var f = this.flash[this.ft++ % this.flash.length]; f.o.position.copy(p); f.o.visible = true; f.o.material.opacity = 1; f.o.material.rotation = Math.random() * 6.28; f.l.position.copy(p); f.l.intensity = 6; f.life = 0.05; },
-  blast: function (x, y, z, size, inten, life) { if (!this.flash.length) return; var f = this.flash[this.ft++ % this.flash.length]; f.o.position.set(x, y, z); f.o.visible = true; f.o.scale.set(size, size, 1); f.o.material.opacity = 1; f.l.position.set(x, y, z); f.l.intensity = inten; f.life = life || 0.3; },
+  muzzle: function (p) { if (!this.flash.length) return; var f = this.flash[this.ft++ % this.flash.length]; f.o.position.copy(p); f.o.visible = true; f.o.material.opacity = 1; f.o.material.rotation = Math.random() * 6.28; if (f.l) { f.l.position.copy(p); f.l.visible = true; f.l.intensity = 6; } f.life = 0.05; },
+  blast: function (x, y, z, size, inten, life) { if (!this.flash.length) return; var f = this.flash[this.ft++ % this.flash.length]; f.o.position.set(x, y, z); f.o.visible = true; f.o.scale.set(size, size, 1); f.o.material.opacity = 1; if (f.l) { f.l.position.set(x, y, z); f.l.visible = true; f.l.intensity = inten; } f.life = life || 0.3; },
   shellOut: function (p, right) { if (!this.shell.length) return; var s = this.shell[this.st++ % this.shell.length]; s.o.position.copy(p); s.o.visible = true; s.v.set(right.x * 2.4 + rnd(-1, 1), 3.4 + rnd(0, 1.4), right.z * 2.4 + rnd(-1, 1)); s.life = 1.1; },
   knock: function (b, dir, force) {
     if (!b || !b.alive) return;
@@ -369,7 +616,7 @@ var FX = {
     for (i = 0; i < this.glow.length; i++) { t = this.glow[i]; if (t.life > 0) { t.life -= dt; t.o.material.opacity = Math.max(0, t.life / t.lifeMax); t.o.scale.multiplyScalar(1 + dt * 1.6); if (t.life <= 0) t.o.visible = false; } }
     for (i = 0; i < this.decal.length; i++) { t = this.decal[i]; if (t.life > 0) { t.life -= dt; t.o.material.opacity = Math.max(0, t.life / t.lifeMax) * 0.9; if (t.life <= 0) t.o.visible = false; } }
     for (i = 0; i < this.impact.length; i++) { t = this.impact[i]; if (t.life > 0) { t.life -= dt; t.o.material.opacity = Math.max(0, t.life / 0.14); t.o.scale.multiplyScalar(1 + dt * 7); if (t.life <= 0) t.o.visible = false; } }
-    for (i = 0; i < this.flash.length; i++) { t = this.flash[i]; if (t.life > 0) { t.life -= dt; if (t.life <= 0) t.o.visible = false; } }
+    for (i = 0; i < this.flash.length; i++) { t = this.flash[i]; if (t.life > 0) { t.life -= dt; if (t.life <= 0) { t.o.visible = false; if (t.l) { t.l.intensity = 0; t.l.visible = false; } } } }
     for (i = 0; i < this.shell.length; i++) { t = this.shell[i]; if (t.life > 0) { t.life -= dt; t.v.y -= 22 * dt; t.o.position.addScaledVector(t.v, dt); var gh = G.h(t.o.position.x, t.o.position.z) + 0.03; if (t.o.position.y < gh) { t.o.position.y = gh; t.v.set(0, 0, 0); } t.o.rotation.x += dt * 12; t.o.rotation.z += dt * 9; if (t.life <= 0) t.o.visible = false; } }
 
   },
@@ -473,6 +720,7 @@ var Net = {
     this.pub(this.tP(this.id), JSON.stringify(o), false);
   },
   chatSend: function (text) { this.broadcast({ k: 'chat', name: this.name, text: text }); },
+  voiceSend: function (b64, ms, text, mime) { if (!this.connected) return; this.broadcast({ k: 'voice', name: this.name, data: b64 || null, ms: ms || 0, text: text || null, mime: mime || null }); },
 
   startHost: function () {
     var self = this;
@@ -582,6 +830,7 @@ var Net = {
       case 'die': this.pushFeed((o.byName || '?') + ' 击倒 ' + (o.mname || '魔物')); this.histPub({ k: 'kill', text: (o.byName || '?') + ' 击倒 ' + (o.mname || '魔物') }); if (this.onEvent) this.onEvent('die', o); break;
       case 'phit': if (o.to === this.id) Combat.takeDamage(o.dmg, o.name, 'player'); break;
       case 'pdie': this.pushFeed((o.byName || '?') + ' 击杀 ' + (o.victim || '?')); this.pushFeed2(o); this.histPub({ k: 'pkill', text: (o.byName || '?') + ' 击杀了 ' + (o.victim || '?') }); if (this.onEvent) this.onEvent('pdie', o); break;
+      case 'voice': Voice.addMsg({ name: o.name || '旅人', data: o.data, ms: o.ms, text: o.text, mime: o.mime }); if (o.text) Voice.speak(o.text); else if (o.data) Voice.play(o.data, o.mime); break;
       case 'nade': if (o.to) { Grenade.spawnRemote(o.x, o.y, o.z); } break;
       case 'boom': Grenade.explodeRemote(o.x, o.y, o.z, o.r); break;
     }
@@ -697,9 +946,9 @@ var Host = {
       Sfx.growl(m.kind === 'golem' ? 70 : 130);
       Net.broadcast({ k: 'die', mid: m.id, mname: m.def.name, by: by, byName: byName });
       Net.histPub({ k: 'kill', text: (byName || '?') + ' 击倒 ' + m.def.name });
-      if (by === Net.id) { P.score += m.def.score; P.kills++; HUD.feed('击杀 ' + m.def.name + '  +' + m.def.score); }
+      if (by === Net.id) { P.score += m.def.score; P.kills++; HUD.feed('击杀 ' + m.def.name + '  +' + m.def.score); Sfx.kill(); }
       this.waveKills++;
-      if (this.waveKills >= this.waveNeed) { this.waveKills = 0; this.wave++; this.waveNeed = 12 + this.wave * 4; this.maxAlive = Math.min(24, 12 + this.wave); HUD.center('第 ' + this.wave + ' 波', '魔物变强了'); Net.histPub({ k: 'wave', text: '全服进入第 ' + this.wave + ' 波（魔物变强）' }); }
+      if (this.waveKills >= this.waveNeed) { this.waveKills = 0; this.wave++; this.waveNeed = 12 + this.wave * 4; this.maxAlive = Math.min(24, 12 + this.wave); HUD.center('第 ' + this.wave + ' 波', '魔物变强了'); Sfx.waveUp(); Net.histPub({ k: 'wave', text: '全服进入第 ' + this.wave + ' 波（魔物变强）' }); }
     }
   },
   update: function (dt, targets) {
@@ -1470,13 +1719,14 @@ function movePlayer(dt) {
     if (G.canStand(nx, P.z, P.y, _step)) P.x = nx;
     if (G.canStand(P.x, nz, P.y, _step)) P.z = nz;
     P.yaw = Math.atan2(mvx, mvz);
-    P.walk += dt * (6 + 4 * run);
+    var _pw = P.walk; P.walk += dt * (6 + 4 * run);
+    if (P.onGround && Math.floor(_pw / Math.PI) !== Math.floor(P.walk / Math.PI)) Sfx.step(run > 1.2);   // ★ 脚步音
   } else P.yaw = Cam.yaw;
   var floor = G.h(P.x, P.z);
-  if (Input.jump && P.onGround && P.alive) { P.vy = JUMPV; P.onGround = false; Input.jump = false; }
+  if (Input.jump && P.onGround && P.alive) { P.vy = JUMPV; P.onGround = false; Input.jump = false; Sfx.jump(); }
   if (!P.onGround) {
     P.vy -= GRAV * dt; P.y += P.vy * dt;
-    if (P.y <= floor) { P.y = floor; P.vy = 0; P.onGround = true; }
+    if (P.y <= floor) { P.y = floor; P.vy = 0; P.onGround = true; Sfx.land(); }
   } else {
     P.y += (floor - P.y) * Math.min(1, dt * 14);
     if (floor - P.y < -0.05) { } else P.y = lerp(P.y, floor, Math.min(1, dt * 14));
@@ -1923,6 +2173,22 @@ function bindUI() {
     if (HOST && window.__OCTO && window.__OCTO.setFog) { var f = !window.__OCTO.getFog(); window.__OCTO.setFog(f); this.textContent = '薄雾' + (f ? '(开)' : ''); this.className = f ? 'on' : ''; return; }
     FXp.fog = !FXp.fog; if (FXp.fog && !FXp.on) { FXp.on = true; _cls('bFx','on'); _txt('bFx','后处理'); } this.textContent = '薄雾' + (FXp.fog ? '(开)' : ''); this.className = FXp.fog ? 'on' : '';
   });
+  (function bindVoice() {
+    var b = $('btnVoice'); if (!b) return;
+    var dn = function (e) { e.preventDefault(); Voice.start(); };
+    var up = function (e) { e.preventDefault(); Voice.stop(); };
+    b.addEventListener('touchstart', dn, { passive: false });
+    b.addEventListener('touchend', up, { passive: false });
+    b.addEventListener('touchcancel', up, { passive: false });
+    b.addEventListener('mousedown', dn);
+    b.addEventListener('mouseup', up);
+    b.addEventListener('mouseleave', function () { if (Voice.rec && Voice.rec.state === 'recording') Voice.stop(); });
+  })();
+  _on('bRoot', 'click', function () { var p = $('treePanel'); if (!p) return; var on = p.style.display !== 'block'; p.style.display = on ? 'block' : 'none'; if (on) Sfx.ui(); });
+  _on('bMusic', 'click', function () { Sfx.resume(); var on = Music.toggle(); this.textContent = '音乐' + (on ? ':开' : ':关'); this.className = on ? 'on' : ''; save('tl_music', on ? '1' : '0'); });
+  _on('bSfx', 'click', function () { Sfx.on = !Sfx.on; this.textContent = '音效' + (Sfx.on ? ':开' : ':关'); this.className = Sfx.on ? 'on' : ''; save('tl_sfx', Sfx.on ? '1' : '0'); if (Sfx.on) Sfx.ui(); });
+  _on('bMap', 'click', function () { var m = $('mapWrap'); if (!m) return; var on = m.style.display !== 'block'; m.style.display = on ? 'block' : 'none'; this.className = on ? 'on' : ''; });
+  _on('bChat', 'click', function () { var c = $('chatWrap'); if (!c) return; var on = !c.classList.contains('on'); c.classList.toggle('on', on); this.className = on ? 'on' : ''; if (on) { var ci = $('chatInput'); if (ci) try { ci.focus(); } catch (e) {} } });
   _on('bBoard', 'click', function () { var b = $('board'); var show = b.style.display !== 'block'; HUD.board(); b.style.display = show ? 'block' : 'none'; });
   _on('bHist', 'click', function () { var p = $('histPanel'); if (!p) return; var show = p.style.display !== 'block'; HUD.hist(); p.style.display = show ? 'block' : 'none'; });
   _on('histClose', 'click', function () { var p = $('histPanel'); if (p) p.style.display = 'none'; });
@@ -1996,6 +2262,9 @@ function restorePrefs() {
   var _q2 = (location.search.match(/[?&]zoom=([0-9.]+)/) || [])[1];   // ?zoom=9 强制 A.setCamMode(_vm); if ($('bView')) { $('bView').textContent = '视角:' + (_vm === 'hd2d' ? 'HD-2D' : '透视'); $('bView').className = _vm === 'hd2d' ? 'on' : ''; }
   Aim.mode3d = load('tl_aim', '3d') !== '2d';
   Cam.autoAim = load('tl_assist', '0') === '1';
+  Sfx.on = load('tl_sfx', '1') !== '0';
+  if ($('bSfx')) { $('bSfx').textContent = '音效' + (Sfx.on ? ':开' : ':关'); $('bSfx').className = Sfx.on ? 'on' : ''; }
+  if (load('tl_music', '1') !== '0') setTimeout(function () { Sfx.resume(); if (Sfx.ctx && !Music.on) { Music.start(); if ($('bMusic')) { $('bMusic').textContent = '音乐:开'; $('bMusic').className = 'on'; } } }, 400);
   if ($('bAim')) { $('bAim').textContent = '辅助:' + (Cam.autoAim ? '开' : '关'); $('bAim').className = Cam.autoAim ? 'on' : ''; }
 }
 function sendChat() {
@@ -2007,6 +2276,7 @@ function sendChat() {
 
 /* 初始化 */
 Net.load();
+Voice.init();
 /* ★ 链接即进服：URL 带 room/n → 无感直接进入（不显示开始面板） */
 if (!HOST && Net.fromLink) setTimeout(function () { try { if (!running) startGame(); } catch (e) { window.__autoJoinErr = String((e && e.message) || e); } }, 90);
 initFXpass();
@@ -2043,7 +2313,7 @@ else {   // ★ 宿主模式：暴露给 HD-2D 页每帧调用；并自动初始
 }
 
 /* 调试接口（可被 tl eval 调用） */
-window.SHOOTER = { P: P, Net: Net, Host: Host, Combat: Combat, Cam: Cam, Input: Input, Aim: Aim, Boss: BossSys, Homing: Homing, Perf: Perf, start: startGame,
+window.SHOOTER = { P: P, Net: Net, Host: Host, Combat: Combat, Cam: Cam, Input: Input, Aim: Aim, Boss: BossSys, Homing: Homing, Perf: Perf, start: startGame, Sfx: Sfx, Music: Music, Voice: Voice,
   running: function () { return running; }, facing: function (y) { return facingDir(P.x, P.z, y === undefined ? P.yaw : y, cam().position); },
   dbg: function () {
     var az = Math.atan2(cam().position.x - P.x, cam().position.z - P.z);

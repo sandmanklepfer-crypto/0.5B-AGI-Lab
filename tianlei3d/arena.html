@@ -77,7 +77,7 @@
   #joy .k{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(168,85,247,.55);box-shadow:0 0 18px rgba(168,85,247,.6)}
   #lookZone{position:absolute;right:0;top:62px;width:58%;height:calc(100% - 62px);z-index:1;pointer-events:auto;display:none}
 
-  #mapWrap{position:absolute;left:14px;top:52px;width:158px;height:158px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:rgba(4,4,10,.68);z-index:12}
+  #mapWrap{position:absolute;left:14px;top:52px;width:158px;height:158px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:rgba(4,4,10,.68);z-index:12;display:none}
   #minimap{width:100%;height:100%;display:block}
 
   #dmgLayer{position:absolute;inset:0;z-index:13;overflow:hidden;pointer-events:none}
@@ -97,7 +97,7 @@
   #board th{color:#a78bfa;font-weight:500;font-size:11.5px;letter-spacing:1px}
   #board tr.me td{color:#ffd166}
 
-  #chatWrap{position:absolute;left:14px;bottom:252px;width:min(38vw,330px);z-index:5}
+  #chatWrap{position:absolute;left:14px;bottom:120px;width:min(38vw,330px);z-index:6;display:none}
   #chatLog{max-height:66px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;font-size:12.5px;margin-bottom:5px;text-shadow:0 2px 5px #000}
   #chatLog div span{color:#c084fc}
   #chatLog div.sys{color:#ffd166}
@@ -131,10 +131,28 @@
   #respBar p{margin:0 0 6px;text-align:center;font-size:13px;color:#ffd166;letter-spacing:2px}
   /* ★ 关键：body 上的 touch-action:none 会禁掉 range 滑条的触摸拖动 → 单独放开 */
   input[type=range]{touch-action:auto !important;pointer-events:auto !important;-webkit-appearance:auto;appearance:auto}
+
+  /* ★ 极简 HUD：根目录式树菜单 */
+  #treePanel{position:absolute;right:12px;top:52px;z-index:25;display:none;background:rgba(8,6,18,.95);border:1px solid var(--line);border-radius:12px;padding:8px 10px;min-width:196px;box-shadow:0 10px 34px rgba(0,0,0,.6)}
+  #treePanel .tgrp{font-size:11px;color:#8b7cb0;letter-spacing:2px;margin:7px 0 3px;padding-left:7px;border-left:2px solid rgba(168,85,247,.55)}
+  #treePanel .tleaf{display:flex;gap:6px;flex-wrap:wrap;padding:3px 0 3px 13px}
+  #treePanel .tleaf button{background:rgba(30,20,50,.82);color:#e8e0f0;border:1px solid rgba(168,85,247,.35);border-radius:8px;padding:5px 9px;font-size:12px;font-family:inherit}
+  #treePanel .tleaf button.on{background:rgba(168,85,247,.5);border-color:#c084fc}
+  #treePanel .tleaf input[type=range]{width:50px;vertical-align:middle}
+  .hrbtns button{min-width:38px}
+  #chatWrap.on{display:block!important}
+  #voiceLog{position:absolute;left:14px;bottom:206px;width:min(40vw,340px);z-index:6;display:flex;flex-direction:column;gap:4px;pointer-events:none}
+  #voiceLog .vmsg{pointer-events:auto;background:rgba(8,6,18,.86);border:1px solid var(--line);border-radius:9px;padding:5px 9px;font-size:12.5px;color:#d8c8ff;display:flex;align-items:center;gap:7px;max-width:100%}
+  #voiceLog .vmsg b{color:#c084fc;font-weight:500}
+  #voiceLog .vmsg .vp{cursor:pointer;color:#22d3ee}
+  #voiceLog .vmsg.on{border-color:#22d3ee}
+  #btnVoice.rec{background:rgba(255,77,109,.6)!important;border-color:#ff4d6d!important}
+
 </style></head><body>
 <canvas id="cv"></canvas>
 
 <div class="hud">
+  <div id="voiceLog"></div>
   <div class="topbar">
     <div style="display:flex;gap:8px">
       <div class="chip" id="netChip"><span class="dot"></span><span id="netText">离线 · 单机</span></div>
@@ -144,22 +162,27 @@
       </div>
     </div>
     <div class="hrbtns">
-      <button id="bFx">后处理</button>
-      <button id="bFog">薄雾</button>
-      <button id="bGround">地面</button>
-      <button id="bRain" class="on">下雨</button>
-      <button id="bSL" class="on">探照灯</button>
-      <button id="bCam">机位:居中</button>
-      <button id="bView">视角:HD-2D</button>
-      <span id="distBox" style="display:flex;align-items:center;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:3px 8px;font-size:11.5px">
-        高<input id="camDist" type="range" min="3" max="45" value="9" style="width:62px"> 宽<input id="camHW" type="range" min="0" max="60" value="0" style="width:62px">
-      </span>
-      <button id="bHist">历史</button>
-      <button id="bInv">邀请</button>
-      <button id="bAim">辅助:关</button>
-      <button id="bBoard">战况</button>
-      <button id="bHelp">操作</button>
+      <button id="btnVoice" title="按住说话">🎤</button>
+      <button id="bChat" title="聊天">💬</button>
+      <button id="bMap" title="小地图">🗺</button>
+      <button id="bRoot" title="菜单">☰</button>
     </div>
+  </div>
+
+  <!-- ★ 根目录式菜单：默认只有右上 4 个图标，点 ☰ 才像树一样展开 -->
+  <div id="treePanel">
+    <div class="tgrp">声 音</div>
+    <div class="tleaf"><button id="bMusic" class="on">音乐:开</button><button id="bSfx" class="on">音效:开</button></div>
+    <div class="tgrp">显 示</div>
+    <div class="tleaf"><button id="bFx">后处理</button><button id="bFog">薄雾</button></div>
+    <div class="tleaf"><button id="bRain" class="on">下雨</button><button id="bSL" class="on">探照灯</button></div>
+    <div class="tleaf"><button id="bGround">地面</button><button id="bView">视角:HD-2D</button></div>
+    <div class="tleaf"><button id="bCam">机位:居中</button><button id="bAim">辅助:关</button></div>
+    <div class="tleaf" id="distBox">高<input id="camDist" type="range" min="3" max="45" value="9">宽<input id="camHW" type="range" min="0" max="60" value="0"></div>
+    <div class="tgrp">世 界</div>
+    <div class="tleaf"><button id="bBoard">战况</button><button id="bHist">历史</button><button id="bInv">邀请</button></div>
+    <div class="tgrp">帮 助</div>
+    <div class="tleaf"><button id="bHelp">操作说明</button></div>
   </div>
 
   <div id="bossBar" style="display:none">
@@ -251,15 +274,15 @@
   </div>
 </div></div>
 
-<script src="js/vendor/three.min.js?v=1791844736"></script>
-<script src="js/tiles.js?v=1791844736"></script>
+<script src="js/vendor/three.min.js?v=1791845376"></script>
+<script src="js/tiles.js?v=1791845376"></script>
 <script src="assets3d/tree_green.js?v=V1"></script>
 <script src="assets3d/tree_sakura.js?v=V1"></script>
-<script src="js/arena3d.js?v=1791844736"></script>
-<script src="js/tileworld3d.js?v=1791844736"></script>
-<script src="js/mqtt.js?v=1791844736"></script>
-<script src="js/shooter.js?v=1791844736"></script>
-<script src="js/kernel.js?v=1791844736"></script>
+<script src="js/arena3d.js?v=1791845376"></script>
+<script src="js/tileworld3d.js?v=1791845376"></script>
+<script src="js/mqtt.js?v=1791845376"></script>
+<script src="js/shooter.js?v=1791845376"></script>
+<script src="js/kernel.js?v=1791845376"></script>
 
 <div id="diag" style="display:none;position:fixed;left:4px;top:4px;z-index:99999;background:rgba(0,0,0,.78);color:#4f4;font:10px/1.35 monospace;padding:3px 6px;border-radius:4px;pointer-events:none;white-space:pre;max-width:96vw"></div>
 <script>
