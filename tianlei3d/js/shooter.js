@@ -759,7 +759,7 @@ var Net = {
 
   sendState: function (p, extra) {
     if (!this.connected) return;
-    var now = performance.now(); if (now - this._st < 200) return; this._st = now;
+    var now = performance.now(); if (now - this._st < 120) return; this._st = now;
     var o = { id: this.id, name: this.name, x: +p.x.toFixed(2), z: +p.z.toFixed(2), y: +p.y.toFixed(2),
       yaw: +p.yaw.toFixed(1), hp: Math.round(p.hp), mx: Math.round(p.maxHp), wp: p.weapon,
       sc: p.score, kl: p.kills, dt: p.deaths, al: p.alive ? 1 : 0, tm: p.team, at: Date.now() };
@@ -775,7 +775,7 @@ var Net = {
     this._hostTimer = setInterval(function () {
       if (!self.connected) return;
       var now = Date.now();
-      if (!self.hostId || now - self.hostAt > 5000) self.becomeHost();
+      if (!self.hostId || now - self.hostAt > 10000) self.becomeHost();
       else if (self.isHost && self.hostId !== self.id) self.isHost = false;
       if (self.isHost) self.pub(self.tHost(), JSON.stringify({ id: self.id, name: self.name, at: now }), true);
     }, 1600);
@@ -791,7 +791,7 @@ var Net = {
 
   clean: function () {
     var now = performance.now(), ch = false;
-    this.players.forEach(function (p, id) { if (now - (p._t || 0) > 5000) { Net.players.delete(id); ch = true; } });
+    this.players.forEach(function (p, id) { if (now - (p._t || 0) > 8000) { Net.players.delete(id); ch = true; } });
     this.peers = this.players.size + 1;
     if (ch && this.onPlayers) this.onPlayers();
     if (now - this._pingAt > 2500) { this._pingAt = now; this.broadcast({ k: 'ping', t: Date.now() }); }
@@ -890,6 +890,23 @@ var Net = {
   },
   pushFeed: function (t) { this.feed.push(t); if (this.feed.length > 6) this.feed.shift(); if (this.onFeed) this.onFeed(); },
   pushFeed2: function (o) {},
+
+  /* ★★ 远端玩家平滑插值 ★★
+     根因修复：收到别人状态时只写了 tx/tz（目标），而渲染/小地图读的是 x/z ——
+     x/z 除了第一次以外永不更新 → 别人看起来"冻在第一次那个坐标上"。
+     这里每帧把 x/z 朝 tx/tz 推进，因此位置真的会变、且平滑。 */
+  interp: function (dt) {
+    var k = Math.min(1, dt * 12);
+    this.players.forEach(function (p) {
+      if (p.tx === undefined) return;
+      p.x += (p.tx - p.x) * k;
+      p.z += (p.tz - p.z) * k;
+      if (p.ty !== undefined) p.y += (p.ty - p.y) * k;
+      // 兜底：万一误差极小，直接吸附，避免长期微小漂移
+      if (Math.abs(p.tx - p.x) < 0.002) p.x = p.tx;
+      if (Math.abs(p.tz - p.z) < 0.002) p.z = p.tz;
+    });
+  },
 };
 
 /* ★ 玩家区分：按 id 派生稳定色（同一玩家永远同色），用于描边/血条/名牌 */
@@ -2131,6 +2148,7 @@ function loopBody(dt, now) {
   Homing.update(dt);
   Proj.update(dt); Grenade.update(dt); FX.update(dt);
   MotionDir.update(dt);
+  Net.interp(dt);                    // ★ 让远端玩家真的动起来
   Net.sendState(P);
   } catch (e) { window.__logicErr = (e && (e.stack || e.message)) || String(e); }
 
@@ -2175,8 +2193,8 @@ var MotionDir = {
         var nm = makeNameTag(rp.name || '旅人', teamCol); actionScene.add(nm);
         a = this.avatars[id] = { mesh: mesh, mat: mat, sh: sh, bar: bar, nm: nm, walk: 0, name: rp.name };
       }
-      var tx = lerp(a.mesh.position.x || rp.x, rp.x, Math.min(1, dt * 11));
-      var tz = lerp(a.mesh.position.z || rp.z, rp.z, Math.min(1, dt * 11));
+      // ★ x/z 已在 Net.interp 里平滑过了，这里直接用，不要再插值一次（会二次拖慢）
+      var tx = rp.x, tz = rp.z;
       var floorY = G.h(rp.x, rp.z);
       a.mesh.position.set(tx, floorY, tz);
       a.mesh.rotation.y = billboardYaw(tx, tz);
