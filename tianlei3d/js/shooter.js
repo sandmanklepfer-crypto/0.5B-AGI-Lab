@@ -36,6 +36,10 @@ var _txt = function (id, t) { var e = $(id); if (e) e.textContent = t; };
 var _cls = function (id, c) { var e = $(id); if (e) e.className = c; };
 var V3 = function (x, y, z) { return new THREE.Vector3(x, y, z); };
 var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); };
+/* ★ 沙盒 / 战斗 两套玩法共存：
+   sandbox=true  → 不刷怪、不出 Boss、不打玩家伤害。世界是你的，建造/探索/联机闲聊为主。
+   sandbox=false → 原来的 PVE/PVP 射击场。 */
+var SANDBOX = true;
 
 /* ============================== 音效（纯合成） ============================== */
 var Sfx = {
@@ -401,6 +405,20 @@ var MOB_TEX = {};
 
 /* 立绘材质：吃主光 + 环境，受击闪白，色相 tint（队伍色） */
 var LIGHT_DIR = (function () { var d = A.moon.position.clone().normalize(); return d; })();
+/* ★ 头顶名牌（画布贴图，跟随玩家） */
+function makeNameTag(text, col) {
+  var c = document.createElement('canvas'); c.width = 256; c.height = 64;
+  var g = c.getContext('2d');
+  g.clearRect(0, 0, 256, 64);
+  g.font = 'bold 30px "Noto Sans SC",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.lineWidth = 7; g.strokeStyle = 'rgba(0,0,0,.85)'; g.strokeText(text, 128, 32);
+  g.fillStyle = '#' + ('000000' + col.toString(16)).slice(-6); g.fillText(text, 128, 32);
+  var t = new THREE.CanvasTexture(c); if (THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding;
+  var s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false }));
+  s.scale.set(3.2, 0.8, 1); s.renderOrder = 999;
+  return s;
+}
+
 function spriteMat(tex, opt) {
   opt = opt || {};
   return new THREE.ShaderMaterial({
@@ -410,6 +428,7 @@ function spriteMat(tex, opt) {
       uLightDir: { value: LIGHT_DIR }, uLightC: { value: new THREE.Color(0.85, 0.9, 1.0) },
       uTint: { value: new THREE.Color(opt.tint === undefined ? 0xffffff : opt.tint) },
       uFlash: { value: 0 }, uOpacity: { value: 1 },
+      uOutline: { value: new THREE.Color(0x000000) }, uOutlineW: { value: 0 },
       uGI: { value: (window.ARENA && window.ARENA.GI) ? window.ARENA.GI() : null },
       uWld: { value: (window.ARENA && window.ARENA.world) || 156 }, uGIA: { value: 0.55 },
     },
@@ -417,9 +436,20 @@ function spriteMat(tex, opt) {
       'void main(){ vUv=uv; vN=normalize(mat3(modelMatrix)*vec3(0.0,0.0,1.0));' +
       ' vWP=(modelMatrix*vec4(0.0,0.0,0.0,1.0)).xyz;' +
       ' gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
-    fragmentShader: 'uniform sampler2D uMap; uniform sampler2D uGI; uniform vec3 uLightDir,uLightC,uTint; uniform float uAmb,uFlash,uOpacity,uWld,uGIA;\n' +
+    fragmentShader: 'uniform sampler2D uMap; uniform sampler2D uGI; uniform vec3 uLightDir,uLightC,uTint,uOutline; uniform float uAmb,uFlash,uOpacity,uWld,uGIA,uOutlineW;\n' +
       'varying vec2 vUv; varying vec3 vN; varying vec3 vWP;\n' +
-      'void main(){ vec4 t=texture2D(uMap,vUv); if(t.a<0.45) discard;\n' +
+      'void main(){ vec4 t=texture2D(uMap,vUv);\n' +
+      '  if(t.a<0.45){\n' +
+      '    if(uOutlineW>0.0){\n' +
+      '      vec2 q=vec2(uOutlineW/230.0,uOutlineW/310.0); float a=0.0;\n' +
+      '      a=max(a,texture2D(uMap,vUv+vec2(q.x,0.0)).a); a=max(a,texture2D(uMap,vUv-vec2(q.x,0.0)).a);\n' +
+      '      a=max(a,texture2D(uMap,vUv+vec2(0.0,q.y)).a); a=max(a,texture2D(uMap,vUv-vec2(0.0,q.y)).a);\n' +
+      '      a=max(a,texture2D(uMap,vUv+q).a); a=max(a,texture2D(uMap,vUv-q).a);\n' +
+      '      a=max(a,texture2D(uMap,vUv+vec2(q.x,-q.y)).a); a=max(a,texture2D(uMap,vUv+vec2(-q.x,q.y)).a);\n' +
+      '      if(a>0.45){ gl_FragColor=vec4(uOutline.rgb*uOpacity,uOpacity); return; }\n' +
+      '    }\n' +
+      '    discard;\n' +
+      '  }\n' +
       '  float ndl=max(dot(vN,uLightDir),0.0);\n' +
       '  vec3 gi = texture2D(uGI, vWP.xz/uWld).rgb;\n' +
       '  vec3 c=t.rgb*uTint*(uAmb+ndl*0.6)*uLightC*(1.0+gi*uGIA);\n' +
@@ -690,6 +720,7 @@ var Net = {
       self.status('在线 · ' + String(b || '').replace(/^wss:\/\//, '').split(':')[0]); self._downAt = 0;
       mq.subscribe(self.tMob()); mq.subscribe(self.tEv()); mq.subscribe(self.tHost()); mq.subscribe(self.base() + 'p/+');
       mq.subscribe(self.tHistAll());                       // ★ 历史事件大厅：一进来就补齐全部历史
+      mq.subscribe(self.base() + 'blk/#');                 // ★ 共享建造：一进来就拿到全服已建好的所有方块
       self.broadcast({ k: 'join', name: self.name, inv: self.inv });
       self.startHost();
       if (!self._cleanTimer) self._cleanTimer = setInterval(function () { self.clean(); }, 1500);
@@ -751,8 +782,9 @@ var Net = {
   },
 
   onMsg: function (topic, payload) {
-    var o; try { o = JSON.parse(payload); } catch (e) { return; }
-    if (!o) return;
+    var o = null; try { o = payload ? JSON.parse(payload) : null; } catch (e) { o = null; }
+    // ★ 建造主题允许"空载荷"（= 拆除），不能像其它主题那样直接 return
+    if (!o && topic.indexOf(this.base() + 'blk/') !== 0) return;
     var now = performance.now(), self = this;
     if (topic === this.tHost()) {
       if (o.id && o.id !== this.id) { this.hostId = o.id; this.hostAt = Date.now(); if (this.isHost) this.isHost = false; }
@@ -775,6 +807,11 @@ var Net = {
         yaw: o.yaw, hp: o.hp, maxHp: o.mx, wp: o.wp, score: o.sc, kills: o.kl, deaths: o.dt, alive: o.al, team: o.tm, _t: now, _rx: o.x, _rz: o.z }); }
       this.peers = this.players.size + 1;
       if (this.onPlayers) this.onPlayers();
+      return;
+    }
+    if (topic.indexOf(this.base() + 'blk/') === 0) {                     // ★ 共享建造同步
+      var bk = topic.slice((this.base() + 'blk/').length);
+      Build.apply(bk, o);
       return;
     }
     if (topic.indexOf(this.base() + 'hist/') === 0) { this.onHistMsg(topic, o); return; }
@@ -838,6 +875,15 @@ var Net = {
   pushFeed: function (t) { this.feed.push(t); if (this.feed.length > 6) this.feed.shift(); if (this.onFeed) this.onFeed(); },
   pushFeed2: function (o) {},
 };
+
+/* ★ 玩家区分：按 id 派生稳定色（同一玩家永远同色），用于描边/血条/名牌 */
+var TEAM_COLS = [0xff6b6b, 0x4ecdc4, 0xffd166, 0x9b5de5, 0x00bbf9, 0xf15bb5, 0x7bed9f, 0xff9f1c];
+Net.teamColor = function (id) {
+  var h = 0; for (var i = 0; i < (id || '').length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return TEAM_COLS[h % TEAM_COLS.length];
+};
+Net.teamColorHex = function (id) { return '#' + ('000000' + Net.teamColor(id).toString(16)).slice(-6); };
+Net.nameOf = function (id) { var p = this.players.get(id); return (p && p.name) || id; };
 
 
 /* ============================== 玩家 + 第三人称可旋转相机 ============================== */
@@ -926,7 +972,7 @@ function updateHero(dt, t, camYawAz) {
 /* ============================== 刷怪 / 魔物模拟（Host） ============================== */
 var Host = {
   mobs: [], nextId: 1, wave: 1, waveKills: 0, waveNeed: 12, maxAlive: 12, snapAcc: 0,
-  init: function () { for (var i = 0; i < 9; i++) this.spawnAuto(true); },
+  init: function () { if (SANDBOX) return; for (var i = 0; i < 9; i++) this.spawnAuto(true); },
   spawn: function (kind, x, z) {
     var def = MOBS[kind];
     var m = { id: 'M' + (this.nextId++), kind: kind, def: def, x: x, z: z, y: def.fly, hp: 0, maxHp: 0, alive: true,
@@ -934,7 +980,7 @@ var Host = {
     m.maxHp = m.hp = def.hp * (1 + (this.wave - 1) * 0.16);
     this.mobs.push(m); return m;
   },
-  spawnAuto: function () { var k = MOB_KEYS[Math.floor(Math.random() * 3)]; var s = G.pick(P.x, P.z, 18); return this.spawn(k, s.x, s.z); },
+  spawnAuto: function () { if (SANDBOX) return; var k = MOB_KEYS[Math.floor(Math.random() * 3)]; var s = G.pick(P.x, P.z, 18); return this.spawn(k, s.x, s.z); },
   damage: function (mid, dmg, by, byName, crit) {
     var m = null; for (var i = 0; i < this.mobs.length; i++) if (this.mobs[i].id === mid) { m = this.mobs[i]; break; }
     if (!m || !m.alive) return;
@@ -952,6 +998,7 @@ var Host = {
     }
   },
   update: function (dt, targets) {
+    if (SANDBOX) return;
     var now = Date.now();
     for (var i = 0; i < this.mobs.length; i++) {
       var m = this.mobs[i];
@@ -1060,9 +1107,9 @@ var BossSys = {
       var a = ring[bi % 4];
       var bx = clamp(P.x + a[0] * rnd(26, 36), 14, G.GW * G.TILE - 14);
       var bz = clamp(P.z + a[1] * rnd(26, 36), 14, G.GH * G.TILE - 14);
-      obj.visible = true; sh.visible = true;
+      obj.visible = !SANDBOX; sh.visible = !SANDBOX;      // ★ 沙盒模式：Boss 不出现
       self.list.push({ id: 'B' + (self.nextId++), def: def, name: b.name, tag: b.tag,
-        x: bx, z: bz, kx: 0, kz: 0, y: G.h(bx, bz), hp: b.hp, maxHp: b.hp, alive: true, spawned: true,
+        x: bx, z: bz, kx: 0, kz: 0, y: G.h(bx, bz), hp: b.hp, maxHp: b.hp, alive: !SANDBOX, spawned: !SANDBOX,
         obj: obj, mat: mat, hpS: hpS, sh: sh, atkAt: 0, skillAt: 0, flash: 0, phase: 1 });
     });
   },
@@ -1091,6 +1138,7 @@ var BossSys = {
     }
   },
   update: function (dt) {
+    if (SANDBOX) return;
     var now = performance.now(), px = P.x, pz = P.z;
     for (var i = 0; i < this.list.length; i++) {
       var b = this.list[i], d = Math.hypot(px - b.x, pz - b.z);
@@ -1223,14 +1271,20 @@ var Combat = {
       if (t >= 0 && t < best.dist) { var hy = oy + dy * t; Combat._hp.set(ox + dx * t, oy + dy * t, oz + dz * t);
         best = { type: 'boss', dist: t, boss: b, crit: hy > cy + hgt * 0.18, p: Combat._hp }; }
     });
+    // ★ 修复：只有真的命中（t>=0）才允许覆盖 best —— 原来无条件覆盖，
+    //   导致"枪口对着任意方向都会判定为打中玩家"，PVP 完全不可用
     Net.players.forEach(function (rp) {
-      if (!rp.alive) return;
+      if (!rp.alive || SANDBOX) return;                 // ★ 沙盒模式：子弹不伤玩家
       var t = Combat.raySphere(ox, oy, oz, dx, dy, dz, rp.x, rp.y + 1.0, rp.z, 0.9);
-      if (t >= 0 && t < best.dist) Combat._hp.set(ox + dx * t, oy + dy * t, oz + dz * t);
-      best = { type: 'player', dist: t, rp: rp, crit: false, p: Combat._hp };
+      if (t >= 0 && t < best.dist) {
+        Combat._hp.set(ox + dx * t, oy + dy * t, oz + dz * t);
+        best = { type: 'player', dist: t, rp: rp, crit: false, p: Combat._hp };
+      }
       var t2 = Combat.raySphere(ox, oy, oz, dx, dy, dz, rp.x, rp.y + 1.9, rp.z, 0.55);
-      if (t2 >= 0 && t2 < best.dist) Combat._hp.set(ox + dx * t2, oy + dy * t2, oz + dz * t2);
-      best = { type: 'player', dist: t2, rp: rp, crit: true, p: Combat._hp };
+      if (t2 >= 0 && t2 < best.dist) {
+        Combat._hp.set(ox + dx * t2, oy + dy * t2, oz + dz * t2);
+        best = { type: 'player', dist: t2, rp: rp, crit: true, p: Combat._hp };
+      }
     });
     return best;
   },
@@ -1333,8 +1387,8 @@ var Combat = {
   respawn: function () {
     P.alive = true; P.hp = P.maxHp || 100; P.armor = 40; P.vy = 0; P.reloading = 0; P.fireCd = 0; P.ads = false;   // ★ 先活过来
     try {
-      var s = (G && G.pick) ? G.pick(P.x, P.z, 10) : null;
-      if (s && isFinite(s.x)) { P.x = s.x; P.z = s.z; P.y = s.y || 0; }
+      // ★ 复活回"统一出生点"（避免被随机丢到大图另一头，和队友失联）
+      placeAtSpawn();
       if (typeof resetAmmo === 'function') resetAmmo();
       var rb = $('respBar'); if (rb) rb.style.display = 'none';
       var dv = $('dmgVig'); if (dv) dv.style.opacity = 0;
@@ -2093,11 +2147,16 @@ var MotionDir = {
       alive[id] = 1;
       var a = this.avatars[id];
       if (!a) {
-        var mat = spriteMat(CH.S, { amb: 0.7, tint: 0xff9a9a });
+        // ★ 用原色（和自己同款画风），靠"队伍色描边 + 名字"区分，而不是把整张画染脏
+        var teamCol = Net.teamColor(id);
+        var mat = spriteMat(CH.S, { amb: 0.7, tint: 0xffffff });     // 原色，画风与本人一致
+        mat.uniforms.uOutline = { value: new THREE.Color(teamCol) };  // 队伍色描边
+        mat.uniforms.uOutlineW = { value: 0.30 };
         var mesh = makeBillboard(2.05, mat); actionScene.add(mesh);
         var sh = addShadow(1.5); actionScene.add(sh);
         var bar = makeHpBar(1.6); actionScene.add(bar);
-        a = this.avatars[id] = { mesh: mesh, mat: mat, sh: sh, bar: bar, walk: 0, name: rp.name };
+        var nm = makeNameTag(rp.name || '旅人', teamCol); actionScene.add(nm);
+        a = this.avatars[id] = { mesh: mesh, mat: mat, sh: sh, bar: bar, nm: nm, walk: 0, name: rp.name };
       }
       var tx = lerp(a.mesh.position.x || rp.x, rp.x, Math.min(1, dt * 11));
       var tz = lerp(a.mesh.position.z || rp.z, rp.z, Math.min(1, dt * 11));
@@ -2109,11 +2168,154 @@ var MotionDir = {
       a.mat.uniforms.uOpacity.value = rp.alive ? 1 : 0.45;
       a.sh.position.set(tx, floorY + 0.04, tz);
       a.bar.position.set(tx, floorY + 2.35, tz);
-      drawHp(a.bar, (rp.hp || 0) / (rp.maxHp || 100), rp.name || '旅人', '#ff7a7a');
+      drawHp(a.bar, (rp.hp || 0) / (rp.maxHp || 100), rp.name || '旅人', Net.teamColorHex(id));
+      if (a.nm) { a.nm.position.set(tx, floorY + 3.0, tz); }
     }, this);
-    for (var id in this.avatars) if (!alive[id]) { var a = this.avatars[id]; actionScene.remove(a.mesh); actionScene.remove(a.sh); actionScene.remove(a.bar); delete this.avatars[id]; }
+    for (var id in this.avatars) if (!alive[id]) { var a = this.avatars[id]; actionScene.remove(a.mesh); actionScene.remove(a.sh); actionScene.remove(a.bar); if (a.nm) actionScene.remove(a.nm); delete this.avatars[id]; }
   },
 };
+
+/* 切换沙盒/战斗：立刻让世界安静下来 / 恢复刷怪 */
+function applySandbox() {
+  try {
+    if (SANDBOX) {
+      Host.mobs.forEach(function (m) { m.alive = false; });
+      Host.mobs.length = 0;
+      BossSys.list.forEach(function (b) {
+        b.alive = false; b.spawned = false;
+        if (b.obj) b.obj.visible = false;
+        if (b.sh) b.sh.visible = false;
+      });
+      BossSys.active = null;
+      var bb = $('bossBar'); if (bb) bb.style.display = 'none';
+    } else {
+      Host.init();
+      BossSys.init();
+      BossSys.activate(BossSys.list[0]);
+    }
+  } catch (e) { window.__sbErr = String((e && e.message) || e); }
+}
+
+/* ============================== ★ 共享建造（沙盒核心玩法） ==============================
+   设计：一格建筑 = 一条 retained 消息，主题 base()+'blk/<x>_<y>'。
+        · retain=true → broker 替你永久存着，任何人进来订阅 blk/# 就拿到"全服已建好的一切"
+        · 拆 = 向同主题发空载荷 + retain → broker 清掉（和 luhuo 的历史清理同一套）
+   → 不需要服务器、不需要账号，所有人的建筑天然共享、天然持久、离线也在。
+   ============================================================================ */
+var Build = {
+  on: false, kind: 'crate', ghost: null,
+  list: new Map(), meshes: {},
+  cols: { crate: 0xb98a52, wall: 0x8f95a3, lamp: 0xffd166, crystal: 0x9b5de5 },
+  KINDS: ['crate', 'wall', 'lamp', 'crystal'],
+  names: { crate: '木箱', wall: '石墙', lamp: '路灯', crystal: '晶石' },
+  key: function (x, z) { return Math.floor(x) + ',' + Math.floor(z); },
+  solidAt: function (x, z) { return this.list.has(this.key(x, z)); },
+
+  init: function () {
+    var geo = new THREE.BoxGeometry(0.98, 1.55, 0.98);
+    var mat = new THREE.MeshStandardMaterial({ color: 0x9b5de5, transparent: true, opacity: 0.4, depthWrite: false });
+    this.ghost = new THREE.Mesh(geo, mat); this.ghost.visible = false; actionScene.add(this.ghost);
+    // 建造出来的方块要能挡路：接进地形碰撞
+    var g = G, _cs = g.canStand;
+    g.canStand = function (nx, nz, y, step) {
+      if (Build.list.size && Build.solidAt(nx, nz)) return false;
+      return _cs.call(g, nx, nz, y, step);
+    };
+  },
+  mkMesh: function (k, o) {
+    if (this.meshes[k]) return;
+    var p = k.split(','), x = +p[0], z = +p[1];
+    var geo = new THREE.BoxGeometry(0.94, 1.55, 0.94);
+    var mat = new THREE.MeshStandardMaterial({ color: this.cols[o.t] || 0xb98a52, roughness: 0.82, metalness: 0.06 });
+    var m = new THREE.Mesh(geo, mat);
+    m.position.set(x + 0.5, G.h(x + 0.5, z + 0.5) + 0.78, z + 0.5);
+    m.castShadow = true; m.receiveShadow = true;
+    actionScene.add(m); this.meshes[k] = m;
+  },
+  rmMesh: function (k) {
+    var m = this.meshes[k]; if (!m) return;
+    actionScene.remove(m);
+    try { m.geometry.dispose(); m.material.dispose(); } catch (e) {}
+    delete this.meshes[k];
+  },
+  // 收到（本地/远端/历史）的一格
+  apply: function (k, o) {
+    if (!k) return;
+    if (o && o.t) { this.list.set(k, o); this.mkMesh(k, o); }
+    else { this.list.delete(k); this.rmMesh(k); }
+  },
+  place: function (x, z) {
+    var k = this.key(x, z), o = { t: this.kind, by: Net.name, at: Date.now() };
+    Net.pub(Net.base() + 'blk/' + k, JSON.stringify(o), true);   // 先广播（retain 当存储）
+    this.apply(k, o);                                            // 本地立刻可见
+    Sfx.pickup(); HUD.center('已放置 · ' + (this.names[this.kind] || '方块'), '', 900);
+  },
+  remove: function (x, z) {
+    var k = this.key(x, z);
+    Net.pub(Net.base() + 'blk/' + k, '', true);
+    this.apply(k, null);
+    Sfx.deny(); HUD.center('已拆除', '', 900);
+  },
+  // 屏幕坐标 → 地面 → 放置/拆除
+  tap: function (nx, ny) {
+    if (!this.on) return false;
+    try {
+      var rc = new THREE.Raycaster();
+      rc.setFromCamera({ x: nx, y: ny }, cam());
+      var hit = new THREE.Vector3();
+      if (!rc.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit)) return false;
+      var x = hit.x, z = hit.z, d = Math.hypot(x - P.x, z - P.z);
+      if (d > 16) { HUD.center('太远了', '走近一点再放', 1200); return false; }
+      if (G.h(x, z) > 0.35) { HUD.center('这里放不了', '找一块平地', 1200); return false; }
+      if (this.solidAt(x, z)) this.remove(x, z); else this.place(x, z);
+      return true;
+    } catch (e) { window.__buildErr = String((e && e.message) || e); return false; }
+  },
+  follow: function (nx, ny) {
+    if (!this.on || !this.ghost) { if (this.ghost) this.ghost.visible = false; return; }
+    try {
+      var rc = new THREE.Raycaster(); rc.setFromCamera({ x: nx, y: ny }, cam());
+      var hit = new THREE.Vector3();
+      if (!rc.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit)) { this.ghost.visible = false; return; }
+      var gx = Math.floor(hit.x) + 0.5, gz = Math.floor(hit.z) + 0.5;
+      var bad = (Math.hypot(gx - P.x, gz - P.z) > 16) || (G.h(hit.x, hit.z) > 0.35);
+      this.ghost.position.set(gx, G.h(gx, gz) + 0.78, gz);
+      this.ghost.visible = true;
+      this.ghost.material.color.setHex(bad ? 0xff5f6d : (this.solidAt(gx, gz) ? 0xffd166 : 0x9b5de5));
+    } catch (e) { this.ghost.visible = false; }
+  },
+  cycleKind: function () {
+    var i = this.KINDS.indexOf(this.kind);
+    this.kind = this.KINDS[(i + 1) % this.KINDS.length];
+    HUD.center('建造 · ' + this.names[this.kind], '', 1100); Sfx.ui();
+  },
+  toggle: function () {
+    this.on = !this.on;
+    var b = $('bBuild'); if (b) b.className = this.on ? 'on' : '';
+    if (!this.on && this.ghost) this.ghost.visible = false;
+    HUD.center(this.on ? '建造模式 · 开' : '建造模式 · 关',
+      this.on ? '点地面放置 · 再点一次拆除' : '', 2000);
+    Sfx.ui();
+  },
+};
+
+/* ============================== ★ 全服统一出生点 ============================== */
+//  规则：所有玩家（含从分发链接进来的）都生在同一个世界固定点，
+//        只在 ±3 格内按 id 做「确定性」散布 —— 同一玩家永远同一偏移，
+//        既不完全重叠，又保证一定互相看得见。
+//  ⚠️ 宿主模式（index.html）下 P 每帧从 __OCTO.hero 同步 → 必须改 hero 才真正生效。
+var SPAWN_PT = { x: 36.5, y: 21.5 };        // 与 index.html 里 hero 的初值一致
+function placeAtSpawn() {
+  var h = 0;
+  for (var i = 0; i < Net.id.length; i++) h = (h * 31 + Net.id.charCodeAt(i)) | 0;
+  var sx = SPAWN_PT.x + ((h % 7) - 3), sz = SPAWN_PT.y + (((h >> 3) % 7) - 3);
+  if (!G.canStand(sx, sz, 0, 1.0)) { sx = SPAWN_PT.x; sz = SPAWN_PT.y; }
+  if (!G.canStand(sx, sz, 0, 1.0)) { var p = G.pick(SPAWN_PT.x, SPAWN_PT.y, 0); sx = p.x; sz = p.z; }
+  var O = window.__OCTO;
+  if (O && O.hero) { O.hero.x = sx; O.hero.y = sz; if (O.hero.vx !== undefined) { O.hero.vx = 0; O.hero.vy = 0; } }
+  P.x = sx; P.z = sz; P.y = G.h(sx, sz);
+  P.spawn = { x: sx, z: sz };
+}
 
 /* ============================== 启动 ============================== */
 function startGame() {
@@ -2125,8 +2327,7 @@ function startGame() {
   $('startPanel').style.display = 'none';
   Sfx.resume();
   resetAmmo();
-  var _sp = (window.__tileworld3d && window.__tileworld3d.spawn) ? window.__tileworld3d.spawn() : G.pick(P.x, P.z, 0);   // ★ 出生在营地
-  P.x = _sp.x; P.z = _sp.z; P.y = _sp.y || 0;
+  placeAtSpawn();
   window.__spawnInfo = 'spawn 来自=' + ((window.__tileworld3d && window.__tileworld3d.spawn) ? '营地' : '城市pick') +
     ' x=' + Math.round(P.x) + ' z=' + Math.round(P.z) + ' CAMP_X0=' + (window.__tileworld3d ? window.__tileworld3d.CAMP_X0 : '-');
   P.y = G.h(P.x, P.z);
@@ -2247,6 +2448,30 @@ function bindUI() {
     b.addEventListener('mouseup', up);
     b.addEventListener('mouseleave', function () { if (Voice.rec && Voice.rec.state === 'recording') Voice.stop(); });
   })();
+  _on('bBuild', 'click', function () { Build.toggle(); });
+  _on('bKind', 'click', function () { Build.cycleKind(); });
+  _on('bSandbox', 'click', function () {
+    SANDBOX = !SANDBOX; save('tl_sandbox', SANDBOX ? '1' : '0');
+    applySandbox();
+    this.textContent = SANDBOX ? '模式:沙盒' : '模式:战斗';
+    this.className = SANDBOX ? 'on' : '';
+    HUD.center(SANDBOX ? '沙盒模式' : '战斗模式', SANDBOX ? '不刷怪 · 安心探索建造' : '刷怪 · Boss · 可 PVP', 2000);
+    Sfx.ui();
+  });
+  (function bindBuild() {
+    var cv = document.getElementById('cv'); if (!cv) return;
+    var dn = null;
+    cv.addEventListener('pointerdown', function (e) { dn = { x: e.clientX, y: e.clientY }; });
+    cv.addEventListener('pointermove', function (e) {
+      if (!Build.on) return;
+      Build.follow((e.clientX / window.innerWidth) * 2 - 1, -((e.clientY / window.innerHeight) * 2 - 1));
+    });
+    cv.addEventListener('pointerup', function (e) {
+      if (!Build.on) return;
+      if (dn && Math.hypot(e.clientX - dn.x, e.clientY - dn.y) > 14) return;   // 拖动视角 → 不算点击
+      Build.tap((e.clientX / window.innerWidth) * 2 - 1, -((e.clientY / window.innerHeight) * 2 - 1));
+    });
+  })();
   _on('b3D', 'click', toggle3D);
   _on('bRoot', 'click', function () { var p = $('treePanel'); if (!p) return; var on = p.style.display !== 'block'; p.style.display = on ? 'block' : 'none'; if (on) Sfx.ui(); });
   _on('bMusic', 'click', function () { Sfx.resume(); var on = Music.toggle(); this.textContent = '音乐' + (on ? ':开' : ':关'); this.className = on ? 'on' : ''; save('tl_music', on ? '1' : '0'); });
@@ -2321,6 +2546,8 @@ function restorePrefs() {
   var _q2 = (location.search.match(/[?&]zoom=([0-9.]+)/) || [])[1];   // ?zoom=9 强制 A.setCamMode(_vm); if ($('bView')) { $('bView').textContent = '视角:' + (_vm === 'hd2d' ? 'HD-2D' : '透视'); $('bView').className = _vm === 'hd2d' ? 'on' : ''; }
   Aim.mode3d = load('tl_aim', '3d') !== '2d';
   Cam.autoAim = load('tl_assist', '0') === '1';
+  SANDBOX = load('tl_sandbox', '1') !== '0';
+  if ($('bSandbox')) { $('bSandbox').textContent = SANDBOX ? '模式:沙盒' : '模式:战斗'; $('bSandbox').className = SANDBOX ? 'on' : ''; }
   Sfx.on = load('tl_sfx', '1') !== '0';
   if ($('bSfx')) { $('bSfx').textContent = '音效' + (Sfx.on ? ':开' : ':关'); $('bSfx').className = Sfx.on ? 'on' : ''; }
   if (load('tl_music', '1') !== '0') setTimeout(function () { Sfx.resume(); if (Sfx.ctx && !Music.on) { Music.start(); if ($('bMusic')) { $('bMusic').textContent = '音乐:开'; $('bMusic').className = 'on'; } } }, 400);
@@ -2336,6 +2563,7 @@ function sendChat() {
 /* 初始化 */
 Net.load();
 Voice.init();
+Build.init();
 /* ★ 链接即进服：URL 带 room/n → 无感直接进入（不显示开始面板） */
 if (!HOST && Net.fromLink) setTimeout(function () { try { if (!running) startGame(); } catch (e) { window.__autoJoinErr = String((e && e.message) || e); } }, 90);
 initFXpass();
@@ -2359,6 +2587,7 @@ else {   // ★ 宿主模式：暴露给 HD-2D 页每帧调用；并自动初始
       Net.onMobs = function (list) { Host.applySnapshot(list); };
       Net.onPlayers = function () { HUD.board(); };
       Net.onHist = function () { HUD.hist(); };
+      placeAtSpawn();                                // ★ 统一出生点（宿主模式也必须调）
       try { HUD.vitals(); HUD.ammo(); HUD.score(); HUD.chat(); } catch (e) {}
       Net.connect();                                 // ★ HD-2D 主场景也自动进全服 */
       HUD.net('连接中…', false);
@@ -2374,7 +2603,8 @@ else {   // ★ 宿主模式：暴露给 HD-2D 页每帧调用；并自动初始
 }
 
 /* 调试接口（可被 tl eval 调用） */
-window.SHOOTER = { P: P, Net: Net, Host: Host, Combat: Combat, Cam: Cam, Input: Input, Aim: Aim, Boss: BossSys, Homing: Homing, Perf: Perf, start: startGame, Sfx: Sfx, Music: Music, Voice: Voice, CamIntro: CamIntro, toggle3D: toggle3D, sync3DBtn: sync3DBtn,
+window.SHOOTER = { P: P, Net: Net, Host: Host, Combat: Combat, Cam: Cam, Input: Input, Aim: Aim, Boss: BossSys, Homing: Homing, Perf: Perf, start: startGame, Sfx: Sfx, Music: Music, Voice: Voice, CamIntro: CamIntro, toggle3D: toggle3D, sync3DBtn: sync3DBtn, Build: Build,
+  sandbox: function () { return SANDBOX; }, setSandbox: function (v) { SANDBOX = !!v; applySandbox(); },
   running: function () { return running; }, facing: function (y) { return facingDir(P.x, P.z, y === undefined ? P.yaw : y, cam().position); },
   dbg: function () {
     var az = Math.atan2(cam().position.x - P.x, cam().position.z - P.z);
