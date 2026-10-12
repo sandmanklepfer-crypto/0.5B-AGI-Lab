@@ -1868,6 +1868,14 @@ var HUD = {
     HUD.promptLink(u);
   },
   promptLink: function (u) { try { window.prompt('邀请链接（复制发给好友，点开直接进服）', u); } catch (e) {} },
+  tip3D: function () {
+    if (load('tl_3d_tip', '') === '1') return;      // 点过就永不再提示
+    var c = $('coach3d'); if (!c) return;
+    c.style.display = 'flex';
+    clearTimeout(this._tipT);
+    this._tipT = setTimeout(function () { HUD.tip3DHide(); }, 60000);   // 60 秒自己消失
+  },
+  tip3DHide: function () { var c = $('coach3d'); if (c) c.style.display = 'none'; save('tl_3d_tip', '1'); clearTimeout(this._tipT); },
   minimap: function () {
     var c = $('minimap'); if (!c || !c.getContext) return;
     var g = c.getContext('2d'), W = c.width, Hh = c.height;
@@ -2037,6 +2045,7 @@ function loopBody(dt, now) {
   Recoil.p = lerp(Recoil.p, 0, Math.min(1, dt * 7.5));    // 后坐力自动回落
   Recoil.y = lerp(Recoil.y, 0, Math.min(1, dt * 6.5));
   if (P.alive && Cam.autoAim) aimAssist();   // ★ 默认不自动转视角（会抢走你正在瞄的目标）
+  CamIntro.update();
   if (!HOST) updateCamera(dt);
   if (!HOST) updateHero(dt, elapsed);
 
@@ -2140,9 +2149,63 @@ function startGame() {
     Net.connect();
   } else HUD.net('单机模式', false);
   running = true; lastT = performance.now();
-  HUD.center('进入战场', '第 1 波 · 清光魔物', 2000);
   bindInput();
+  sync3DBtn();
+  setTimeout(function () { CamIntro.play(); }, 600);      // ★ 开局 3 秒镜头引导
 }
+/* ============================== ★ 3D 引导（3 秒镜头 + 一次性箭头） ============================== */
+var CamIntro = {
+  on: false, t0: 0, dur: 3.0, y0: 0, took: false, _cancel: null,
+  play: function () {
+    var O = window.__OCTO;
+    if (!O || !O.camPS || !O.setMode) return;
+    if (load('tl_intro3d', '') === '1') { HUD.tip3D(); return; }   // 看过就不再放
+    if (A.getCamMode() !== 'hd2d') { HUD.tip3D(); return; }        // 玩家已在透视，不打扰
+    this.on = true; this.t0 = performance.now(); this.y0 = O.camPS.yaw;
+    O.setMode('persp'); O.camPS.pitch = -0.36; O.camPS.dist = 12.5;
+    HUD.center('3 D 世 界', '拖动屏幕 · 自由转视角', 3000);
+    var self = this, cv = document.getElementById('cv');
+    this._cancel = function () { self.on = false; };               // 玩家接管 → 保持透视，不抢回
+    if (cv) cv.addEventListener('pointerdown', this._cancel, { once: true });
+    save('tl_intro3d', '1');
+  },
+  update: function () {
+    if (!this.on) return;
+    var O = window.__OCTO;
+    if (!O || !O.camPS) { this.on = false; return; }
+    var k = (performance.now() - this.t0) / 1000 / this.dur;
+    if (k >= 1) {
+      this.on = false;
+      O.setMode('hd2d');
+      if (this._cancel) { try { var cv = document.getElementById('cv'); cv && cv.removeEventListener('pointerdown', this._cancel); } catch (e) {} this._cancel = null; }
+      HUD.tip3D();                                                 // 放完 → 亮出一次性箭头
+      sync3DBtn();
+      return;
+    }
+    var e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;  // easeInOutQuad
+    O.camPS.yaw = this.y0 + e * Math.PI * 1.12;
+  },
+};
+
+function sync3DBtn() {
+  var n = (A.getCamMode() === 'persp') ? 'on' : '';
+  var b = $('b3D'); if (b) b.className = n;
+  var vb = $('bView'); if (vb) vb.textContent = '视角:' + (A.getCamMode() === 'hd2d' ? 'HD-2D' : '透视');
+}
+function toggle3D() {
+  Sfx.resume();
+  var n = (A.getCamMode() === 'hd2d') ? 'persp' : 'hd2d';
+  CamIntro.on = false;
+  A.setCamMode(n); save('tl_view', n);
+  setCamDist(Cam.distV || 9); setCamHW(Cam.hwV || 0);
+  sync3DBtn();
+  var b = $('b3D'); if (b) b.className = n === 'persp' ? 'on' : '';
+  HUD.tip3DHide();
+  HUD.center(n === 'persp' ? '3D 透视视角' : 'HD-2D 视角',
+    n === 'persp' ? '拖动屏幕自由转视角' : '经典斜 45° 正交', 1500);
+  Sfx.ui();
+}
+
 function bindUI() {
   // ★ 兜底：这些层绝不拦截触摸（即便 CSS 被缓存）
   try {
@@ -2184,6 +2247,7 @@ function bindUI() {
     b.addEventListener('mouseup', up);
     b.addEventListener('mouseleave', function () { if (Voice.rec && Voice.rec.state === 'recording') Voice.stop(); });
   })();
+  _on('b3D', 'click', toggle3D);
   _on('bRoot', 'click', function () { var p = $('treePanel'); if (!p) return; var on = p.style.display !== 'block'; p.style.display = on ? 'block' : 'none'; if (on) Sfx.ui(); });
   _on('bMusic', 'click', function () { Sfx.resume(); var on = Music.toggle(); this.textContent = '音乐' + (on ? ':开' : ':关'); this.className = on ? 'on' : ''; save('tl_music', on ? '1' : '0'); });
   _on('bSfx', 'click', function () { Sfx.on = !Sfx.on; this.textContent = '音效' + (Sfx.on ? ':开' : ':关'); this.className = Sfx.on ? 'on' : ''; save('tl_sfx', Sfx.on ? '1' : '0'); if (Sfx.on) Sfx.ui(); });
@@ -2214,12 +2278,7 @@ function setCamDist(v) {
   save('tl_camdist', v);
 }
 function setCamHW(v) { Cam.hwV = v; if (A.getCamMode() === 'hd2d' && A.setOrthoHW) A.setOrthoHW(v); save('tl_camhw', v); }
-function cycleView() {
-  var m = A.getCamMode(), n = (m === 'hd2d') ? 'persp' : 'hd2d';
-  A.setCamMode(n); save('tl_view', n); setCamDist(Cam.distV || 9); setCamHW(Cam.hwV || 0);
-  var b = $('bView'); if (b) { b.textContent = '视角:' + (n === 'hd2d' ? 'HD-2D' : '透视'); b.className = n === 'hd2d' ? 'on' : ''; }
-  HUD.center('视角 · ' + (n === 'hd2d' ? 'HD-2D（正交45°）' : '透视（自由旋转）'), '同一世界，视角自由切换', 1400);
-}
+function cycleView() { toggle3D(); }
 function toggleAssist() {
   Cam.autoAim = !Cam.autoAim; save('tl_assist', Cam.autoAim ? '1' : '0');
   var b = $('bAim'); if (b) { b.textContent = '辅助:' + (Cam.autoAim ? '开' : '关'); b.className = Cam.autoAim ? 'on' : ''; }
@@ -2307,13 +2366,15 @@ else {   // ★ 宿主模式：暴露给 HD-2D 页每帧调用；并自动初始
       var _jy = $('joy'); if (_jy) _jy.style.display = 'block';
       var _lz = $('lookZone'); if (_lz) _lz.style.display = 'block';
       running = true; lastT = performance.now();
+      sync3DBtn();
+      setTimeout(function () { CamIntro.play(); }, 700);   // ★ 开局 3 秒镜头引导
       console.log('[shooter] 宿主模式启动：HD-2D 世界 + 战斗');
     } catch (e) { window.__initErr = String((e && e.message) || e); }
   })();
 }
 
 /* 调试接口（可被 tl eval 调用） */
-window.SHOOTER = { P: P, Net: Net, Host: Host, Combat: Combat, Cam: Cam, Input: Input, Aim: Aim, Boss: BossSys, Homing: Homing, Perf: Perf, start: startGame, Sfx: Sfx, Music: Music, Voice: Voice,
+window.SHOOTER = { P: P, Net: Net, Host: Host, Combat: Combat, Cam: Cam, Input: Input, Aim: Aim, Boss: BossSys, Homing: Homing, Perf: Perf, start: startGame, Sfx: Sfx, Music: Music, Voice: Voice, CamIntro: CamIntro, toggle3D: toggle3D, sync3DBtn: sync3DBtn,
   running: function () { return running; }, facing: function (y) { return facingDir(P.x, P.z, y === undefined ? P.yaw : y, cam().position); },
   dbg: function () {
     var az = Math.atan2(cam().position.x - P.x, cam().position.z - P.z);
