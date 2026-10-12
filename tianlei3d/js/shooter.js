@@ -2721,6 +2721,7 @@ else {   // ★ 宿主模式：暴露给 HD-2D 页每帧调用；并自动初始
 
 /* 调试接口（可被 tl eval 调用） */
 window.SHOOTER = { P: P, Net: Net, Host: Host, Combat: Combat, Cam: Cam, Input: Input, Aim: Aim, Boss: BossSys, Homing: Homing, Perf: Perf, start: startGame, Sfx: Sfx, Music: Music, Voice: Voice, CamIntro: CamIntro, toggle3D: toggle3D, sync3DBtn: sync3DBtn, Build: Build,
+  build: function () { return BUILD; },
   sandbox: function () { return SANDBOX; }, setSandbox: function (v) { SANDBOX = !!v; applySandbox(); },
   running: function () { return running; }, facing: function (y) { return facingDir(P.x, P.z, y === undefined ? P.yaw : y, cam().position); },
   dbg: function () {
