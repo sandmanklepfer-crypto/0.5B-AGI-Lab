@@ -947,7 +947,7 @@ var Net = {
         break;
       }
       // ★ 弹幕出生（只同步"出生"，飞行各端自己算 → 流量≈0，视觉完全一致）
-      case 'pspawn': Proj.fireDir(o.x, o.y, o.z, o.dx, o.dy, o.dz, o.sp, o.dmg, true); break;
+      case 'pspawn': Proj.fireDir(o.x, o.y, o.z, o.dx, o.dy, o.dz, o.sp, o.dmg, true, null, o.by); break;
       // ★ 玩家弹道（别人也能看到你开火）
       case 'pshot': FX.tracerA(V3(o.x, o.y, o.z), V3(o.tx, o.ty, o.tz)); FX.muzzle(V3(o.x, o.y, o.z)); break;
       case 'voice': Voice.addMsg({ name: o.name || '旅人', data: o.data, ms: o.ms, text: o.text, mime: o.mime }); if (o.text) Voice.speak(o.text); else if (o.data) Voice.play(o.data, o.mime); break;
@@ -1282,8 +1282,11 @@ var BossSys = {
      以前：每台设备各自跑 Boss 的 AI（技能还用 Math.random 抽），
            结果"我这躲开了、他那边判定打中"——各看各的，根本不是一个 Boss。
      现在：只有房主模拟；其他人收 10Hz 快照做插值 + 收事件播同一套特效。 */
-  /* ★★ 去中心化权威：不再有"房主"，谁归属谁模拟 ★★ */
+  /* ★ 去中心化权威：不再有"房主"，谁归属谁模拟 ★★ */
   isAuth: function (b) { return !Net.connected || Net.mineBoss(b && (b.id || b)); },
+
+  // ★ 修复：此前 Combat.fire 调用了从未定义的 BossSys.knock → 打 Boss 时抛异常中断开火（老 bug）
+  knock: function (b, dir, force) { if (b && b.alive) FX.knock(b, dir, force); },
 
   // 归属者裁决伤害：自己吃 / 广播给指定玩家
   hurtPlayer: function (pid, dmg, name) {
@@ -1441,21 +1444,21 @@ var Proj = {
     return s;   // ★ 不再建动态点光（弹幕一多会让所有 PBR 材质每帧循环几十盏灯 → 掉到 1fps）
   },
   // ★ 只同步"出生"（起点/方向/速度），飞行各端自己算 → 视觉一致、流量≈0
-  fireDir: function (x, y, z, dx, dy, dz, sp, dmg, noSync, aimId) {
+  fireDir: function (x, y, z, dx, dy, dz, sp, dmg, noSync, aimId, owner) {
     sp = sp || 22;
     var dd = Math.hypot(dx, dy, dz) || 1;
     this.list.push({ x: x, y: y, z: z, vx: dx / dd * sp, vy: dy / dd * sp, vz: dz / dd * sp,
-                     life: 3.5, o: this.mk(), dmg: dmg || MOBS.wraith.dmg, toId: aimId || null });
+                     life: 3.5, o: this.mk(), dmg: dmg || MOBS.wraith.dmg, toId: aimId || null, owner: owner || Net.id });
     if (!noSync && Net.connected) {
       Net.broadcast({ k: 'pspawn', x: +x.toFixed(1), y: +y.toFixed(1), z: +z.toFixed(1),
         dx: +(dx / dd).toFixed(3), dy: +(dy / dd).toFixed(3), dz: +(dz / dd).toFixed(3),
-        sp: sp, dmg: Math.round(dmg || MOBS.wraith.dmg) });
+        sp: sp, dmg: Math.round(dmg || MOBS.wraith.dmg), by: Net.id });
     }
   },
   fire: function (m, tgt) {
     var sx = m.x, sy = m.y + 0.5, sz = m.z, tx = tgt.x, ty = tgt.y + 1.1, tz = tgt.z;
     var dx = tx - sx, dy = ty - sy, dz = tz - sz, d = Math.hypot(dx, dy, dz) || 1, sp = 22;
-    this.list.push({ x: sx, y: sy, z: sz, vx: dx / d * sp, vy: dy / d * sp, vz: dz / d * sp, life: 3, o: this.mk(), toId: tgt.id });
+    this.list.push({ x: sx, y: sy, z: sz, vx: dx / d * sp, vy: dy / d * sp, vz: dz / d * sp, life: 3, o: this.mk(), toId: tgt.id, owner: Net.id });
     Sfx.tick(880, 0.08, 0.08, 'sine');
     // ★ 怪物的远程弹也要同步出生，否则别人只挨打、看不到子弹
     if (Net.connected) {
@@ -1469,7 +1472,7 @@ var Proj = {
       if (Math.random() < 0.15) FX.glowAt(p.o.position, 0.6, 0.18, 0x8fd8ff);   // 能量球拖尾
       var dead = p.life <= 0;
       if (!dead && p.y <= G.h(p.x, p.z) + 0.05) { FX.imp(V3(p.x, p.y, p.z), false); dead = true; }
-      var auth = (!Net.connected || Net.isHost);      // ★ 只有房主做命中裁决
+      var auth = (!Net.connected || p.owner === Net.id);      // ★ 由「发射者归属」裁决命中（无房主）
       if (auth) {
         if (!dead && p.toId === Net.id && P.alive && Math.hypot(p.x - P.x, p.y - (P.y + 1.0), p.z - P.z) < 1.25) { Combat.takeDamage(p.dmg || MOBS.wraith.dmg, MOBS.wraith.name, 'mob'); FX.imp(V3(p.x, p.y, p.z), false); dead = true; }
         if (!dead && Net.connected) Net.players.forEach(function (rp) { if (dead || !rp.alive) return; if (Math.hypot(p.x - rp.x, p.y - (rp.y + 1.0), p.z - rp.z) < 1.25) { Net.broadcast({ k: 'mhit', to: rp.id, dmg: p.dmg || MOBS.wraith.dmg, name: MOBS.wraith.name }); FX.imp(V3(p.x, p.y, p.z), false); dead = true; } });
