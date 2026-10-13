@@ -705,7 +705,8 @@ var Net = {
     var now = performance.now();
     if (this._rosterT && now - this._rosterT < 300) return this._rosterCache;   // ★ 300ms 缓存（热循环里频繁调用）
     var ids = [];
-    this.players.forEach(function (p, id) { if (now - (p._t || 0) < 4500) ids.push(id); });
+    // ★ 判"对方还在"的阈值放宽到 12s：公网延迟常达 4~5s，阈值太紧会误判掉线→归属乱跳→两端各模拟一份而分叉
+    this.players.forEach(function (p, id) { if (now - (p._t || 0) < 12000) ids.push(id); });
     ids.push(this.id);
     ids.sort();
     this._rosterCache = ids; this._rosterT = now;
@@ -818,7 +819,9 @@ var Net = {
 
   clean: function () {
     var now = performance.now(), ch = false;
-    this.players.forEach(function (p, id) { if (now - (p._t || 0) > 8000) { Net.players.delete(id); ch = true; } });
+    // ★ 保留 12s（与 roster 阈值一致；公网 4~5s 延迟 + 抖动下，太快删人会导致归属乱跳）
+    this.players.forEach(function (p, id) { if (now - (p._t || 0) > 12000) { Net.players.delete(id); ch = true; } });
+    if (ch) Net._rosterT = 0;
     this.peers = this.players.size + 1;
     if (ch && this.onPlayers) this.onPlayers();
     if (now - this._pingAt > 2500) { this._pingAt = now; this.broadcast({ k: 'ping', t: Date.now() }); }

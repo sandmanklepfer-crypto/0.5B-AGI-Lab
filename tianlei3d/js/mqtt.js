@@ -155,7 +155,8 @@
     /* ---- 心跳 ---- */
     function startKeep() {
       stopKeep();
-      keepTimer = setInterval(() => mqttSend(0xC0, new Uint8Array(0)), 30000);
+      // ★ 15s 心跳（原 30s）：页面切后台时定时器会被节流，30s 容易超过 broker 的 60s keepalive 被判超时断开
+      keepTimer = setInterval(() => mqttSend(0xC0, new Uint8Array(0)), 15000);
     }
     function stopKeep() { clearInterval(keepTimer); keepTimer = null; }
 
