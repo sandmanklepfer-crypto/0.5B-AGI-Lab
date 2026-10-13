@@ -2878,23 +2878,29 @@ function bindUI() {
   })();
   _on('bBuild', 'click', function () { var p = $('treePanel'); if (p) p.style.display = 'none'; Build.toggle(); });
   _on('bCine', 'click', function () { var p = $('treePanel'); if (p) p.style.display = 'none'; Cine.toggle(); });
-  /* ★ 极限刹车赛道：全屏覆盖层（懒加载），返回即回到城市 */
+  /* ★ 赛道：传送到城市旁的「公路 + 车」区（复用刹车材质，在同一套 PBR 光照下） */
+  function gotoRace() {
+    var R = window.__RACE_STRIP; if (!R) { HUD.center('赛道未就绪', 'racestrip.js 未加载', 1500); return; }
+    var p = $('treePanel'); if (p) p.style.display = 'none';
+    var sx = R.spawn.x, sz = R.spawn.z;
+    var O = window.__OCTO; if (O && O.hero) { O.hero.x = sx; O.hero.y = sz; }
+    try { P.x = sx; P.z = sz; P.y = 0; P.vy = 0; } catch (e) {}
+    try { if (typeof Cam !== 'undefined') { Cam.yaw = Math.PI; } } catch (e) {}
+    HUD.center('🏁 极速公路', '按住"开火"或踩着油门', 2000);
+    try { Sfx.ui(); } catch (e) {}
+  }
+  /* 原版《极限刹车》全屏入口（保留） */
   (function () {
     function openRace(on) {
       var w = $('raceWrap'), f = $('raceFrame'); if (!w) return;
-      if (on) {
-        if (f && !f.getAttribute('src')) f.setAttribute('src', 'brake/index.html');
-        w.style.display = 'block';
-        try { Sfx.ui(); } catch (e) {}
-      } else {
-        w.style.display = 'none';
-        if (f) { try { f.setAttribute('src', 'about:blank'); } catch (e) {} }   // 释放，避免后台继续跑
-      }
+      if (on) { if (f && !f.getAttribute('src')) f.setAttribute('src', 'brake/index.html'); w.style.display = 'block'; try { Sfx.ui(); } catch (e) {} }
+      else { w.style.display = 'none'; if (f) { try { f.setAttribute('src', 'about:blank'); } catch (e) {} } }
     }
-    _on('bRace', 'click', function () { var p = $('treePanel'); if (p) p.style.display = 'none'; openRace($('raceWrap').style.display !== 'block'); });
-    _on('bRace2', 'click', function () { var p = $('treePanel'); if (p) p.style.display = 'none'; openRace(true); });
+    _on('bRace', 'click', function () { gotoRace(); });
+    _on('bRace2', 'click', function () { gotoRace(); });
+    _on('bRace3', 'click', function () { var p = $('treePanel'); if (p) p.style.display = 'none'; openRace(true); });
     _on('raceClose', 'click', function () { openRace(false); });
-    window.__openRace = openRace;
+    window.__openRace = openRace; window.__gotoRace = gotoRace;
   })();
   window.addEventListener('keydown', function (e) {
     var k = (e.key || '').toLowerCase();

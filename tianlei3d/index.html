@@ -222,9 +222,9 @@
 <div class="tip" id="tipTxt">WASD/摇杆 移动 · 真 3D 地面 + 真阴影</div>
 <div id="perf"></div>
 
-<script src="js/tiles.js?v=1791869636"></script>
-<script src="js/vendor/three.min.js?v=1791869636"></script>
-<script src="js/vendor/GLTFLoader.js?v=1791869636"></script>
+<script src="js/tiles.js?v=1791870219"></script>
+<script src="js/vendor/three.min.js?v=1791870219"></script>
+<script src="js/vendor/GLTFLoader.js?v=1791870219"></script>
 
 
 <script src="assets3d/tree_green.js"></script>
@@ -257,7 +257,7 @@ renderer.shadowMap.enabled = false;   // 改用接地影（成熟解法）
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 if (THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
 if (THREE.ACESFilmicToneMapping) renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.18;
+renderer.toneMappingExposure = 0.92;
 
 const scene = new THREE.Scene();   // 不用距离雾（正交下会整片变黑）
 /* ★ 反射探针 CubeCamera（正交下正确：湿地面按法线取环境霓虹，不重影） */
@@ -642,11 +642,11 @@ function buildBuildings() {
   BUILDINGS.forEach((b,i)=>pool(b.x-1.2, b.y+b.h/2, NEO[i%4], 5.0));
 })();
 
-/* ---------------- 光照 ---------------- */
-const hemi = new THREE.HemisphereLight(0x5a6486, 0x1a1f2a, 0.85);
+/* ---------------- 光照（★ 移植《极限刹车》夜城氛围：暖暮色半球光 + 强暖主光） ---------------- */
+const hemi = new THREE.HemisphereLight(0xffd2b0, 0x2a2430, 0.72);
 scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xfff0da, 1.30);
-sun.position.set(-34, 46, 20);      // 斜射 → 影子偏移拉长（像真方向光）
+const sun = new THREE.DirectionalLight(0xffb27a, 1.95);
+sun.position.set(-40, 30, 20);      // 暮色低角度 → 长影（像真方向光）
 sun.castShadow = true;
 sun.shadow.mapSize.set(4096, 4096);
 sun.shadow.camera.near = 1; sun.shadow.camera.far = 400;
@@ -656,8 +656,8 @@ sun.shadow.camera.top = SH; sun.shadow.camera.bottom = -SH;
 sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
 sun.target.position.set(36, 0, 36);
 scene.add(sun); scene.add(sun.target);
-// 暖色补光（模拟天光暖侧）
-const fill = new THREE.DirectionalLight(0xffb27a, 0.38);
+// 冷色补光（拉开冷暖对比，让 PBR 地面/木屋顶更有层次）
+const fill = new THREE.DirectionalLight(0x6a7ab0, 0.22);
 fill.position.set(30, 40, 30); scene.add(fill);
 
 /* ---------------- 角色（2D 立绘 + 8 方向） ---------------- */
@@ -785,7 +785,7 @@ function initFX() {
   const VS = 'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}';
   const BRIGHT = 'uniform sampler2D tDiffuse;uniform float uThr;varying vec2 vUv;void main(){vec3 c=texture2D(tDiffuse,vUv).rgb;float l=dot(c,vec3(0.299,0.587,0.114));float k=max(0.0,l-uThr)/max(0.001,1.0-uThr);gl_FragColor=vec4(c*k,1.0);}';
   const BLUR = 'uniform sampler2D tDiffuse;uniform vec2 uDir;varying vec2 vUv;void main(){vec3 s=vec3(0.0);float w[5];w[0]=0.227;w[1]=0.194;w[2]=0.121;w[3]=0.054;w[4]=0.016;s+=texture2D(tDiffuse,vUv).rgb*w[0];for(int i=1;i<5;i++){s+=texture2D(tDiffuse,vUv+uDir*float(i)).rgb*w[i];s+=texture2D(tDiffuse,vUv-uDir*float(i)).rgb*w[i];}gl_FragColor=vec4(s,1.0);}';
-  const COMP = 'uniform sampler2D tScene,tBloom;uniform vec2 uTexel;uniform float uHaze;varying vec2 vUv;void main(){float d=abs(vUv.y-0.52);float r=clamp((d-0.20)/0.26,0.0,1.0);r=r*r*6.0;vec3 col=vec3(0.0);float tot=0.0;for(int i=-3;i<=3;i++){for(int j=-3;j<=3;j++){vec2 o=vec2(float(i),float(j))*uTexel*r;float w=1.0/(1.0+float(i*i+j*j));col+=texture2D(tScene,vUv+o).rgb*w;tot+=w;}}col/=tot;vec3 bl=texture2D(tBloom,vUv).rgb;col+=bl*0.5;float l=dot(col,vec3(0.299,0.587,0.114));col=mix(col*vec3(0.92,0.95,1.12),col*vec3(1.10,1.03,0.92),smoothstep(0.12,0.85,l));col=mix(vec3(l),col,1.15);col=mix(vec3(0.5),col,0.96);float hz=smoothstep(0.35,1.0, length((vUv-0.5)*vec2(1.15,1.0))*1.45);vec3 glow=vec3(0.20,0.21,0.27)+vec3(0.05,0.045,0.04);col+=glow*hz*uHaze*0.34;col=mix(col,col*1.06+vec3(0.04,0.035,0.05),uHaze*hz*0.5);gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);}';
+  const COMP = 'uniform sampler2D tScene,tBloom;uniform vec2 uTexel;uniform float uHaze;varying vec2 vUv;void main(){float d=abs(vUv.y-0.52);float r=clamp((d-0.20)/0.26,0.0,1.0);r=r*r*6.0;vec3 col=vec3(0.0);float tot=0.0;for(int i=-3;i<=3;i++){for(int j=-3;j<=3;j++){vec2 o=vec2(float(i),float(j))*uTexel*r;float w=1.0/(1.0+float(i*i+j*j));col+=texture2D(tScene,vUv+o).rgb*w;tot+=w;}}col/=tot;vec3 bl=texture2D(tBloom,vUv).rgb;col+=bl*0.5;float l=dot(col,vec3(0.299,0.587,0.114));col=mix(col*vec3(0.92,0.95,1.12),col*vec3(1.10,1.03,0.92),smoothstep(0.12,0.85,l));col=mix(vec3(l),col,1.16);col=mix(vec3(0.5),col,0.96);float hz=smoothstep(0.32,1.0, length((vUv-0.5)*vec2(1.15,1.0))*1.45);vec3 glow=vec3(0.44,0.30,0.24);col+=glow*hz*uHaze*0.40;col=mix(col,col*1.05+vec3(0.06,0.045,0.04),uHaze*hz*0.5);gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);}';
   const mk = (fs, u) => new THREE.ShaderMaterial({ uniforms: u, vertexShader: VS, fragmentShader: fs, depthTest: false, depthWrite: false });
   mBright = mk(BRIGHT, { tDiffuse: { value: null }, uThr: { value: 0.70 } });
   mBlurX = mk(BLUR, { tDiffuse: { value: null }, uDir: { value: new THREE.Vector2() } });
@@ -1028,7 +1028,8 @@ window.__OCTO = {
     <div class="tleaf" id="distBox">高<input id="camDist" type="range" min="3" max="45" value="9">宽<input id="camHW" type="range" min="0" max="60" value="0"></div>
     <div class="tgrp">玩 法</div>
     <div class="tleaf"><button id="bSandbox" class="on">🧱 沙盒</button><button id="bFight">⚔ 战斗</button></div>
-    <div class="tleaf"><button id="bCine">🎬 影院模式</button><button id="bRace2">🏁 极限刹车赛道</button></div>
+    <div class="tleaf"><button id="bCine">🎬 影院模式</button><button id="bRace2">🏁 极速公路(去兜风)</button></div>
+    <div class="tleaf"><button id="bRace3">🏁 极限刹车(原版全屏)</button></div>
     <div class="tgrp">世 界</div>
     <div class="tleaf"><button id="bBoard">战况</button><button id="bHist">历史</button><button id="bInv">邀请</button><button id="bShare">分享(0)</button></div>
     <div class="tgrp">其 它</div>
@@ -1121,11 +1122,12 @@ window.__ATTACH_CITY = true;
 window.__ATTACH_RENDERER = window.__OCTO.renderer;
 window.__ATTACH_SCENE = window.__OCTO.scene;
 </script>
-<script src="js/arena3d.js?v=1791869636"></script>
+<script src="js/arena3d.js?v=1791870219"></script>
 <script>window.__HD2D_HOST = true;</script>
-<script src="js/vendor/qrcode.js?v=1791869636"></script>
-<script src="js/mqtt.js?v=1791869636"></script>
-<script src="js/hd2d_arena.js?v=1791869636"></script>
-<script src="js/shooter.js?v=1791869636"></script>
-<script src="js/kernel.js?v=1791869636"></script>
+<script src="js/vendor/qrcode.js?v=1791870219"></script>
+<script src="js/mqtt.js?v=1791870219"></script>
+<script src="js/hd2d_arena.js?v=1791870219"></script>
+<script src="js/shooter.js?v=1791870219"></script>
+<script src="js/racestrip.js?v=1791870219"></script>
+<script src="js/kernel.js?v=1791870219"></script>
 </body></html>

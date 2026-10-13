@@ -97,9 +97,11 @@ if (THREE.FogExp2) scene.fog = new THREE.FogExp2(0x0a0d18, 0.0038);
 scene.background = (function () {
   var c = document.createElement('canvas'); c.width = 64; c.height = 512; var g = c.getContext('2d');
   var gr = g.createLinearGradient(0, 0, 0, 512);
-  gr.addColorStop(0, '#05070f'); gr.addColorStop(0.42, '#0d1220'); gr.addColorStop(0.72, '#22242e'); gr.addColorStop(0.88, '#453b3a'); gr.addColorStop(1, '#6a5346');
+  /* ★ 移植《极限刹车》天空：顶 #1D2140 深蓝紫 → 中 #7A4A63 → 地平 #B07766 暖雾 → 落日 #FFA055 光带 */
+  gr.addColorStop(0, '#141b36'); gr.addColorStop(0.34, '#3c2e4e'); gr.addColorStop(0.52, '#7a4a63');
+  gr.addColorStop(0.68, '#b07766'); gr.addColorStop(0.80, '#ffa055'); gr.addColorStop(0.895, '#6a4a3e'); gr.addColorStop(1, '#2a1d22');
   g.fillStyle = gr; g.fillRect(0, 0, 64, 512);
-  for (var i = 0; i < 190; i++) { g.fillStyle = 'rgba(200,215,240,' + (Math.random() * 0.4) + ')'; g.fillRect(Math.random() * 64, Math.random() * 260, 1, 1); }
+  for (var i = 0; i < 190; i++) { g.fillStyle = 'rgba(210,200,220,' + (Math.random() * 0.35) + ')'; g.fillRect(Math.random() * 64, Math.random() * 220, 1, 1); }
   var t = new THREE.CanvasTexture(c); t.mapping = THREE.EquirectangularReflectionMapping; return t;
 })();
 var camera = new THREE.PerspectiveCamera(74, 1, 0.08, 700); camera.rotation.order = 'YXZ';
@@ -495,16 +497,16 @@ function injectGI(mat, amt) {
   return mat;
 }
 
-/* ---------------- 光照 ---------------- */
-var hemi = new THREE.HemisphereLight(0x33436a, 0x0c0c14, 0.40); scene.add(hemi);
-var moon = new THREE.DirectionalLight(0x9fb4e8, 0.58);
+/* ---------------- 光照（★ 移植《极限刹车》夜城氛围） ---------------- */
+var hemi = new THREE.HemisphereLight(0x4a3a5a, 0x1a1418, 0.22); scene.add(hemi);
+var moon = new THREE.DirectionalLight(0xffb27a, 0.70);
 moon.position.set(70, 96, 34); moon.castShadow = true;
 moon.shadow.mapSize.set(512, 512);
 var SC = 118;
 moon.shadow.camera.left = -SC; moon.shadow.camera.right = SC; moon.shadow.camera.top = SC; moon.shadow.camera.bottom = -SC;
 moon.shadow.camera.near = 1; moon.shadow.camera.far = 340; moon.shadow.bias = -0.0014;
 scene.add(moon); scene.add(moon.target);
-var warm = new THREE.DirectionalLight(0xff9a5a, 0.16); warm.position.set(-60, 40, -50); scene.add(warm);
+var warm = new THREE.DirectionalLight(0xff9a5a, 0.12); warm.position.set(-60, 40, -50); scene.add(warm);
 
 /* ---------------- 每帧更新（探照灯 / 雨 / 反射探针） ---------------- */
 /* ★ 烘焙一次并注入：地面/墙/玻璃 都会被霓虹与探照灯"染色"（离线 GI） */
