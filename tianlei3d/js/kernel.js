@@ -149,8 +149,22 @@
   var helloTimer = null;
 
   /* ------------------------------ 画面捕获 ------------------------------ */
+  // ★ 页面上可能有多个 canvas（主画面 / 小地图 / 贴图临时 canvas）
+  //   取"面积最大且可见"的那个，才是真正的游戏画面
+  function pickCanvas() {
+    var all = [].slice.call(document.querySelectorAll('canvas'));
+    var best = null, area = 0;
+    for (var i = 0; i < all.length; i++) {
+      var c = all[i];
+      if (!c.width || !c.height) continue;
+      if (c.offsetWidth === 0 && c.offsetHeight === 0) continue;      // 隐藏的跳过
+      var a = c.width * c.height;
+      if (a > area) { area = a; best = c; }
+    }
+    return best || all[0] || null;
+  }
   function capture() {
-    var cv = document.querySelector('canvas');
+    var cv = pickCanvas();
     if (!cv) return { err: '页面无 canvas（DOM 页）→ 用 adb screencap 截图' };
     if (cv.width <= 300 && cv.height <= 150) return { err: 'canvas 是默认空尺寸 ' + cv.width + 'x' + cv.height + '（DOM 页）→ 用 adb screencap' };
     try {
@@ -168,6 +182,54 @@
     }
     publish(NS + 'shot', { id: id, n: n, done: true, w: c.w, h: c.h });
     res(id, true, 'shot ' + c.w + 'x' + c.h + ' ' + b64.length + 'B64Ch');
+  }
+
+  /* ------------------------------ ★ 真录像 ------------------------------
+     画布级录制：cv.captureStream() + MediaRecorder → webm
+     · 只录 canvas，所以不含任何 DOM UI（准星、按钮、菜单都不会进画面）
+     · 录完分片回传（base64），沙箱侧重组保存
+     ------------------------------------------------------------------ */
+  var recState = { on: false, mr: null, id: '', chunks: [], stream: null };
+  function startRec(id, secs, kbps) {
+    var cv = pickCanvas();
+    if (!cv) return res(id, false, 'rec: 无 canvas');
+    if (!cv.captureStream || typeof MediaRecorder === 'undefined') return res(id, false, 'rec: 设备不支持 captureStream/MediaRecorder');
+    if (recState.on) return res(id, false, 'rec: 正在录，先别急');
+
+    var stream;
+    try { stream = cv.captureStream(30); } catch (e) {
+      try { stream = cv.captureStream(); } catch (e2) { return res(id, false, 'rec: captureStream 失败 ' + e2.message); }
+    }
+    var mime = '';
+    ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].forEach(function (m) {
+      if (!mime && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) mime = m;
+    });
+    var opts = {};
+    if (mime) opts.mimeType = mime;
+    if (kbps) { try { opts.videoBitsPerSecond = kbps * 1000; } catch (e) {} }
+    var mr;
+    try { mr = new MediaRecorder(stream, opts); } catch (e) { return res(id, false, 'rec: MediaRecorder 失败 ' + e.message); }
+
+    recState = { on: true, mr: mr, id: id, chunks: [], stream: stream };
+    mr.ondataavailable = function (e) { if (e.data && e.data.size) recState.chunks.push(e.data); };
+    mr.onstop = function () {
+      var blob = new Blob(recState.chunks, { type: (recState.chunks[0] && recState.chunks[0].type) || 'video/webm' });
+      try { recState.stream && recState.stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+      recState.on = false;
+      var fr = new FileReader();
+      fr.onload = function () {
+        var b64 = String(fr.result).split(',')[1] || '';
+        var CH = 30000, n = Math.max(1, Math.ceil(b64.length / CH));
+        for (var i = 0; i < n; i++) publish(NS + 'rec', { id: id, n: n, part: i, b64: b64.slice(i * CH, (i + 1) * CH) });
+        publish(NS + 'rec', { id: id, n: n, done: true, bytes: blob.size, mime: blob.type });
+        res(id, true, 'rec 完成 ' + (blob.size / 1024).toFixed(0) + 'KB ' + blob.type);
+      };
+      fr.onerror = function () { res(id, false, 'rec: 读取失败'); };
+      fr.readAsDataURL(blob);
+    };
+    try { mr.start(); } catch (e) { recState.on = false; return res(id, false, 'rec: start 失败 ' + e.message); }
+    setTimeout(function () { try { if (mr.state === 'recording') mr.stop(); } catch (e) {} }, Math.max(1, secs) * 1000);
+    return res(id, true, 'rec 开始 ' + secs + 's ' + (kbps || 'auto') + 'kbps ' + (mime || ''));
   }
 
   /* ------------------------------ 事件合成 ------------------------------ */
@@ -251,6 +313,11 @@
 
         case 'shot': case 'screenshot': case 'screencap':
           return sendShot(id);
+
+        case 'rec': case 'record': {
+          var secs = parseFloat(a[0]) || 8, kbps = parseInt(a[1], 10) || 0;
+          return startRec(id, secs, kbps);
+        }
 
         case 'shotloop': {
           var v = (a[0] || 'off').toLowerCase();
