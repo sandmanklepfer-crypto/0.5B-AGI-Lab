@@ -2878,6 +2878,24 @@ function bindUI() {
   })();
   _on('bBuild', 'click', function () { var p = $('treePanel'); if (p) p.style.display = 'none'; Build.toggle(); });
   _on('bCine', 'click', function () { var p = $('treePanel'); if (p) p.style.display = 'none'; Cine.toggle(); });
+  /* ★ 极限刹车赛道：全屏覆盖层（懒加载），返回即回到城市 */
+  (function () {
+    function openRace(on) {
+      var w = $('raceWrap'), f = $('raceFrame'); if (!w) return;
+      if (on) {
+        if (f && !f.getAttribute('src')) f.setAttribute('src', 'brake/index.html');
+        w.style.display = 'block';
+        try { Sfx.ui(); } catch (e) {}
+      } else {
+        w.style.display = 'none';
+        if (f) { try { f.setAttribute('src', 'about:blank'); } catch (e) {} }   // 释放，避免后台继续跑
+      }
+    }
+    _on('bRace', 'click', function () { var p = $('treePanel'); if (p) p.style.display = 'none'; openRace($('raceWrap').style.display !== 'block'); });
+    _on('bRace2', 'click', function () { var p = $('treePanel'); if (p) p.style.display = 'none'; openRace(true); });
+    _on('raceClose', 'click', function () { openRace(false); });
+    window.__openRace = openRace;
+  })();
   window.addEventListener('keydown', function (e) {
     var k = (e.key || '').toLowerCase();
     if (k === 'h' && !e.ctrlKey && !e.metaKey && !e.altKey) {

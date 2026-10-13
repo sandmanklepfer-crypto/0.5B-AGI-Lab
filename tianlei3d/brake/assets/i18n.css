@@ -1,0 +1,51 @@
+/* Locale switcher and per-locale font bridge for the recovered static build. */
+#hud,
+.panel,
+.toast,
+.loading,
+.language-control {
+  font-family: var(--i18n-font, inherit);
+}
+
+.language-control {
+  color: var(--muted, #c7c0b8);
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 10px auto 0;
+  font-size: 12px;
+  display: flex;
+}
+
+.language-control select {
+  color: var(--ink, #f5efe6);
+  touch-action: manipulation;
+  cursor: pointer;
+  background: #ffffff12;
+  border: 1px solid var(--line, #ffffff2e);
+  border-radius: 8px;
+  outline: none;
+  min-height: 32px;
+  padding: 4px 28px 4px 10px;
+  font: inherit;
+}
+
+.language-control select:focus-visible {
+  border-color: var(--gold, #f1dcae);
+  box-shadow: 0 0 0 3px #f1dcae33;
+}
+
+.language-control option {
+  color: #20191b;
+  background: #f5efe6;
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .language-control {
+    margin-top: 6px;
+  }
+
+  .language-control select {
+    min-height: 28px;
+  }
+}

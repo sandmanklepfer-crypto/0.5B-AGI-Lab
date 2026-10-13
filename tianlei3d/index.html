@@ -222,9 +222,9 @@
 <div class="tip" id="tipTxt">WASD/摇杆 移动 · 真 3D 地面 + 真阴影</div>
 <div id="perf"></div>
 
-<script src="js/tiles.js?v=1791863708"></script>
-<script src="js/vendor/three.min.js?v=1791863708"></script>
-<script src="js/vendor/GLTFLoader.js?v=1791863708"></script>
+<script src="js/tiles.js?v=1791869298"></script>
+<script src="js/vendor/three.min.js?v=1791869298"></script>
+<script src="js/vendor/GLTFLoader.js?v=1791869298"></script>
 
 
 <script src="assets3d/tree_green.js"></script>
@@ -1010,6 +1010,7 @@ window.__OCTO = {
       <button id="btnVoice" title="按住说话">🎤</button>
       <button id="bChat" title="聊天">💬</button>
       <button id="bMap" title="小地图">🗺</button>
+      <button id="bRace" title="极限刹车 · 夜景赛道">🏁</button>
       <button id="bRoot" title="菜单">☰</button>
     </div>
   </div>
@@ -1027,7 +1028,7 @@ window.__OCTO = {
     <div class="tleaf" id="distBox">高<input id="camDist" type="range" min="3" max="45" value="9">宽<input id="camHW" type="range" min="0" max="60" value="0"></div>
     <div class="tgrp">玩 法</div>
     <div class="tleaf"><button id="bSandbox" class="on">🧱 沙盒</button><button id="bFight">⚔ 战斗</button></div>
-    <div class="tleaf"><button id="bCine">🎬 影院模式</button></div>
+    <div class="tleaf"><button id="bCine">🎬 影院模式</button><button id="bRace2">🏁 极限刹车赛道</button></div>
     <div class="tgrp">世 界</div>
     <div class="tleaf"><button id="bBoard">战况</button><button id="bHist">历史</button><button id="bInv">邀请</button><button id="bShare">分享(0)</button></div>
     <div class="tgrp">其 它</div>
@@ -1043,6 +1044,12 @@ window.__OCTO = {
   </div>
   <div id="killfeed"></div>
   <div id="mapWrap"><canvas id="minimap" width="316" height="316"></canvas></div>
+
+  <!-- ★ 极限刹车赛道：全屏覆盖层（懒加载 iframe，返回即回到城市） -->
+  <div id="raceWrap" style="display:none;position:fixed;inset:0;z-index:60;background:#05060a">
+    <iframe id="raceFrame" title="极限刹车" allow="fullscreen; autoplay" style="border:0;width:100%;height:100%;display:block"></iframe>
+    <button id="raceClose" style="position:absolute;top:12px;right:14px;z-index:61;padding:9px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.35);background:rgba(12,10,20,.72);color:#fff;font:600 14px/1 system-ui,sans-serif;cursor:pointer;pointer-events:auto">✕ 返回城市</button>
+  </div>
 
   <div id="xhair">
     <div class="l v t"></div><div class="l v b"></div><div class="l h lf"></div><div class="l h rt"></div><div class="d"></div>
@@ -1114,11 +1121,11 @@ window.__ATTACH_CITY = true;
 window.__ATTACH_RENDERER = window.__OCTO.renderer;
 window.__ATTACH_SCENE = window.__OCTO.scene;
 </script>
-<script src="js/arena3d.js?v=1791863708"></script>
+<script src="js/arena3d.js?v=1791869298"></script>
 <script>window.__HD2D_HOST = true;</script>
-<script src="js/vendor/qrcode.js?v=1791863708"></script>
-<script src="js/mqtt.js?v=1791863708"></script>
-<script src="js/hd2d_arena.js?v=1791863708"></script>
-<script src="js/shooter.js?v=1791863708"></script>
-<script src="js/kernel.js?v=1791863708"></script>
+<script src="js/vendor/qrcode.js?v=1791869298"></script>
+<script src="js/mqtt.js?v=1791869298"></script>
+<script src="js/hd2d_arena.js?v=1791869298"></script>
+<script src="js/shooter.js?v=1791869298"></script>
+<script src="js/kernel.js?v=1791869298"></script>
 </body></html>
