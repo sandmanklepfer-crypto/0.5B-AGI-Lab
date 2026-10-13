@@ -29,10 +29,10 @@
   var CHAN = 'tl2f7a9c';                       // 频道（与 tools/tl.js 一致）
   var NS   = 'zhz/tl/' + CHAN + '/';
   var HELLO = 'zhz/tl/hello';
+  // ★ 必须与沙箱侧一致（沙箱只能到 hivemq）；不要回落到别的 broker，
+  //   否则"手机在线但收不到命令"，看起来像内核坏了。
   var BROKERS = [
-    'wss://broker.hivemq.com:8884/mqtt',     // ★优先：与沙箱侧同名 broker（沙箱只能到 hivemq）
-    'wss://broker.emqx.io:8084/mqtt',
-    'wss://test.mosquitto.org:8081/mqtt',
+    'wss://broker.hivemq.com:8884/mqtt',
   ];
 
   /* ====================== 内嵌极简 MQTT over WebSocket ======================

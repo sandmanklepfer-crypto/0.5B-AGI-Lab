@@ -13,10 +13,13 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
+  // ★★ 只用一个 broker（不要自动轮换！）
+  //   原因：以前会在 hivemq / emqx 之间轮换，导致
+  //         (a) 沙箱只能到 hivemq，手机上却可能落到 emqx → 命令行控制不了手机；
+  //         (b) 两个玩家各连一个 broker → 彼此永远看不到对方（联机假故障）。
+  //   统一个大家都能连的，坏了一起坏，至少不会"看起来在线其实失联"。
   const BROKERS = [
-    'wss://broker.hivemq.com:8884/mqtt',      // ★实测最稳（与手机内核同一 broker）
-    'wss://broker.emqx.io:8084/mqtt',
-    'wss://test.mosquitto.org:8081/mqtt',
+    'wss://broker.hivemq.com:8884/mqtt',
   ];
 
   function encStr(s) {
@@ -115,8 +118,7 @@
     function scheduleRetry(why) {
       if (closed) return;
       attempts++;
-      // 换一个 broker 重试（第一个失败就轮到第二、第三个）
-      if (attempts % 2 === 0) bi++;
+      // ★ 固定在同一个 broker 上重试（轮换会把玩家拆散，见上）
       const wait = Math.min(1000 * attempts, 8000);
       clearTimeout(retryTimer);
       retryTimer = setTimeout(connect, wait);

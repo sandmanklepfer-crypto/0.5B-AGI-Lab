@@ -2532,6 +2532,35 @@ function startGame() {
   sync3DBtn();
   setTimeout(function () { CamIntro.play(); }, 600);      // ★ 开局 3 秒镜头引导
 }
+/* ============================== ★ 影院模式（隐藏全部界面） ==============================
+   用途：截图 / 录视频 / 纯观赏。隐藏 HUD、摇杆、按钮、聊天，只留画面。
+   进入后右下角有个很淡的提示，点一下或按 H 退出。
+   ============================================================================ */
+var Cine = {
+  on: false,
+  toggle: function () {
+    this.on = !this.on;
+    var b = document.body;
+    if (this.on) {
+      b.classList.add('cine');
+      if (!document.getElementById('cineTip')) {
+        var t = document.createElement('div');
+        t.id = 'cineTip';
+        t.textContent = '影院模式 · 点此或按 H 退出';
+        t.onclick = function () { Cine.toggle(); };
+        document.body.appendChild(t);
+      }
+      var tip = document.getElementById('cineTip'); tip.style.display = 'block';
+      clearTimeout(this._h); this._h = setTimeout(function () { tip.style.opacity = '0.12'; }, 2600);
+    } else {
+      b.classList.remove('cine');
+      var tip2 = document.getElementById('cineTip'); if (tip2) tip2.style.display = 'none';
+    }
+    var bt = $('bCine'); if (bt) bt.className = this.on ? 'on' : '';
+    Sfx.ui();
+  },
+};
+
 /* ============================== ★ 3D 引导（3 秒镜头 + 一次性箭头） ============================== */
 var CamIntro = {
   on: false, t0: 0, dur: 3.0, y0: 0, took: false, _cancel: null,
@@ -2627,6 +2656,14 @@ function bindUI() {
     b.addEventListener('mouseleave', function () { if (Voice.rec && Voice.rec.state === 'recording') Voice.stop(); });
   })();
   _on('bBuild', 'click', function () { var p = $('treePanel'); if (p) p.style.display = 'none'; Build.toggle(); });
+  _on('bCine', 'click', function () { var p = $('treePanel'); if (p) p.style.display = 'none'; Cine.toggle(); });
+  window.addEventListener('keydown', function (e) {
+    var k = (e.key || '').toLowerCase();
+    if (k === 'h' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+      e.preventDefault(); Cine.toggle();
+    }
+  });
   _on('bKind', 'click', function () { Build.cycleKind(); });
   _on('bk_crate', 'click', function () { Build.setKind('crate'); });
   _on('bk_wall', 'click', function () { Build.setKind('wall'); });
@@ -2860,7 +2897,41 @@ else {   // ★ 宿主模式：暴露给 HD-2D 页每帧调用；并自动初始
 
 /* 调试接口（可被 tl eval 调用） */
 window.SHOOTER = { P: P, Net: Net, Host: Host, Combat: Combat, Cam: Cam, Input: Input, Aim: Aim, Boss: BossSys, Homing: Homing, Perf: Perf, start: startGame, Sfx: Sfx, Music: Music, Voice: Voice, CamIntro: CamIntro, toggle3D: toggle3D, sync3DBtn: sync3DBtn, Build: Build,
-  build: function () { return BUILD; }, Ref: Ref,
+  build: function () { return BUILD; }, Ref: Ref, Cine: Cine,
+  /* ★ 演示工具（拍宣传素材用，本地生成，不占网络） */
+  demo: function (n, cx, cz, R) {
+    n = n || 3; cx = cx || P.x + 5; cz = cz || P.z; R = R || 4;
+    var names = ['云中客', '夜行车', '青枫', '白鸦', '无想', '归舟', '空山', '拾光'];
+    Net.players.clear();
+    var list = [];
+    for (var i = 0; i < n; i++) list.push({ id: 'fk' + i, ang: i * Math.PI * 2 / n, r: R * (0.55 + 0.45 * Math.random()) });
+    if (window.__fRAF) cancelAnimationFrame(window.__fRAF);
+    (function step() {
+      var t = performance.now() / 1000;
+      for (var i = 0; i < list.length; i++) {
+        var f = list[i], a = f.ang + t * 0.30;
+        var x = cx + Math.cos(a) * f.r, z = cz + Math.sin(a) * f.r;
+        Net.players.set(f.id, { id: f.id, name: names[i % names.length], x: x, z: z, y: 0,
+          tx: x, tz: z, ty: 0, yaw: a * 57, hp: 100, maxHp: 100, alive: 1, team: i, _t: performance.now() });
+      }
+      Net.peers = list.length + 1;
+      window.__fRAF = requestAnimationFrame(step);
+    })();
+    return list.length;
+  },
+  sweep: function (dur, y0, y1, d0, d1, p0, p1) {
+    var O = window.__OCTO; if (!O) return 'no octo';
+    O.setMode('persp');
+    var t0 = performance.now(); dur = (dur || 10) * 1000;
+    (function st() {
+      var k = Math.min(1, (performance.now() - t0) / dur);
+      var e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      O.camPS.yaw = y0 + (y1 - y0) * e; O.camPS.pitch = p0 + (p1 - p0) * e; O.camPS.dist = d0 + (d1 - d0) * e;
+      if (k < 1) requestAnimationFrame(st);
+    })();
+    return 'sweep ' + dur / 1000 + 's';
+  },
+  hd: function (v) { var O = window.__OCTO; if (!O) return 'no octo'; O.setMode('hd2d'); if (O.setZoom) O.setZoom(v || 9, 0); return 'hd ' + v; },
   sandbox: function () { return SANDBOX; }, setSandbox: function (v) { SANDBOX = !!v; applySandbox(); },
   running: function () { return running; }, facing: function (y) { return facingDir(P.x, P.z, y === undefined ? P.yaw : y, cam().position); },
   dbg: function () {
