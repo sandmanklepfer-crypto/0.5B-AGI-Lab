@@ -222,9 +222,9 @@
 <div class="tip" id="tipTxt">WASD/摇杆 移动 · 真 3D 地面 + 真阴影</div>
 <div id="perf"></div>
 
-<script src="js/tiles.js?v=1791870219"></script>
-<script src="js/vendor/three.min.js?v=1791870219"></script>
-<script src="js/vendor/GLTFLoader.js?v=1791870219"></script>
+<script src="js/tiles.js?v=1791870404"></script>
+<script src="js/vendor/three.min.js?v=1791870404"></script>
+<script src="js/vendor/GLTFLoader.js?v=1791870404"></script>
 
 
 <script src="assets3d/tree_green.js"></script>
@@ -257,7 +257,7 @@ renderer.shadowMap.enabled = false;   // 改用接地影（成熟解法）
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 if (THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
 if (THREE.ACESFilmicToneMapping) renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.92;
+renderer.toneMappingExposure = 1.05;
 
 const scene = new THREE.Scene();   // 不用距离雾（正交下会整片变黑）
 /* ★ 反射探针 CubeCamera（正交下正确：湿地面按法线取环境霓虹，不重影） */
@@ -643,10 +643,10 @@ function buildBuildings() {
 })();
 
 /* ---------------- 光照（★ 移植《极限刹车》夜城氛围：暖暮色半球光 + 强暖主光） ---------------- */
-const hemi = new THREE.HemisphereLight(0xffd2b0, 0x2a2430, 0.72);
+const hemi = new THREE.HemisphereLight(0xffd2b0, 0x2a2430, 1.05);
 scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xffb27a, 1.95);
-sun.position.set(-40, 30, 20);      // 暮色低角度 → 长影（像真方向光）
+const sun = new THREE.DirectionalLight(0xffc79a, 1.65);
+sun.position.set(-30, 50, 26);      // 暮色角度，但抬高一点 → 别让正面全黑
 sun.castShadow = true;
 sun.shadow.mapSize.set(4096, 4096);
 sun.shadow.camera.near = 1; sun.shadow.camera.far = 400;
@@ -1122,12 +1122,12 @@ window.__ATTACH_CITY = true;
 window.__ATTACH_RENDERER = window.__OCTO.renderer;
 window.__ATTACH_SCENE = window.__OCTO.scene;
 </script>
-<script src="js/arena3d.js?v=1791870219"></script>
+<script src="js/arena3d.js?v=1791870404"></script>
 <script>window.__HD2D_HOST = true;</script>
-<script src="js/vendor/qrcode.js?v=1791870219"></script>
-<script src="js/mqtt.js?v=1791870219"></script>
-<script src="js/hd2d_arena.js?v=1791870219"></script>
-<script src="js/shooter.js?v=1791870219"></script>
-<script src="js/racestrip.js?v=1791870219"></script>
-<script src="js/kernel.js?v=1791870219"></script>
+<script src="js/vendor/qrcode.js?v=1791870404"></script>
+<script src="js/mqtt.js?v=1791870404"></script>
+<script src="js/hd2d_arena.js?v=1791870404"></script>
+<script src="js/shooter.js?v=1791870404"></script>
+<script src="js/racestrip.js?v=1791870404"></script>
+<script src="js/kernel.js?v=1791870404"></script>
 </body></html>

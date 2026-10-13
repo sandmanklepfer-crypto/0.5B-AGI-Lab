@@ -99,7 +99,7 @@ scene.background = (function () {
   var gr = g.createLinearGradient(0, 0, 0, 512);
   /* ★ 移植《极限刹车》天空：顶 #1D2140 深蓝紫 → 中 #7A4A63 → 地平 #B07766 暖雾 → 落日 #FFA055 光带 */
   gr.addColorStop(0, '#141b36'); gr.addColorStop(0.34, '#3c2e4e'); gr.addColorStop(0.52, '#7a4a63');
-  gr.addColorStop(0.68, '#b07766'); gr.addColorStop(0.80, '#ffa055'); gr.addColorStop(0.895, '#6a4a3e'); gr.addColorStop(1, '#2a1d22');
+  gr.addColorStop(0.68, '#b07766'); gr.addColorStop(0.80, '#e08a4e'); gr.addColorStop(0.895, '#6a4a3e'); gr.addColorStop(1, '#2a1d22');
   g.fillStyle = gr; g.fillRect(0, 0, 64, 512);
   for (var i = 0; i < 190; i++) { g.fillStyle = 'rgba(210,200,220,' + (Math.random() * 0.35) + ')'; g.fillRect(Math.random() * 64, Math.random() * 220, 1, 1); }
   var t = new THREE.CanvasTexture(c); t.mapping = THREE.EquirectangularReflectionMapping; return t;
