@@ -692,6 +692,30 @@ var Net = {
   chat: [], feed: [], hist: [],   // hist = 历史事件大厅（broker retain → 跨设备、离线也在）
   onStatus: null, onChat: null, onFeed: null, onEvent: null, onPlayers: null, onHist: null,
   _st: 0, _hostTimer: null, _cleanTimer: null, _pingAt: 0, _seen: {}, _histN: 0, _joinLogged: 0,
+  /* ★★ 去中心化权威（无房主）★★
+     以前是"房主权威"：一台机器模拟全部 Boss/小怪，别人复现。
+     问题：公网延迟 4~5s 时，房主一抖 / 两端对"谁是房主"判断不一致（split-brain），
+           就会出现"两边都以为对方是房主 → 谁都不模拟 → 谁都看不到 Boss"。
+     现在：按实体拆分权威，确定性归属，无需协商：
+       · 小怪：id 自带归属者 → "<ownerId>-M<n>"，前缀是谁的就是谁的。
+       · Boss：4 个固定，按「最近活跃玩家名单」（按 id 字典序）轮流分配。
+     任何一端掉线/卡住，名单里自动剔除 → 别人立刻接手（从上一帧状态续上）。
+     → 没有单点，谁都在"共同维持"这个世界。 */
+  roster: function () {
+    var now = performance.now();
+    if (this._rosterT && now - this._rosterT < 300) return this._rosterCache;   // ★ 300ms 缓存（热循环里频繁调用）
+    var ids = [];
+    this.players.forEach(function (p, id) { if (now - (p._t || 0) < 4500) ids.push(id); });
+    ids.push(this.id);
+    ids.sort();
+    this._rosterCache = ids; this._rosterT = now;
+    return ids;
+  },
+  isScribe: function () { return this.roster()[0] === this.id; },     // 历史大厅的单一写入者（避免重复记录）
+  mobOwner: function (id) { return String(id).split('-M')[0]; },
+  mineMob: function (id) { return !this.connected || this.mobOwner(id) === this.id; },
+  bossIdx: function (id) { var n = parseInt(String(id).replace(/[^0-9]/g, ''), 10); return (isFinite(n) && n > 0) ? n : 1; },
+  mineBoss: function (id) { if (!this.connected) return true; var r = this.roster(); return r[this.bossIdx(id) % r.length] === this.id; },
   base: function () { return this.NS + this.room + '/'; },
   tP: function (id) { return this.base() + 'p/' + id; },
   tMob: function () { return this.base() + 'mob'; },
@@ -763,7 +787,7 @@ var Net = {
   status: function (t) { if (this.onStatus) this.onStatus(t, this.connected); },
   pub: function (t, s, r) { if (this.mq && this.connected) { try { this.mq.publish(t, s, !!r); } catch (e) {} } },
   broadcast: function (o) { this.pub(this.tEv(), JSON.stringify(o)); },
-  mobs: function (list) { if (this.isHost && this.connected) this.pub(this.tMob(), JSON.stringify({ id: this.id, at: Date.now(), h: (Host._hash | 0), m: list })); },
+  mobs: function (list) { if (this.connected && list && list.length) this.pub(this.tMob(), JSON.stringify({ id: this.id, at: Date.now(), h: (Host._hash | 0), m: list })); },
 
   sendState: function (p, extra) {
     if (!this.connected) return;
@@ -778,24 +802,19 @@ var Net = {
   voiceSend: function (b64, ms, text, mime) { if (!this.connected) return; this.broadcast({ k: 'voice', name: this.name, data: b64 || null, ms: ms || 0, text: text || null, mime: mime || null }); },
 
   startHost: function () {
+    // ★ 去中心化后不再选"房主"。保留此函数：启动一个轻量"名单心跳"定时器，
+    //   顺便记录一次"进入世界"（由 isScribe 派发，避免多端重复）。
     var self = this;
     if (this._hostTimer) clearInterval(this._hostTimer);
     this._hostTimer = setInterval(function () {
       if (!self.connected) return;
-      var now = Date.now();
-      if (!self.hostId || now - self.hostAt > 10000) self.becomeHost();
-      else if (self.isHost && self.hostId !== self.id) self.isHost = false;
-      if (self.isHost) self.pub(self.tHost(), JSON.stringify({ id: self.id, name: self.name, at: now }), true);
+      if (!self._joinLogged && self.isScribe()) {
+        self._joinLogged = 1;
+        self.histPub({ k: 'join', name: self.name, text: self.name + ' 进入了世界' + (self.inv ? '（来自 ' + self.inv + ' 的邀请）' : '') });
+      }
     }, 1600);
   },
-  becomeHost: function () {
-    this.hostId = this.id; this.hostAt = Date.now(); this.isHost = true;
-    this.pub(this.tHost(), JSON.stringify({ id: this.id, name: this.name, at: Date.now() }), true);
-    if (!this._joinLogged) {
-      this._joinLogged = 1;
-      this.histPub({ k: 'join', name: this.name, text: this.name + ' 进入了世界' + (this.inv ? '（来自 ' + this.inv + ' 的邀请）' : '') });
-    }
-  },
+  becomeHost: function () { /* 去中心化：无房主概念，保留空实现以兼容旧调用 */ },
 
   clean: function () {
     var now = performance.now(), ch = false;
@@ -811,7 +830,8 @@ var Net = {
     if (!o && topic.indexOf(this.base() + 'blk/') !== 0) return;
     var now = performance.now(), self = this;
     if (topic === this.tHost()) {
-      if (o.id && o.id !== this.id) { this.hostId = o.id; this.hostAt = Date.now(); if (this.isHost) this.isHost = false; }
+      // ★ 保留读取：有旧客户端（老版本）在广播房主时，我们记录下来仅供 UI 显示，不参与权威判定
+      if (o && o.id && o.id !== this.id) { this.hostId = o.id; this.hostAt = Date.now(); }
       return;
     }
     if (topic === this.tMob()) {
@@ -839,8 +859,8 @@ var Net = {
       if (this.onPlayers) this.onPlayers();
       return;
     }
-    if (topic === this.tBoss()) {                                        // ★ Boss 快照
-      if (typeof BossSys !== 'undefined' && !BossSys.isAuth()) BossSys.applySnap(o && o.m ? o.m : []);
+    if (topic === this.tBoss()) {                                        // ★ Boss 权威快照（归属者广播，其余人复现）
+      if (typeof BossSys !== 'undefined') BossSys.applySnap(o && o.m ? o.m : []);
       return;
     }
     if (topic.indexOf(this.base() + 'ref/') === 0) {                     // ★ 邀请记录
@@ -867,9 +887,9 @@ var Net = {
     while (this.hist.length > 800) { delete this._seen[this.hist.shift().hid]; }
     if (this.onHist) this.onHist();
   },
-  // 记一条历史（只有房主写，避免多端重复；retain=true → broker 永久保存）
+  // 记一条历史（去中心化后由「名单第一个」写，避免多端重复；retain=true → broker 永久保存）
   histPub: function (o) {
-    if (!this.connected || !this.isHost) return;
+    if (!this.connected || !this.isScribe()) return;
     try {
       var at = o.at || Date.now();
       var hid = o.hid || (at.toString(36) + Math.random().toString(36).slice(2, 6));
@@ -909,8 +929,9 @@ var Net = {
       case 'ping': this.broadcast({ k: 'pong', to: o.id, t: o.t }); break;
       case 'pong': if (o.to === this.id) this.rtt = Math.max(1, Date.now() - o.t); break;
       case 'chat': this.chat.push({ name: o.name, text: o.text }); if (this.chat.length > 40) this.chat.shift(); if (this.onChat) this.onChat(); break;
-      case 'hit': if (this.isHost) Host.damage(o.mid, o.dmg, o.by, o.byName, o.crit); break;
-      case 'bosshit': if (this.isHost) BossSys.damage(o.bid, o.dmg, o.by, o.byName); break;
+      case 'hit': if (o.by !== Net.id && Net.mineMob(o.mid)) Host.damage(o.mid, o.dmg, o.by, o.byName, o.crit); break;
+      case 'bosshit': if (o.by !== Net.id && Net.mineBoss(o.bid)) BossSys.damage(o.bid, o.dmg, o.by, o.byName); break;
+      case 'mhit': if (o.to === Net.id) Combat.takeDamage(o.dmg, o.name, 'mob'); break;
       case 'die': this.pushFeed((o.byName || '?') + ' 击倒 ' + (o.mname || '魔物')); this.histPub({ k: 'kill', text: (o.byName || '?') + ' 击倒 ' + (o.mname || '魔物') }); if (this.onEvent) this.onEvent('die', o); break;
       case 'phit': if (o.to === this.id) Combat.takeDamage(o.dmg, o.name, 'player'); break;
       case 'pdie': this.pushFeed((o.byName || '?') + ' 击杀 ' + (o.victim || '?')); this.pushFeed2(o); this.histPub({ k: 'pkill', text: (o.byName || '?') + ' 击杀了 ' + (o.victim || '?') }); if (this.onEvent) this.onEvent('pdie', o); break;
@@ -1057,7 +1078,8 @@ var Host = {
   init: function () { if (SANDBOX) return; for (var i = 0; i < 9; i++) this.spawnAuto(true); },
   spawn: function (kind, x, z) {
     var def = MOBS[kind];
-    var m = { id: 'M' + (this.nextId++), kind: kind, def: def, x: x, z: z, y: def.fly, hp: 0, maxHp: 0, alive: true,
+    // ★ 去中心化：id 里带归属者前缀 → 谁生成的就是谁的（前缀即所有权，无需协商）
+    var m = { id: Net.id + '-M' + (this.nextId++), kind: kind, def: def, x: x, z: z, y: def.fly, hp: 0, maxHp: 0, alive: true,
       homeX: x, homeZ: z, yaw: 0, atkAt: 0, respawnAt: 0, moving: false, kx: 0, kz: 0, slow: 0, seed: Math.random() * 10, obj: null, mat: null, hpS: null, flash: 0 };
     m.maxHp = m.hp = def.hp * (1 + (this.wave - 1) * 0.16);
     this.mobs.push(m); return m;
@@ -1084,6 +1106,15 @@ var Host = {
     var now = Date.now();
     for (var i = 0; i < this.mobs.length; i++) {
       var m = this.mobs[i];
+      /* ★ 去中心化：只模拟「我名下」的怪；别人名下的做插值复现（不跑 AI，避免各算各的） */
+      if (m.remote) {
+        if (!m.alive) continue;
+        m.x = lerp(m.x, m._rx !== undefined ? m._rx : m.x, Math.min(1, dt * 9));
+        m.z = lerp(m.z, m._rz !== undefined ? m._rz : m.z, Math.min(1, dt * 9));
+        var fY = G.h(m.x, m.z);
+        m.y = m.def.fly > 0 ? fY + m.def.fly + Math.sin(now / 620 + m.seed) * 0.18 : fY;
+        continue;
+      }
       if (!m.alive) {
         if (now >= m.respawnAt && this.mobs.length <= this.maxAlive + 6 && this.aliveCount() < this.HARD_CAP) {
           var s = G.pick(P.x, P.z, 20);
@@ -1150,7 +1181,8 @@ var Host = {
     Net.players.forEach(function (rp) { if (rp.alive) pts.push({ x: rp.x, z: rp.z }); });
     var o = [], sum = 0, R = this.CULL_R * this.CULL_R;
     for (var i = 0; i < this.mobs.length; i++) {
-      var m = this.mobs[i]; if (!m.alive) continue;
+      var m = this.mobs[i];
+      if (!m.alive || m.remote) continue;                              // ★ 只广播自己名下的怪
       var near = false;
       for (var j = 0; j < pts.length; j++) { var ddx = m.x - pts[j].x, ddz = m.z - pts[j].z; if (ddx * ddx + ddz * ddz < R) { near = true; break; } }
       if (!near) continue;
@@ -1162,24 +1194,34 @@ var Host = {
     return o;
   },
   applySnapshot: function (list) {
-    var seen = {};
+    var now = performance.now();
     for (var i = 0; i < list.length; i++) {
-      var a = list[i], id = a[0], kind = MOB_KEYS[a[1]] || 'floater'; seen[id] = 1;
+      var a = list[i], id = a[0], kind = MOB_KEYS[a[1]] || 'floater';
+      if (Net.mobOwner(id) === Net.id) continue;                       // ★ 我名下的怪以我为准，忽略别人的副本
       var m = null; for (var j = 0; j < this.mobs.length; j++) if (this.mobs[j].id === id) { m = this.mobs[j]; break; }
       if (!m) {
         var def = MOBS[kind];
         m = { id: id, kind: kind, def: def, x: a[2], z: a[3], y: def.fly, hp: a[4], maxHp: a[5], alive: true, obj: null, mat: null, hpS: null, seed: Math.random() * 10, remote: true, _rx: a[2], _rz: a[3], moving: false, flash: 0 };
         this.mobs.push(m);
       }
-      m._rx = a[2]; m._rz = a[3]; if (m.hp !== a[4]) { m.hp = a[4]; m.maxHp = a[5]; }
+      m._t = now; m._rx = a[2]; m._rz = a[3];
+      var wasAlive = m.alive;
+      m.alive = true;
+      if (m.hp !== a[4]) { m.hp = a[4]; m.maxHp = a[5]; }
+      if (!wasAlive) { m.x = a[2]; m.z = a[3]; m.kx = 0; m.kz = 0; }
     }
-    for (var k = this.mobs.length - 1; k >= 0; k--) { var mm = this.mobs[k]; if (mm.remote && !seen[mm.id]) this.mobs.splice(k, 1); }
+    // ★ 超时清理：某个归属者 3.5s 没再发它的怪 → 移除此副本（掉线/走远）
+    for (var k = this.mobs.length - 1; k >= 0; k--) {
+      var mm = this.mobs[k];
+      if (mm.remote && now - (mm._t || 0) > 3500) this.mobs.splice(k, 1);
+    }
   },
   interp: function (dt) {
     var now = Date.now();
     for (var i = 0; i < this.mobs.length; i++) {
       var m = this.mobs[i]; if (!m.remote || !m.alive) continue;
-      m.x = lerp(m.x, m._rx, Math.min(1, dt * 9)); m.z = lerp(m.z, m._rz, Math.min(1, dt * 9));
+      m.x = lerp(m.x, m._rx !== undefined ? m._rx : m.x, Math.min(1, dt * 9));
+      m.z = lerp(m.z, m._rz !== undefined ? m._rz : m.z, Math.min(1, dt * 9));
       var floorY = G.h(m.x, m.z);
       m.y = m.def.fly > 0 ? floorY + m.def.fly + Math.sin(now / 620 + m.seed) * 0.18 : floorY;
       /* 位置由 MobRender 池统一写 */
@@ -1240,9 +1282,10 @@ var BossSys = {
      以前：每台设备各自跑 Boss 的 AI（技能还用 Math.random 抽），
            结果"我这躲开了、他那边判定打中"——各看各的，根本不是一个 Boss。
      现在：只有房主模拟；其他人收 10Hz 快照做插值 + 收事件播同一套特效。 */
-  isAuth: function () { return !Net.connected || Net.isHost; },
+  /* ★★ 去中心化权威：不再有"房主"，谁归属谁模拟 ★★ */
+  isAuth: function (b) { return !Net.connected || Net.mineBoss(b && (b.id || b)); },
 
-  // 房主裁决伤害：自己吃 / 广播给指定玩家
+  // 归属者裁决伤害：自己吃 / 广播给指定玩家
   hurtPlayer: function (pid, dmg, name) {
     if (!pid) return;
     if (pid === Net.id || !Net.connected) { if (P.alive) Combat.takeDamage(dmg, name || 'Boss', 'boss'); return; }
@@ -1250,19 +1293,22 @@ var BossSys = {
   },
 
   pushSnap: function () {
-    if (!Net.isHost || !Net.connected) return;
+    if (!Net.connected) return;
     var a = [];
     for (var i = 0; i < this.list.length; i++) {
       var b = this.list[i];
+      if (!Net.mineBoss(b.id)) continue;                 // ★ 只广播我名下这个 Boss
       a.push([b.id, +b.x.toFixed(1), +b.z.toFixed(1), Math.round(b.hp), b.phase,
               b.alive ? 1 : 0, b.spawned ? 1 : 0, (b.flash > 0) ? 1 : 0]);
     }
+    if (!a.length) return;
     Net.pub(Net.tBoss(), JSON.stringify({ m: a }), false);
   },
 
   applySnap: function (list) {
     for (var i = 0; i < list.length; i++) {
       var a = list[i], b = null;
+      if (Net.mineBoss(a[0])) continue;                  // ★ 我名下这个 Boss 以我为准，忽略别人的副本
       for (var j = 0; j < this.list.length; j++) if (this.list[j].id === a[0]) { b = this.list[j]; break; }
       if (!b) continue;
       b.tx = a[1]; b.tz = a[2];
@@ -1271,13 +1317,13 @@ var BossSys = {
       b.alive = !!a[5]; b.spawned = !!a[6];
       if (a[7]) b.flash = 0.1;
       if (was && !b.alive) { FX.blast(b.x, b.y + 3, b.z, 16, 34, 0.7); Sfx.boom(); ScreenShake.add(1.0); }
-      if (!was && b.alive) { /* 别人那边激活了 */ }
+      if (!was && b.alive) { /* 归属者激活了它 */ }
     }
   },
 
   update: function (dt) {
     if (SANDBOX) return;
-    if (this.isAuth()) this.simAuth(dt); else this.simRemote(dt);
+    if (Net.connected) { this.simLocal(dt); this.simRemote(dt); } else this.simLocal(dt);
     var act = this.active, bar = $('bossBar');
     if (act && act.alive && act.spawned && Math.hypot(P.x - act.x, P.z - act.z) < 70) {
       bar.style.display = 'block';
@@ -1287,15 +1333,18 @@ var BossSys = {
     } else bar.style.display = 'none';
   },
 
-  // ---- 房主：完整模拟 ----
-  simAuth: function (dt) {
-    var now = performance.now();
+  // ---- 我名下：完整模拟 ----
+  simLocal: function (dt) {
+    var now = performance.now(), snapDue = false;
     for (var i = 0; i < this.list.length; i++) {
-      var b = this.list[i], d = Math.hypot(P.x - b.x, P.z - b.z);
+      var b = this.list[i];
+      if (!Net.mineBoss(b.id)) continue;
+      var d = Math.hypot(P.x - b.x, P.z - b.z);
       if (!b.spawned && b.alive && d < 30 && P.alive) this.activate(b);
       if (!b.spawned || !b.alive) continue;
+      snapDue = true;
       var def = b.def;
-      // ★ 追最近的玩家（不只房主自己）
+      // ★ 追最近的玩家（不只自己）
       var tgt = { x: P.x, z: P.z, id: Net.id }, bd = d;
       Net.players.forEach(function (rp) {
         if (!rp.alive) return;
@@ -1314,7 +1363,6 @@ var BossSys = {
       b.obj.rotation.y = billboardYaw(b.x, b.z);
       b.sh.position.set(b.x, G.h(b.x, b.z) + 0.06, b.z);
       if (b.flash > 0) { b.flash -= dt; b.mat.uniforms.uFlash.value = Math.max(0, b.flash / 0.1); }
-      // ★ 攻击：房主裁决打谁
       if (bd < def.atkRange + 1.5 && now - b.atkAt > def.atkCd * 1000) {
         b.atkAt = now;
         this.hurtPlayer(tgt.id, def.dmg, b.name);
@@ -1324,15 +1372,15 @@ var BossSys = {
       if (now - b.skillAt > cd) { b.skillAt = now; this.skill(b, tgt); }
       if (this.active !== b && d < 50) this.active = b;
     }
-    this._sa = (this._sa || 0) + dt;
-    if (this._sa > 0.1) { this._sa = 0; this.pushSnap(); }
+    if (snapDue) { this._sa = (this._sa || 0) + dt; if (this._sa > 0.1) { this._sa = 0; this.pushSnap(); } }
   },
 
-  // ---- 远端：只插值 + 复现 ----
+  // ---- 别人名下：只插值 + 复现 ----
   simRemote: function (dt) {
     var k = Math.min(1, dt * 10);
     for (var i = 0; i < this.list.length; i++) {
       var b = this.list[i];
+      if (Net.mineBoss(b.id)) continue;
       if (b.tx !== undefined) { b.x += (b.tx - b.x) * k; b.z += (b.tz - b.z) * k; }
       var vis = b.spawned && b.alive;
       if (b.obj) b.obj.visible = vis;
@@ -1361,11 +1409,11 @@ var BossSys = {
         if (rp.alive && Math.hypot(rp.x - b.x, rp.z - b.z) < R) self.hurtPlayer(rp.id, b.def.dmg * 0.8, b.name);
       });
       HUD.feed(b.name + ' 释放 冲击波');
-      if (Net.isHost && Net.connected) Net.broadcast({ k: 'bskill', bid: b.id, kind: 'wave' });
+      if (Net.connected) Net.broadcast({ k: 'bskill', bid: b.id, kind: 'wave' });
     } else if (roll < 0.68) {
       for (var i = 0; i < 3; i++) Host.spawn(MOB_KEYS[i % 3], b.x + rnd(-5, 5), b.z + rnd(-5, 5));
       HUD.feed(b.name + ' 召唤 爪牙 x3'); Sfx.growl(110);
-      if (Net.isHost && Net.connected) Net.broadcast({ k: 'bskill', bid: b.id, kind: 'summon' });
+      if (Net.connected) Net.broadcast({ k: 'bskill', bid: b.id, kind: 'summon' });
     } else {
       var n = 3 + (b.phase - 1) * 2;
       var a0 = Math.atan2(tgt.x - b.x, tgt.z - b.z);
@@ -1398,7 +1446,7 @@ var Proj = {
     var dd = Math.hypot(dx, dy, dz) || 1;
     this.list.push({ x: x, y: y, z: z, vx: dx / dd * sp, vy: dy / dd * sp, vz: dz / dd * sp,
                      life: 3.5, o: this.mk(), dmg: dmg || MOBS.wraith.dmg, toId: aimId || null });
-    if (!noSync && Net.isHost && Net.connected) {
+    if (!noSync && Net.connected) {
       Net.broadcast({ k: 'pspawn', x: +x.toFixed(1), y: +y.toFixed(1), z: +z.toFixed(1),
         dx: +(dx / dd).toFixed(3), dy: +(dy / dd).toFixed(3), dz: +(dz / dd).toFixed(3),
         sp: sp, dmg: Math.round(dmg || MOBS.wraith.dmg) });
@@ -1410,7 +1458,7 @@ var Proj = {
     this.list.push({ x: sx, y: sy, z: sz, vx: dx / d * sp, vy: dy / d * sp, vz: dz / d * sp, life: 3, o: this.mk(), toId: tgt.id });
     Sfx.tick(880, 0.08, 0.08, 'sine');
     // ★ 怪物的远程弹也要同步出生，否则别人只挨打、看不到子弹
-    if (Net.isHost && Net.connected) {
+    if (Net.connected) {
       Net.broadcast({ k: 'pspawn', x: +sx.toFixed(1), y: +sy.toFixed(1), z: +sz.toFixed(1),
         dx: +(dx / d).toFixed(3), dy: +(dy / d).toFixed(3), dz: +(dz / d).toFixed(3), sp: sp, dmg: Math.round(MOBS.wraith.dmg) });
     }
@@ -1548,12 +1596,12 @@ var Combat = {
         var dmg = w.dmg * (hit.crit ? 2 : 1);
         FX.imp(hp, hit.crit); HUD.hitmark(hit.crit, dmg, hp);
         Net.broadcast({ k: 'hit', mid: hit.mob.id, dmg: dmg, by: Net.id, byName: Net.name, crit: hit.crit });
-        if (Net.isHost || !Net.connected) { Host.damage(hit.mob.id, dmg, Net.id, Net.name, hit.crit); Host.knock(hit.mob, dir, w.knock); }
+        if (Net.mineMob(hit.mob.id) || !Net.connected) { Host.damage(hit.mob.id, dmg, Net.id, Net.name, hit.crit); Host.knock(hit.mob, dir, w.knock); }
       } else if (hit.type === 'boss') {
         var dmg3 = w.dmg * (hit.crit ? 2 : 1);
         FX.imp(hp, hit.crit); HUD.hitmark(hit.crit, dmg3, hp);
         Net.broadcast({ k: 'bosshit', bid: hit.boss.id, dmg: dmg3, by: Net.id, byName: Net.name });
-        if (Net.isHost || !Net.connected) { BossSys.damage(hit.boss.id, dmg3, Net.id, Net.name); BossSys.knock(hit.boss, dir, w.knock); }
+        if (Net.mineBoss(hit.boss.id) || !Net.connected) { BossSys.damage(hit.boss.id, dmg3, Net.id, Net.name); BossSys.knock(hit.boss, dir, w.knock); }
       } else if (hit.type === 'player') {
         var dmg2 = w.dmg * (hit.crit ? 2 : 1);
         Net.broadcast({ k: 'phit', to: hit.rp.id, dmg: dmg2, name: Net.name, crit: hit.crit });
@@ -1720,7 +1768,7 @@ var Homing = {
         if (d < (t.def.hitR || 1.5) + 0.9) {
           FX.imp(V3(p.x, p.y, p.z), true);
           if (t.id && t.id.charAt(0) === 'B') BossSys.damage(t.id, p.dmg, Net.id, Net.name);
-          else if (Net.isHost || !Net.connected) { Host.damage(t.id, p.dmg, Net.id, Net.name); Host.knock(t, V3(p.vx, 0, p.vz), 0.8); }
+          else if (Net.mineMob(t.id) || !Net.connected) { Host.damage(t.id, p.dmg, Net.id, Net.name); Host.knock(t, V3(p.vx, 0, p.vz), 0.8); }
           p.life = 0;
         }
       } else p.vy -= 6 * dt;
@@ -1782,7 +1830,7 @@ var Grenade = {
     this.damage(x, y, z, r, 90, false, true);
   },
   damage: function (x, y, z, R, D, mine, remote) {
-    Host.each(function (m) { var d = Math.hypot(m.x - x, m.y - y, m.z - z); if (d < R) { var dmg = D * (1 - d / R * 0.6); Net.broadcast({ k: 'hit', mid: m.id, dmg: dmg, by: Net.id, byName: Net.name }); if (Net.isHost || !Net.connected) Host.damage(m.id, dmg, Net.id, Net.name, false); } });
+    Host.each(function (m) { var d = Math.hypot(m.x - x, m.y - y, m.z - z); if (d < R) { var dmg = D * (1 - d / R * 0.6); Net.broadcast({ k: 'hit', mid: m.id, dmg: dmg, by: Net.id, byName: Net.name }); if (Net.mineMob(m.id) || !Net.connected) Host.damage(m.id, dmg, Net.id, Net.name, false); } });
     if (!remote) Net.players.forEach(function (rp) { if (!rp.alive) return; var d = Math.hypot(rp.x - x, rp.y - y, rp.z - z); if (d < R) Net.broadcast({ k: 'phit', to: rp.id, dmg: D * (1 - d / R * 0.6), name: Net.name }); });
   },
 };
@@ -2343,8 +2391,11 @@ function loopBody(dt, now) {
 
   var targets = [{ id: Net.id, x: P.x, z: P.z, y: P.y, hp: P.alive ? P.hp : 0 }];
   Net.players.forEach(function (rp) { if (rp.alive) targets.push({ id: rp.id, x: rp.x, z: rp.z, y: rp.y, hp: rp.hp }); });
-  if (Net.isHost || !Net.connected) Host.update(dt, targets); else Host.interp(dt);
-  if (Net.isHost && Net.connected) { Host.snapAcc = (Host.snapAcc || 0) + dt; if (Host.snapAcc > 1 / Host.SNAP_HZ) { Host.snapAcc = 0; Net.mobs(Host.snapshot()); } }
+  if (Net.connected) {
+    Host.update(dt, targets);                                  // ★ 内部按归属模拟：自己的算 AI，别人的只插值
+    Host.snapAcc = (Host.snapAcc || 0) + dt;
+    if (Host.snapAcc > 1 / Host.SNAP_HZ) { Host.snapAcc = 0; Net.mobs(Host.snapshot()); }
+  } else Host.update(dt, targets);
 
   A.update(dt, cam().position);
   BossSys.update(dt);
