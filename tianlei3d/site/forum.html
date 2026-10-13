@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#06050d">
+<title>玩家社区 · 天泪纪元</title>
+<link rel="icon" href="img/icon.png">
+<link rel="stylesheet" href="css/site.css">
+<style>
+  /* ---- 论坛专用 ---- */
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#666;margin-right:7px;vertical-align:middle}
+  .dot.on{background:#4ade80;box-shadow:0 0 9px #4ade80}
+  #stat{font-size:12.5px;color:var(--tx2)}
+  #toast{position:fixed;left:50%;bottom:calc(var(--nav-h) + 26px);transform:translate(-50%,20px);
+    background:rgba(20,14,40,.96);border:1px solid var(--line2);border-radius:999px;
+    padding:11px 22px;font-size:13.5px;opacity:0;pointer-events:none;transition:.24s;z-index:200}
+  #toast.on{opacity:1;transform:translate(-50%,0)}
+  #mask{position:fixed;inset:0;background:rgba(3,2,8,.72);backdrop-filter:blur(3px);z-index:150;display:none}
+  #mask.on{display:block}
+  .dlg{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.96);z-index:160;
+    background:rgba(16,12,32,.99);border:1px solid var(--line2);border-radius:18px;padding:24px;
+    width:min(92vw,380px);display:none;box-shadow:0 24px 80px rgba(0,0,0,.8)}
+  .dlg.on{display:block;animation:pop .2s ease-out forwards}
+  @keyframes pop{to{transform:translate(-50%,-50%) scale(1)}}
+  .dlg h3{margin:0 0 6px;font-size:17px}
+  .dlg p{margin:0 0 14px;font-size:12.5px;color:var(--tx3);line-height:1.8}
+  .dlg input{width:100%;background:rgba(6,4,14,.92);border:1px solid var(--line);border-radius:11px;
+    color:#ece7f7;padding:12px;font-size:15px;outline:none;font-family:inherit}
+  .dlg .row{display:flex;gap:10px;margin-top:14px}
+  .dlg .row .btn{flex:1;padding:12px 18px;font-size:14.5px}
+  .err{color:#f87171;font-size:12px;margin-top:8px;min-height:16px}
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+  .bar input#search{flex:1;min-width:150px;background:rgba(6,4,14,.9);border:1px solid var(--line);
+    border-radius:999px;color:#ece7f7;padding:10px 16px;font-size:14px;outline:none;font-family:inherit}
+  .chip{padding:9px 17px;border-radius:999px;border:1px solid var(--line);font-size:13px;
+    color:var(--tx2);cursor:pointer;user-select:none;transition:.16s}
+  .chip.on{background:rgba(168,85,247,.28);border-color:var(--line2);color:#fff}
+  .warn{background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.3);border-radius:12px;
+    padding:11px 15px;font-size:12.5px;color:#e5c98a;line-height:1.8;margin-bottom:16px}
+</style>
+</head>
+<body>
+
+<nav class="nav solid" id="nav">
+  <a class="brand" href="index.html"><img src="img/icon.png" alt=""><span>天泪纪元</span></a>
+  <div class="links">
+    <a href="index.html">首页</a>
+    <a href="index.html#world">世界</a>
+    <a href="index.html#media">实机</a>
+    <a href="index.html#download">下载</a>
+    <a href="forum.html" class="on">玩家社区</a>
+    <a class="btn sm" href="../index.html" style="padding:9px 20px;font-size:13.5px">立即游玩</a>
+  </div>
+</nav>
+
+<main class="wrap" style="padding-top:calc(var(--nav-h) + 26px);max-width:900px">
+
+  <h1 class="sec-title" style="font-size:clamp(26px,5vw,40px)">玩 家 社 区</h1>
+  <p class="sec-sub">晒建筑 · 约人开黑 · 反馈建议 —— <b>免注册，起个名字就能发</b></p>
+
+  <div class="forum-top">
+    <div class="who">当前身份：<b id="who" style="color:var(--neon)">未设置</b> &nbsp;<a id="btnName" style="color:var(--tx3);cursor:pointer;text-decoration:underline">改名字</a></div>
+    <div style="display:flex;gap:14px;align-items:center">
+      <span id="stat"></span>
+      <span style="font-size:12.5px;color:var(--tx3)">共 <b id="pcount">0</b> 帖</span>
+    </div>
+  </div>
+
+  <div class="warn">
+    ⚠️ 这是<b>公开频道</b>，任何人都能看到你发的内容。请勿填写真实姓名、电话、住址等隐私信息。
+  </div>
+
+  <!-- 发帖 -->
+  <div class="card composer" style="margin-bottom:20px">
+    <textarea id="text" maxlength="1200" placeholder="说点什么…（Ctrl/⌘ + Enter 发送）&#10;例如：我在东边城墙外搭了个观景台，坐标 78,120，欢迎来玩"></textarea>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:12px;flex-wrap:wrap">
+      <span style="font-size:12px;color:var(--tx3)">文字限 1200 字 · 请文明交流</span>
+      <button class="btn" id="btnPost" style="flex:0 0 auto;padding:12px 30px">发布</button>
+    </div>
+  </div>
+
+  <!-- 筛选 -->
+  <div class="bar">
+    <input id="search" placeholder="🔍 搜索帖子…">
+    <span class="chip on" id="sortNew">最新</span>
+    <span class="chip" id="sortHot">最热</span>
+  </div>
+
+  <!-- 列表 -->
+  <div id="list"></div>
+
+  <div style="text-align:center;padding:40px 0 10px">
+    <a class="btn ghost" href="index.html">← 返回官网</a>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    天泪纪元 · 玩家社区 &nbsp;|&nbsp; 帖子保存在公共实时通道上，换设备也在<br>
+    <span style="opacity:.6">请勿发布隐私信息 · 文明发言</span>
+  </div>
+</footer>
+
+<nav class="tabbar">
+  <a href="index.html"><span class="i">🏠</span>首页</a>
+  <a href="index.html#media"><span class="i">🖼</span>实机</a>
+  <a href="../index.html"><span class="i">▶</span>开玩</a>
+  <a href="forum.html" class="on"><span class="i">💬</span>社区</a>
+  <a href="index.html#download"><span class="i">⬇</span>下载</a>
+</nav>
+
+<div id="toast"></div>
+<div id="mask"></div>
+<div class="dlg" id="dlgName">
+  <h3>起个名字</h3>
+  <p>这个名字会显示在你的帖子上，之后可以随时改。不需要手机号，也不需要注册。</p>
+  <input id="nickIn" maxlength="12" placeholder="例如：旅人538">
+  <div class="err" id="nickErr"></div>
+  <div class="row">
+    <button class="btn ghost" id="nameCancel">取消</button>
+    <button class="btn" id="nameOk">就用它</button>
+  </div>
+</div>
+
+<script src="js/mqtt.js"></script>
+<script src="js/forum.js"></script>
+</body>
+</html>
