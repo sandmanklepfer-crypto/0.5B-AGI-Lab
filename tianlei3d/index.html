@@ -222,9 +222,9 @@
 <div class="tip" id="tipTxt">WASD/摇杆 移动 · 真 3D 地面 + 真阴影</div>
 <div id="perf"></div>
 
-<script src="js/tiles.js?v=1791861953"></script>
-<script src="js/vendor/three.min.js?v=1791861953"></script>
-<script src="js/vendor/GLTFLoader.js?v=1791861953"></script>
+<script src="js/tiles.js?v=1791863110"></script>
+<script src="js/vendor/three.min.js?v=1791863110"></script>
+<script src="js/vendor/GLTFLoader.js?v=1791863110"></script>
 
 
 <script src="assets3d/tree_green.js"></script>
@@ -482,16 +482,29 @@ const SPR_H = { tree_green: 104, tree_sakura: 108, bush: 52, lamp2: 130, fence: 
 const SPR_TEX = {};
 function sprTex(name) { if (!SPR_TEX[name]) { const t = L.load('assets/tiles/' + name + '.png'); if (THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding; SPR_TEX[name] = t; } return SPR_TEX[name]; }
 
-/* ---------------- 道具：2D 立绘公告板 + 真阴影投影面 ---------------- */
+/* ---------------- 道具：★受光十字面片（带法线）+ 真阴影投影面 ----------------
+   之前是 SpriteMaterial（不受光）→ 在 PBR 光照的场地里像"贴纸"。
+   而 assets/tiles/*_n.png 法线图其实早就生成好了，只是没接上。
+   现在：十字交叉的两片受光面 → 任何角度都有体积感、跟地面/墙体吃同一套光。 */
 const SHADOW_YAWS = -2.15;   // 投影面朝向（大致垂直于主光）
-function addBillboard(tex, x, z, hPx, faceCam, castShadow) {
+const HAS_N = 'altar barrel bush crate crop desk fence flowerbed fountain lamp shelf stairs_dn stairs_up statue table tree_dead tree_green tree_sakura wall_stone wall_wood well'.split(' ');
+const PROP_NTEX = {};
+function propNrm(name) { if (!PROP_NTEX[name]) { const t = L.load('assets/tiles/' + name + '_n.png'); t.anisotropy = 4; PROP_NTEX[name] = t; } return PROP_NTEX[name]; }
+function propMat(name, tex) {
+  const m = new THREE.MeshStandardMaterial({ map: tex, transparent: false, alphaTest: 0.4, depthWrite: true, side: THREE.DoubleSide, roughness: 0.85, metalness: 0.0 });
+  if (HAS_N.indexOf(name) >= 0) { m.normalMap = propNrm(name); m.normalScale = new THREE.Vector2(0.9, 0.9); }
+  return m;
+}
+function addBillboard(tex, x, z, hPx, faceCam, castShadow, name) {
   const hU = hPx / UNIT_PX;
   const img = tex.image;
   const aspect = (img && img.width) ? img.width / img.height : 1;
   const wU = hU * aspect;
-  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, alphaTest: 0.35, depthWrite: true });
-  const s = new THREE.Sprite(mat);
-  s.scale.set(wU, hU, 1); s.center.set(0.5, 0);          // 原点=脚底
+  const mat = propMat(name || '', tex);
+  const g = new THREE.PlaneGeometry(wU, hU);
+  const s = new THREE.Group();                            // ★ 十字面片
+  const pa = new THREE.Mesh(g, mat); pa.position.y = hU / 2; s.add(pa);
+  const pb = new THREE.Mesh(g, mat); pb.position.y = hU / 2; pb.rotation.y = Math.PI / 2; s.add(pb);
   s.position.set(x, 0, z);
   scene.add(s);
   if (castShadow) {
@@ -538,7 +551,10 @@ function placeTrees(){
     const geo=decodeMesh(ly.name); if(!geo){ console.warn('缺少网格',ly.name); continue; }
     const t2=L.load('assets3d/'+ly.name+'_tex.jpg'); if(THREE.sRGBEncoding) t2.encoding=THREE.sRGBEncoding;
     t2.anisotropy=4;
-    const mat=new THREE.MeshStandardMaterial({ map:t2, roughness:0.88, metalness:0.0 });
+    // ★ 补法线 + 粗糙度：树之前只有 map → 塑料平光；现在吃同一套 PBR 光照
+    const nrm=L.load('assets3d/'+ly.name+'_n.png'); nrm.anisotropy=4;
+    const rgh=L.load('assets3d/'+ly.name+'_r.png'); rgh.anisotropy=4;
+    const mat=new THREE.MeshStandardMaterial({ map:t2, normalMap:nrm, normalScale:new THREE.Vector2(1.15,1.15), roughnessMap:rgh, roughness:0.9, metalness:0.0 });
     const cells=[];
     for(let v=0;v<MH;v++)for(let u=0;u<MW;u++) if(at(u,v)===ly.t) cells.push([u+0.5,v+0.5]);
     if(!cells.length) continue;
@@ -560,7 +576,7 @@ function buildProps() {
     if (t === T.TREE || t === T.SAKURA) continue;          // ★ 树改由真 3D 网格处理
     if (!HEIGHT[t]) continue;
     const name = SPR_MAP[t]; if (!name) continue;
-    addBillboard(sprTex(name), u + 0.5, v + 0.5, SPR_H[name] || 96, true, true);
+    addBillboard(sprTex(name), u + 0.5, v + 0.5, SPR_H[name] || 96, true, true, name);
     n++;
   }
   return n;
@@ -1098,11 +1114,11 @@ window.__ATTACH_CITY = true;
 window.__ATTACH_RENDERER = window.__OCTO.renderer;
 window.__ATTACH_SCENE = window.__OCTO.scene;
 </script>
-<script src="js/arena3d.js?v=1791861953"></script>
+<script src="js/arena3d.js?v=1791863110"></script>
 <script>window.__HD2D_HOST = true;</script>
-<script src="js/vendor/qrcode.js?v=1791861953"></script>
-<script src="js/mqtt.js?v=1791861953"></script>
-<script src="js/hd2d_arena.js?v=1791861953"></script>
-<script src="js/shooter.js?v=1791861953"></script>
-<script src="js/kernel.js?v=1791861953"></script>
+<script src="js/vendor/qrcode.js?v=1791863110"></script>
+<script src="js/mqtt.js?v=1791863110"></script>
+<script src="js/hd2d_arena.js?v=1791863110"></script>
+<script src="js/shooter.js?v=1791863110"></script>
+<script src="js/kernel.js?v=1791863110"></script>
 </body></html>
