@@ -1234,7 +1234,7 @@ var Host = {
 var BossSys = {
   list: [], active: null, nextId: 1,
   init: function () {
-    var self = this; this.list = [];
+    var self = this; this.list = []; this.nextId = 1;      // ★ 每次重建都复位 id，避免 B1..B4/B5..B8 叠代错位
     var ring = [[1, 1], [1, -1], [-1, 1], [-1, -1]];      // 四个方向
     BOSSES.forEach(function (b, bi) {
       var def = { key: 'boss', name: b.name, hp: b.hp, dmg: b.dmg, speed: b.spd, aggro: 60,
@@ -1338,14 +1338,13 @@ var BossSys = {
 
   // ---- 我名下：完整模拟 ----
   simLocal: function (dt) {
-    var now = performance.now(), snapDue = false;
+    var now = performance.now();
     for (var i = 0; i < this.list.length; i++) {
       var b = this.list[i];
       if (!Net.mineBoss(b.id)) continue;
       var d = Math.hypot(P.x - b.x, P.z - b.z);
       if (!b.spawned && b.alive && d < 30 && P.alive) this.activate(b);
       if (!b.spawned || !b.alive) continue;
-      snapDue = true;
       var def = b.def;
       // ★ 追最近的玩家（不只自己）
       var tgt = { x: P.x, z: P.z, id: Net.id }, bd = d;
@@ -1375,7 +1374,8 @@ var BossSys = {
       if (now - b.skillAt > cd) { b.skillAt = now; this.skill(b, tgt); }
       if (this.active !== b && d < 50) this.active = b;
     }
-    if (snapDue) { this._sa = (this._sa || 0) + dt; if (this._sa > 0.1) { this._sa = 0; this.pushSnap(); } }
+    // ★ 无论是否激活，都按 10Hz 广播我名下的 Boss（未激活也会发 → 各端位置/血量始终一致）
+    this._sa = (this._sa || 0) + dt; if (this._sa > 0.1) { this._sa = 0; this.pushSnap(); }
   },
 
   // ---- 别人名下：只插值 + 复现 ----
