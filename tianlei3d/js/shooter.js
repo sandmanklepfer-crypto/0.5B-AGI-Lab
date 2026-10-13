@@ -769,8 +769,11 @@ var Net = {
       mq.subscribe(self.tHistAll());                       // ★ 历史事件大厅：一进来就补齐全部历史
       mq.subscribe(self.base() + 'blk/#');                 // ★ 共享建造：一进来就拿到全服已建好的所有方块
       mq.subscribe(self.base() + 'ref/' + self.id + '/+');  // ★ 我的邀请记录（分享领神器）
+      mq.subscribe(Stats.V + '+');                          // ★ 访客足迹（每个访客一条保留消息）
       self.broadcast({ k: 'join', name: self.name, inv: self.inv });
       Ref.report();                                        // ★ 记一次邀请（谁带我来的）
+      Stats.mark();                                        // ★ 留痕：写下我自己的访客记录
+      Stats.render();
       self.startHost();
       if (!self._cleanTimer) self._cleanTimer = setInterval(function () { self.clean(); }, 1500);
       if (!self._pingAt) self._pingAt = performance.now();
@@ -876,6 +879,7 @@ var Net = {
       return;
     }
     if (topic.indexOf(this.base() + 'hist/') === 0) { this.onHistMsg(topic, o); return; }
+    if (topic.indexOf(Stats.V) === 0) { Stats.on(topic, payload); return; }   // ★ 访客足迹
     if (topic === this.tEv()) this.onEv(o, now);
   },
 
@@ -979,7 +983,68 @@ var Net = {
   },
 };
 
-/* ★ 玩家区分：按 id 派生稳定色（同一玩家永远同色），用于描边/血条/名牌 */
+/* ★★ 访客足迹（留痕）★★
+   每个客户端进服时，往 broker 写一条【保留消息】`zhz/tianlei/stats/v/<唯一id>`。
+   · 保留消息 = broker 永久保存 → 跨设备、离线也在、谁都能读
+   · 每个访客只占一条（重复进服会覆盖自己那条，不膨胀）
+   · 直接数条数 = 累计来访人数；按 at 过滤 = 今日人数
+   不依赖任何服务器，保持"免登录即玩"。
+   ============================================================================ */
+var Stats = {
+  V: 'zhz/tianlei/stats/v/',
+  visits: new Map(),          // id -> {name, at, room}
+  mark: function () {
+    if (!Net.connected) return;
+    try {
+      Net.pub(this.V + Net.id, JSON.stringify({
+        id: Net.id, name: Net.name, room: Net.room, at: Date.now(),
+        dt: (typeof devicePixelRatio !== 'undefined' ? devicePixelRatio : 1),
+        ua: (navigator.userAgent || '').slice(0, 64)
+      }), true);
+    } catch (e) {}
+  },
+  on: function (topic, payload) {
+    var id = topic.slice(this.V.length); if (!id) return;
+    try { var o = JSON.parse(payload || '{}'); this.visits.set(id, { name: o.name, at: o.at || 0, room: o.room }); } catch (e) {}
+    this.render();
+  },
+  count: function () { return this.visits.size; },
+  today: function () {
+    var d0 = new Date(); d0.setHours(0, 0, 0, 0); var n = 0;
+    this.visits.forEach(function (v) { if ((v.at || 0) >= d0.getTime()) n++; });
+    return n;
+  },
+  list: function () { var a = []; this.visits.forEach(function (v, id) { a.push({ id: id, name: v.name, at: v.at, room: v.room }); }); return a.sort(function (x, y) { return (y.at || 0) - (x.at || 0); }); },
+  render: function () {
+    var t = $('visitChip');
+    if (t) t.textContent = '👣 访客 ' + this.count() + (this.today() ? ' · 今日 ' + this.today() : '');
+  },
+  show: function () {
+    var el = document.getElementById('visitPanel');
+    if (!el) {
+      el = document.createElement('div'); el.id = 'visitPanel';
+      el.style.cssText = 'position:fixed;right:12px;top:104px;z-index:40;width:min(48vw,430px);max-height:62vh;overflow:auto;' +
+        'background:rgba(10,8,22,.95);border:1px solid rgba(168,85,247,.45);border-radius:12px;padding:12px 14px;color:#e8e0ff;' +
+        'font:13px/1.65 system-ui,sans-serif;box-shadow:0 10px 34px rgba(0,0,0,.6)';
+      document.body.appendChild(el);
+    }
+    var rows = this.list();
+    var h = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+      '<b>👣 累计访客 ' + rows.length + '</b>' +
+      '<span style="opacity:.8">今日 ' + this.today() + '</span>' +
+      '<span id="vpClose" style="cursor:pointer;padding:0 6px">✕</span></div>' +
+      '<div style="opacity:.6;font-size:11.5px;margin-bottom:8px">保留消息统计 · 跨设备 · 每条=一个独立访客（重复进服只算一次）</div>';
+    if (!rows.length) h += '<div style="opacity:.6">暂无记录（你自己这条要先连上才有）</div>';
+    rows.slice(0, 300).forEach(function (v) {
+      var t = v.at ? new Date(v.at).toLocaleString('zh-CN') : '';
+      h += '<div style="padding:3px 0;border-bottom:1px solid rgba(255,255,255,.06)">' +
+        (v.name || '（无名）') + ' <span style="opacity:.5;font-size:11.5px">' + t + (v.room ? ' · ' + v.room : '') + '</span></div>';
+    });
+    el.innerHTML = h; el.style.display = 'block';
+    var c = document.getElementById('vpClose'); if (c) c.onclick = function () { el.style.display = 'none'; };
+  },
+};
+
 var TEAM_COLS = [0xff6b6b, 0x4ecdc4, 0xffd166, 0x9b5de5, 0x00bbf9, 0xf15bb5, 0x7bed9f, 0xff9f1c];
 Net.teamColor = function (id) {
   var h = 0; for (var i = 0; i < (id || '').length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
@@ -2989,6 +3054,7 @@ function bindUI() {
     Sfx.ui();
   });
   _on('bMap', 'click', function () { var m = $('mapWrap'); if (!m) return; var on = m.style.display !== 'block'; m.style.display = on ? 'block' : 'none'; this.className = on ? 'on' : ''; });
+  _on('bVisitors', 'click', function () { var p = $('treePanel'); if (p) p.style.display = 'none'; Stats.show(); });   // ★ 访客名单
   _on('bChat', 'click', function () { var c = $('chatWrap'); if (!c) return; var on = !c.classList.contains('on'); c.classList.toggle('on', on); this.className = on ? 'on' : ''; if (on) { var ci = $('chatInput'); if (ci) try { ci.focus(); } catch (e) {} } });
   _on('bBoard', 'click', function () { var b = $('board'); var show = b.style.display !== 'block'; HUD.board(); b.style.display = show ? 'block' : 'none'; });
   _on('bHist', 'click', function () { var p = $('histPanel'); if (!p) return; var show = p.style.display !== 'block'; HUD.hist(); p.style.display = show ? 'block' : 'none'; });
@@ -3139,7 +3205,7 @@ else {   // ★ 宿主模式：暴露给 HD-2D 页每帧调用；并自动初始
 
 /* 调试接口（可被 tl eval 调用） */
 window.SHOOTER = { P: P, Net: Net, Host: Host, Combat: Combat, Cam: Cam, Input: Input, Aim: Aim, Boss: BossSys, Homing: Homing, Perf: Perf, start: startGame, Sfx: Sfx, Music: Music, Voice: Voice, CamIntro: CamIntro, toggle3D: toggle3D, sync3DBtn: sync3DBtn, Build: Build,
-  build: function () { return BUILD; }, Ref: Ref, Cine: Cine,
+  build: function () { return BUILD; }, Ref: Ref, Cine: Cine, Stats: Stats,
   /* ★ 演示工具（拍宣传素材用，本地生成，不占网络） */
   demo: function (n, cx, cz, R) {
     n = n || 3; cx = cx || P.x + 5; cz = cz || P.z; R = R || 4;
