@@ -697,6 +697,7 @@ var Net = {
   tMob: function () { return this.base() + 'mob'; },
   tEv: function () { return this.base() + 'ev'; },
   tHost: function () { return this.base() + 'host'; },
+  tBoss: function () { return this.base() + 'boss'; },      // ★ Boss 权威快照（房主广播）
   tHist: function (k) { return this.base() + 'hist/' + k; },
   tHistAll: function () { return this.base() + 'hist/#'; },
 
@@ -739,6 +740,7 @@ var Net = {
       self.connected = true; self.connecting = false;
       self.status('在线 · ' + String(b || '').replace(/^wss:\/\//, '').split(':')[0]); self._downAt = 0;
       mq.subscribe(self.tMob()); mq.subscribe(self.tEv()); mq.subscribe(self.tHost()); mq.subscribe(self.base() + 'p/+');
+      mq.subscribe(self.tBoss());                          // ★ Boss 权威快照
       mq.subscribe(self.tHistAll());                       // ★ 历史事件大厅：一进来就补齐全部历史
       mq.subscribe(self.base() + 'blk/#');                 // ★ 共享建造：一进来就拿到全服已建好的所有方块
       mq.subscribe(self.base() + 'ref/' + self.id + '/+');  // ★ 我的邀请记录（分享领神器）
@@ -761,7 +763,7 @@ var Net = {
   status: function (t) { if (this.onStatus) this.onStatus(t, this.connected); },
   pub: function (t, s, r) { if (this.mq && this.connected) { try { this.mq.publish(t, s, !!r); } catch (e) {} } },
   broadcast: function (o) { this.pub(this.tEv(), JSON.stringify(o)); },
-  mobs: function (list) { if (this.isHost && this.connected) this.pub(this.tMob(), JSON.stringify({ id: this.id, at: Date.now(), m: list })); },
+  mobs: function (list) { if (this.isHost && this.connected) this.pub(this.tMob(), JSON.stringify({ id: this.id, at: Date.now(), h: (Host._hash | 0), m: list })); },
 
   sendState: function (p, extra) {
     if (!this.connected) return;
@@ -816,6 +818,12 @@ var Net = {
       if (o.id === this.id) return;
       this.snap = o; this.snapAt = now; this.snapHost = o.id;
       if (this.onMobs) this.onMobs(o.m || []);
+      // ★ 状态校验：我们展开出来的怪和房主发来的对不上 → 记下来（用于发现不同步）
+      if (o.h !== undefined && Host.mobs.length) {
+        var mine = 0;
+        for (var _i = 0; _i < Host.mobs.length; _i++) { var _m = Host.mobs[_i]; if (_m.alive && !_m.remote) continue; }
+        this._lastHash = o.h;
+      }
       return;
     }
     if (topic.indexOf(this.base() + 'p/') === 0) {
@@ -829,6 +837,10 @@ var Net = {
         yaw: o.yaw, hp: o.hp, maxHp: o.mx, wp: o.wp, score: o.sc, kills: o.kl, deaths: o.dt, alive: o.al, team: o.tm, _t: now, _rx: o.x, _rz: o.z }); }
       this.peers = this.players.size + 1;
       if (this.onPlayers) this.onPlayers();
+      return;
+    }
+    if (topic === this.tBoss()) {                                        // ★ Boss 快照
+      if (typeof BossSys !== 'undefined' && !BossSys.isAuth()) BossSys.applySnap(o && o.m ? o.m : []);
       return;
     }
     if (topic.indexOf(this.base() + 'ref/') === 0) {                     // ★ 邀请记录
@@ -902,6 +914,21 @@ var Net = {
       case 'die': this.pushFeed((o.byName || '?') + ' 击倒 ' + (o.mname || '魔物')); this.histPub({ k: 'kill', text: (o.byName || '?') + ' 击倒 ' + (o.mname || '魔物') }); if (this.onEvent) this.onEvent('die', o); break;
       case 'phit': if (o.to === this.id) Combat.takeDamage(o.dmg, o.name, 'player'); break;
       case 'pdie': this.pushFeed((o.byName || '?') + ' 击杀 ' + (o.victim || '?')); this.pushFeed2(o); this.histPub({ k: 'pkill', text: (o.byName || '?') + ' 击杀了 ' + (o.victim || '?') }); if (this.onEvent) this.onEvent('pdie', o); break;
+      // ★ 房主裁决的 Boss 伤害 → 只打指定玩家
+      case 'batk': if (o.to === this.id) { if (P.alive) Combat.takeDamage(o.dmg, o.name || 'Boss', 'boss'); } break;
+      // ★ Boss 技能特效（各端播同一套）
+      case 'bskill': {
+        var _b = null; for (var _i = 0; _i < BossSys.list.length; _i++) if (BossSys.list[_i].id === o.bid) { _b = BossSys.list[_i]; break; }
+        if (_b) {
+          if (o.kind === 'wave') { FX.blast(_b.x, _b.y + 2, _b.z, 14, 28, 0.5); Sfx.boom(); ScreenShake.add(0.9); HUD.feed(_b.name + ' 释放 冲击波'); }
+          else if (o.kind === 'summon') { HUD.feed(_b.name + ' 召唤 爪牙 x3'); Sfx.growl(110); }
+        }
+        break;
+      }
+      // ★ 弹幕出生（只同步"出生"，飞行各端自己算 → 流量≈0，视觉完全一致）
+      case 'pspawn': Proj.fireDir(o.x, o.y, o.z, o.dx, o.dy, o.dz, o.sp, o.dmg, true); break;
+      // ★ 玩家弹道（别人也能看到你开火）
+      case 'pshot': FX.tracerA(V3(o.x, o.y, o.z), V3(o.tx, o.ty, o.tz)); FX.muzzle(V3(o.x, o.y, o.z)); break;
       case 'voice': Voice.addMsg({ name: o.name || '旅人', data: o.data, ms: o.ms, text: o.text, mime: o.mime }); if (o.text) Voice.speak(o.text); else if (o.data) Voice.play(o.data, o.mime); break;
       case 'nade': if (o.to) { Grenade.spawnRemote(o.x, o.y, o.z); } break;
       case 'boom': Grenade.explodeRemote(o.x, o.y, o.z, o.r); break;
@@ -1023,7 +1050,10 @@ function updateHero(dt, t, camYawAz) {
 
 /* ============================== 刷怪 / 魔物模拟（Host） ============================== */
 var Host = {
-  mobs: [], nextId: 1, wave: 1, waveKills: 0, waveNeed: 12, maxAlive: 12, snapAcc: 0,
+  mobs: [], nextId: 1, wave: 1, waveKills: 0, waveNeed: 12, maxAlive: 20, snapAcc: 0,
+  SNAP_HZ: 5,          // ★ 快照降频 10Hz→5Hz（客户端有插值，看不出来，流量减半）
+  CULL_R: 90,          // ★ 只同步「任何玩家 90 格内」的怪
+  HARD_CAP: 40,        // ★ 同屏存活硬上限（防止刷爆把房间拖死）
   init: function () { if (SANDBOX) return; for (var i = 0; i < 9; i++) this.spawnAuto(true); },
   spawn: function (kind, x, z) {
     var def = MOBS[kind];
@@ -1046,7 +1076,7 @@ var Host = {
       Net.histPub({ k: 'kill', text: (byName || '?') + ' 击倒 ' + m.def.name });
       if (by === Net.id) { P.score += m.def.score; P.kills++; HUD.feed('击杀 ' + m.def.name + '  +' + m.def.score); Sfx.kill(); }
       this.waveKills++;
-      if (this.waveKills >= this.waveNeed) { this.waveKills = 0; this.wave++; this.waveNeed = 12 + this.wave * 4; this.maxAlive = Math.min(24, 12 + this.wave); HUD.center('第 ' + this.wave + ' 波', '魔物变强了'); Sfx.waveUp(); Net.histPub({ k: 'wave', text: '全服进入第 ' + this.wave + ' 波（魔物变强）' }); }
+      if (this.waveKills >= this.waveNeed) { this.waveKills = 0; this.wave++; this.waveNeed = 12 + this.wave * 4; this.maxAlive = Math.min(this.HARD_CAP, 12 + this.wave); HUD.center('第 ' + this.wave + ' 波', '魔物变强了'); Sfx.waveUp(); Net.histPub({ k: 'wave', text: '全服进入第 ' + this.wave + ' 波（魔物变强）' }); }
     }
   },
   update: function (dt, targets) {
@@ -1055,7 +1085,7 @@ var Host = {
     for (var i = 0; i < this.mobs.length; i++) {
       var m = this.mobs[i];
       if (!m.alive) {
-        if (now >= m.respawnAt && this.mobs.length <= this.maxAlive + 6) {
+        if (now >= m.respawnAt && this.mobs.length <= this.maxAlive + 6 && this.aliveCount() < this.HARD_CAP) {
           var s = G.pick(P.x, P.z, 20);
           m.x = s.x; m.z = s.z; m.homeX = s.x; m.homeZ = s.z; m.maxHp = m.hp = m.def.hp * (1 + (this.wave - 1) * 0.16);
           m.alive = true;
@@ -1113,7 +1143,24 @@ var Host = {
     m.kx = (m.kx || 0) + hx * imp * 5.2; m.kz = (m.kz || 0) + hz * imp * 5.2;
     m.slow = 0.35;
   },
-  snapshot: function () { var o = []; for (var i = 0; i < this.mobs.length; i++) { var m = this.mobs[i]; if (m.alive) o.push([m.id, MOB_KEYS.indexOf(m.kind), +m.x.toFixed(1), +m.z.toFixed(1), Math.round(m.hp), Math.round(m.maxHp)]); } return o; },
+  aliveCount: function () { var n = 0; for (var i = 0; i < this.mobs.length; i++) if (this.mobs[i].alive) n++; return n; },
+  // ★ 只同步"任何玩家附近"的怪（远处的不发），并带一个校验和用于发现不同步
+  snapshot: function () {
+    var pts = [{ x: P.x, z: P.z }];
+    Net.players.forEach(function (rp) { if (rp.alive) pts.push({ x: rp.x, z: rp.z }); });
+    var o = [], sum = 0, R = this.CULL_R * this.CULL_R;
+    for (var i = 0; i < this.mobs.length; i++) {
+      var m = this.mobs[i]; if (!m.alive) continue;
+      var near = false;
+      for (var j = 0; j < pts.length; j++) { var ddx = m.x - pts[j].x, ddz = m.z - pts[j].z; if (ddx * ddx + ddz * ddz < R) { near = true; break; } }
+      if (!near) continue;
+      var a = [m.id, MOB_KEYS.indexOf(m.kind), +m.x.toFixed(1), +m.z.toFixed(1), Math.round(m.hp), Math.round(m.maxHp)];
+      o.push(a);
+      sum = (sum + a[2] * 31 + a[3] * 17 + a[4]) | 0;                 // ★ 状态哈希（校验用）
+    }
+    this._hash = sum;
+    return o;
+  },
   applySnapshot: function (list) {
     var seen = {};
     for (var i = 0; i < list.length; i++) {
@@ -1189,34 +1236,48 @@ var BossSys = {
       if (this.active === b) this.active = null;
     }
   },
+  /* ★★ 权威分离 ★★
+     以前：每台设备各自跑 Boss 的 AI（技能还用 Math.random 抽），
+           结果"我这躲开了、他那边判定打中"——各看各的，根本不是一个 Boss。
+     现在：只有房主模拟；其他人收 10Hz 快照做插值 + 收事件播同一套特效。 */
+  isAuth: function () { return !Net.connected || Net.isHost; },
+
+  // 房主裁决伤害：自己吃 / 广播给指定玩家
+  hurtPlayer: function (pid, dmg, name) {
+    if (!pid) return;
+    if (pid === Net.id || !Net.connected) { if (P.alive) Combat.takeDamage(dmg, name || 'Boss', 'boss'); return; }
+    Net.broadcast({ k: 'batk', to: pid, dmg: dmg, name: name || 'Boss' });
+  },
+
+  pushSnap: function () {
+    if (!Net.isHost || !Net.connected) return;
+    var a = [];
+    for (var i = 0; i < this.list.length; i++) {
+      var b = this.list[i];
+      a.push([b.id, +b.x.toFixed(1), +b.z.toFixed(1), Math.round(b.hp), b.phase,
+              b.alive ? 1 : 0, b.spawned ? 1 : 0, (b.flash > 0) ? 1 : 0]);
+    }
+    Net.pub(Net.tBoss(), JSON.stringify({ m: a }), false);
+  },
+
+  applySnap: function (list) {
+    for (var i = 0; i < list.length; i++) {
+      var a = list[i], b = null;
+      for (var j = 0; j < this.list.length; j++) if (this.list[j].id === a[0]) { b = this.list[j]; break; }
+      if (!b) continue;
+      b.tx = a[1]; b.tz = a[2];
+      b.hp = a[3]; b.phase = a[4];
+      var was = b.alive;
+      b.alive = !!a[5]; b.spawned = !!a[6];
+      if (a[7]) b.flash = 0.1;
+      if (was && !b.alive) { FX.blast(b.x, b.y + 3, b.z, 16, 34, 0.7); Sfx.boom(); ScreenShake.add(1.0); }
+      if (!was && b.alive) { /* 别人那边激活了 */ }
+    }
+  },
+
   update: function (dt) {
     if (SANDBOX) return;
-    var now = performance.now(), px = P.x, pz = P.z;
-    for (var i = 0; i < this.list.length; i++) {
-      var b = this.list[i], d = Math.hypot(px - b.x, pz - b.z);
-      if (!b.spawned && b.alive && d < 30 && P.alive) this.activate(b);
-      if (!b.spawned || !b.alive) continue;
-      var def = b.def;
-      if (d > def.atkRange && d < 24) {
-        var sp2 = def.speed * (1 + (b.phase - 1) * 0.25);
-        var nx = b.x + (px - b.x) / d * sp2 * dt, nz = b.z + (pz - b.z) / d * sp2 * dt;
-        if (G.canStand(nx, b.z, b.y, 2.0)) b.x = nx;
-        if (G.canStand(b.x, nz, b.y, 2.0)) b.z = nz;
-      }
-      if (b.kx || b.kz) { var kxn2 = b.x + b.kx * dt, kzn2 = b.z + b.kz * dt; if (G.canStand(kxn2, b.z, b.y, 2.0)) b.x = kxn2; if (G.canStand(b.x, kzn2, b.y, 2.0)) b.z = kzn2; var dk2 = Math.exp(-dt * 6); b.kx *= dk2; b.kz *= dk2; }
-      b.y += (G.h(b.x, b.z) - b.y) * Math.min(1, dt * 5);
-      b.obj.position.set(b.x, b.y, b.z);
-      b.obj.rotation.y = billboardYaw(b.x, b.z);
-      b.sh.position.set(b.x, G.h(b.x, b.z) + 0.06, b.z);
-      if (b.flash > 0) { b.flash -= dt; b.mat.uniforms.uFlash.value = Math.max(0, b.flash / 0.1); }
-      if (d < def.atkRange + 1.5 && now - b.atkAt > def.atkCd * 1000) {
-        b.atkAt = now; if (P.alive) Combat.takeDamage(def.dmg, b.name, 'boss');
-        FX.imp(V3(px, P.y + 1, pz), true); Sfx.growl(60);
-      }
-      var cd = 5200 - (b.phase - 1) * 1200;
-      if (now - b.skillAt > cd) { b.skillAt = now; this.skill(b, d); }
-      if (this.active !== b && d < 50) this.active = b;
-    }
+    if (this.isAuth()) this.simAuth(dt); else this.simRemote(dt);
     var act = this.active, bar = $('bossBar');
     if (act && act.alive && act.spawned && Math.hypot(P.x - act.x, P.z - act.z) < 70) {
       bar.style.display = 'block';
@@ -1225,21 +1286,94 @@ var BossSys = {
       $('bossHpFill').style.width = clamp(act.hp / act.maxHp, 0, 1) * 100 + '%';
     } else bar.style.display = 'none';
   },
-  skill: function (b, d) {
-    var roll = Math.random();
+
+  // ---- 房主：完整模拟 ----
+  simAuth: function (dt) {
+    var now = performance.now();
+    for (var i = 0; i < this.list.length; i++) {
+      var b = this.list[i], d = Math.hypot(P.x - b.x, P.z - b.z);
+      if (!b.spawned && b.alive && d < 30 && P.alive) this.activate(b);
+      if (!b.spawned || !b.alive) continue;
+      var def = b.def;
+      // ★ 追最近的玩家（不只房主自己）
+      var tgt = { x: P.x, z: P.z, id: Net.id }, bd = d;
+      Net.players.forEach(function (rp) {
+        if (!rp.alive) return;
+        var dd = Math.hypot(rp.x - b.x, rp.z - b.z);
+        if (dd < bd) { bd = dd; tgt = { x: rp.x, z: rp.z, id: rp.id }; }
+      });
+      if (bd > def.atkRange && bd < 24) {
+        var sp2 = def.speed * (1 + (b.phase - 1) * 0.25);
+        var nx = b.x + (tgt.x - b.x) / bd * sp2 * dt, nz = b.z + (tgt.z - b.z) / bd * sp2 * dt;
+        if (G.canStand(nx, b.z, b.y, 2.0)) b.x = nx;
+        if (G.canStand(b.x, nz, b.y, 2.0)) b.z = nz;
+      }
+      if (b.kx || b.kz) { var kx2 = b.x + b.kx * dt, kz2 = b.z + b.kz * dt; if (G.canStand(kx2, b.z, b.y, 2.0)) b.x = kx2; if (G.canStand(b.x, kz2, b.y, 2.0)) b.z = kz2; var dk2 = Math.exp(-dt * 6); b.kx *= dk2; b.kz *= dk2; }
+      b.y += (G.h(b.x, b.z) - b.y) * Math.min(1, dt * 5);
+      b.obj.position.set(b.x, b.y, b.z);
+      b.obj.rotation.y = billboardYaw(b.x, b.z);
+      b.sh.position.set(b.x, G.h(b.x, b.z) + 0.06, b.z);
+      if (b.flash > 0) { b.flash -= dt; b.mat.uniforms.uFlash.value = Math.max(0, b.flash / 0.1); }
+      // ★ 攻击：房主裁决打谁
+      if (bd < def.atkRange + 1.5 && now - b.atkAt > def.atkCd * 1000) {
+        b.atkAt = now;
+        this.hurtPlayer(tgt.id, def.dmg, b.name);
+        FX.imp(V3(tgt.x, 1, tgt.z), true); Sfx.growl(60);
+      }
+      var cd = 5200 - (b.phase - 1) * 1200;
+      if (now - b.skillAt > cd) { b.skillAt = now; this.skill(b, tgt); }
+      if (this.active !== b && d < 50) this.active = b;
+    }
+    this._sa = (this._sa || 0) + dt;
+    if (this._sa > 0.1) { this._sa = 0; this.pushSnap(); }
+  },
+
+  // ---- 远端：只插值 + 复现 ----
+  simRemote: function (dt) {
+    var k = Math.min(1, dt * 10);
+    for (var i = 0; i < this.list.length; i++) {
+      var b = this.list[i];
+      if (b.tx !== undefined) { b.x += (b.tx - b.x) * k; b.z += (b.tz - b.z) * k; }
+      var vis = b.spawned && b.alive;
+      if (b.obj) b.obj.visible = vis;
+      if (b.sh) b.sh.visible = vis;
+      if (!vis) continue;
+      // 兜底：没收到快照前，先按本地地形放好
+      b.y += (G.h(b.x, b.z) - b.y) * Math.min(1, dt * 5);
+      b.obj.position.set(b.x, b.y, b.z);
+      b.obj.rotation.y = billboardYaw(b.x, b.z);
+      b.sh.position.set(b.x, G.h(b.x, b.z) + 0.06, b.z);
+      if (b.flash > 0) { b.flash -= dt; b.mat.uniforms.uFlash.value = Math.max(0, b.flash / 0.1); }
+      drawHp(b.hpS, clamp(b.hp / b.maxHp, 0, 1), b.name, '#ffd166');
+      var d = Math.hypot(P.x - b.x, P.z - b.z);
+      if (this.active !== b && d < 50) this.active = b;
+    }
+  },
+
+  skill: function (b, tgt) {
+    tgt = tgt || { x: P.x, z: P.z, id: Net.id };
+    var roll = Math.random(), R = b.def.atkRange + 4, self = this;
     if (roll < 0.34) {
+      // 冲击波：房主逐个裁决范围内玩家
       FX.blast(b.x, b.y + 2, b.z, 14, 28, 0.5); Sfx.boom(); ScreenShake.add(0.9);
-      var dd = Math.hypot(P.x - b.x, P.z - b.z);
-      if (dd < b.def.atkRange + 4 && P.alive) Combat.takeDamage(b.def.dmg * 0.8, b.name, 'boss');
+      if (Math.hypot(P.x - b.x, P.z - b.z) < R) this.hurtPlayer(Net.id, b.def.dmg * 0.8, b.name);
+      Net.players.forEach(function (rp) {
+        if (rp.alive && Math.hypot(rp.x - b.x, rp.z - b.z) < R) self.hurtPlayer(rp.id, b.def.dmg * 0.8, b.name);
+      });
       HUD.feed(b.name + ' 释放 冲击波');
+      if (Net.isHost && Net.connected) Net.broadcast({ k: 'bskill', bid: b.id, kind: 'wave' });
     } else if (roll < 0.68) {
       for (var i = 0; i < 3; i++) Host.spawn(MOB_KEYS[i % 3], b.x + rnd(-5, 5), b.z + rnd(-5, 5));
       HUD.feed(b.name + ' 召唤 爪牙 x3'); Sfx.growl(110);
+      if (Net.isHost && Net.connected) Net.broadcast({ k: 'bskill', bid: b.id, kind: 'summon' });
     } else {
       var n = 3 + (b.phase - 1) * 2;
+      var a0 = Math.atan2(tgt.x - b.x, tgt.z - b.z);
       for (var k = 0; k < n; k++) {
-        var a = Math.atan2(P.x - b.x, P.z - b.z) + (k - (n - 1) / 2) * 0.16;
-        Proj.fireDir(b.x, b.y + b.scale * 0.5, b.z, Math.sin(a), -0.08, Math.cos(a), 22, b.def.dmg * 0.5);
+        var a = a0 + (k - (n - 1) / 2) * 0.16;
+        // ★ 朝"被锁定的那个玩家"打；fireDir 会自动广播出生给所有人
+        Proj.fireDir(b.x, b.y + b.scale * 0.5, b.z, Math.sin(a), -0.08, Math.cos(a), 22,
+                     b.def.dmg * 0.5, false, tgt.id);
       }
       HUD.feed(b.name + ' 发射 能量弹幕'); Sfx.tick(880, 0.09, 0.1, 'sine');
     }
@@ -1258,16 +1392,28 @@ var Proj = {
     s.scale.set(0.7, 0.7, 1); actionScene.add(s);
     return s;   // ★ 不再建动态点光（弹幕一多会让所有 PBR 材质每帧循环几十盏灯 → 掉到 1fps）
   },
-  fireDir: function (x, y, z, dx, dy, dz, sp, dmg) {
+  // ★ 只同步"出生"（起点/方向/速度），飞行各端自己算 → 视觉一致、流量≈0
+  fireDir: function (x, y, z, dx, dy, dz, sp, dmg, noSync, aimId) {
     sp = sp || 22;
     var dd = Math.hypot(dx, dy, dz) || 1;
-    this.list.push({ x: x, y: y, z: z, vx: dx / dd * sp, vy: dy / dd * sp, vz: dz / dd * sp, life: 3.5, o: this.mk(), dmg: dmg || MOBS.wraith.dmg });
+    this.list.push({ x: x, y: y, z: z, vx: dx / dd * sp, vy: dy / dd * sp, vz: dz / dd * sp,
+                     life: 3.5, o: this.mk(), dmg: dmg || MOBS.wraith.dmg, toId: aimId || null });
+    if (!noSync && Net.isHost && Net.connected) {
+      Net.broadcast({ k: 'pspawn', x: +x.toFixed(1), y: +y.toFixed(1), z: +z.toFixed(1),
+        dx: +(dx / dd).toFixed(3), dy: +(dy / dd).toFixed(3), dz: +(dz / dd).toFixed(3),
+        sp: sp, dmg: Math.round(dmg || MOBS.wraith.dmg) });
+    }
   },
   fire: function (m, tgt) {
     var sx = m.x, sy = m.y + 0.5, sz = m.z, tx = tgt.x, ty = tgt.y + 1.1, tz = tgt.z;
     var dx = tx - sx, dy = ty - sy, dz = tz - sz, d = Math.hypot(dx, dy, dz) || 1, sp = 22;
     this.list.push({ x: sx, y: sy, z: sz, vx: dx / d * sp, vy: dy / d * sp, vz: dz / d * sp, life: 3, o: this.mk(), toId: tgt.id });
     Sfx.tick(880, 0.08, 0.08, 'sine');
+    // ★ 怪物的远程弹也要同步出生，否则别人只挨打、看不到子弹
+    if (Net.isHost && Net.connected) {
+      Net.broadcast({ k: 'pspawn', x: +sx.toFixed(1), y: +sy.toFixed(1), z: +sz.toFixed(1),
+        dx: +(dx / d).toFixed(3), dy: +(dy / d).toFixed(3), dz: +(dz / d).toFixed(3), sp: sp, dmg: Math.round(MOBS.wraith.dmg) });
+    }
   },
   update: function (dt) {
     for (var i = this.list.length - 1; i >= 0; i--) {
@@ -1275,8 +1421,11 @@ var Proj = {
       if (Math.random() < 0.15) FX.glowAt(p.o.position, 0.6, 0.18, 0x8fd8ff);   // 能量球拖尾
       var dead = p.life <= 0;
       if (!dead && p.y <= G.h(p.x, p.z) + 0.05) { FX.imp(V3(p.x, p.y, p.z), false); dead = true; }
-      if (!dead && p.toId === Net.id && P.alive && Math.hypot(p.x - P.x, p.y - (P.y + 1.0), p.z - P.z) < 1.25) { Combat.takeDamage(MOBS.wraith.dmg, MOBS.wraith.name, 'mob'); FX.imp(V3(p.x, p.y, p.z), false); dead = true; }
-      if (!dead) Net.players.forEach(function (rp) { if (dead || !rp.alive) return; if (Math.hypot(p.x - rp.x, p.y - (rp.y + 1.0), p.z - rp.z) < 1.25) { Net.broadcast({ k: 'mhit', to: rp.id, dmg: MOBS.wraith.dmg, name: MOBS.wraith.name }); FX.imp(V3(p.x, p.y, p.z), false); dead = true; } });
+      var auth = (!Net.connected || Net.isHost);      // ★ 只有房主做命中裁决
+      if (auth) {
+        if (!dead && p.toId === Net.id && P.alive && Math.hypot(p.x - P.x, p.y - (P.y + 1.0), p.z - P.z) < 1.25) { Combat.takeDamage(p.dmg || MOBS.wraith.dmg, MOBS.wraith.name, 'mob'); FX.imp(V3(p.x, p.y, p.z), false); dead = true; }
+        if (!dead && Net.connected) Net.players.forEach(function (rp) { if (dead || !rp.alive) return; if (Math.hypot(p.x - rp.x, p.y - (rp.y + 1.0), p.z - rp.z) < 1.25) { Net.broadcast({ k: 'mhit', to: rp.id, dmg: p.dmg || MOBS.wraith.dmg, name: MOBS.wraith.name }); FX.imp(V3(p.x, p.y, p.z), false); dead = true; } });
+      }
       if (dead) { try { actionScene.remove(p.o); } catch (e) {} this.list.splice(i, 1); }
     }
     if (this.list.length > 120) { while (this.list.length > 100) { var _q = this.list.shift(); try { actionScene.remove(_q.o); } catch (e) {} } }   // ★ 超量强制回收
@@ -1412,6 +1561,8 @@ var Combat = {
       } else FX.imp(hp, false);
     }
     FX.muzzle(muzzle); FX.shellOut(muzzle, right);
+    if (Net.connected) Net.broadcast({ k: 'pshot', x: +muzzle.x.toFixed(1), y: +muzzle.y.toFixed(1), z: +muzzle.z.toFixed(1),
+      tx: +hp.x.toFixed(1), ty: +hp.y.toFixed(1), tz: +hp.z.toFixed(1) });
     Recoil.p += w.recoil * 0.0062;                       // ★ 后坐力：枪口上抬（打巨物时视觉上相对小）
     Recoil.y += rnd(-1, 1) * w.recoil * 0.0026;
     Recoil.p = Math.min(Recoil.p, 0.42); Recoil.y = clamp(Recoil.y, -0.26, 0.26);
@@ -2193,7 +2344,7 @@ function loopBody(dt, now) {
   var targets = [{ id: Net.id, x: P.x, z: P.z, y: P.y, hp: P.alive ? P.hp : 0 }];
   Net.players.forEach(function (rp) { if (rp.alive) targets.push({ id: rp.id, x: rp.x, z: rp.z, y: rp.y, hp: rp.hp }); });
   if (Net.isHost || !Net.connected) Host.update(dt, targets); else Host.interp(dt);
-  if (Net.isHost && Net.connected) { Host.snapAcc = (Host.snapAcc || 0) + dt; if (Host.snapAcc > 0.1) { Host.snapAcc = 0; Net.mobs(Host.snapshot()); } }
+  if (Net.isHost && Net.connected) { Host.snapAcc = (Host.snapAcc || 0) + dt; if (Host.snapAcc > 1 / Host.SNAP_HZ) { Host.snapAcc = 0; Net.mobs(Host.snapshot()); } }
 
   A.update(dt, cam().position);
   BossSys.update(dt);
@@ -2595,6 +2746,19 @@ var CamIntro = {
   },
 };
 
+/* ★ 统一切换玩法：沙盒（安心建造）/ 战斗（刷怪 · Boss · 可 PVP） */
+function setMode(sandbox) {
+  SANDBOX = !!sandbox;
+  save('tl_sandbox', SANDBOX ? '1' : '0');
+  applySandbox();
+  var bs = $('bSandbox'), bf = $('bFight'), mc = $('modeChip');
+  if (bs) bs.className = SANDBOX ? 'on' : '';
+  if (bf) bf.className = SANDBOX ? '' : 'on';
+  if (mc) { mc.textContent = SANDBOX ? '🧱 沙盒' : '⚔ 战斗'; mc.className = 'chip' + (SANDBOX ? '' : ' on'); }
+  HUD.center(SANDBOX ? '🧱 沙盒模式' : '⚔ 战斗模式',
+    SANDBOX ? '不刷怪 · 不互伤 · 安心探索建造' : '刷怪 · Boss · 可 PVP', 2200);
+  Sfx.ui();
+}
 function sync3DBtn() {
   var n = (A.getCamMode() === 'persp') ? 'on' : '';
   var b = $('b3D'); if (b) b.className = n;
@@ -2671,14 +2835,9 @@ function bindUI() {
   _on('bk_crystal', 'click', function () { Build.setKind('crystal'); });
   _on('bk_del', 'click', function () { Build.setMode(Build.mode === 'del' ? 'place' : 'del'); });
   _on('bk_close', 'click', function () { if (Build.on) Build.toggle(); });
-  _on('bSandbox', 'click', function () {
-    SANDBOX = !SANDBOX; save('tl_sandbox', SANDBOX ? '1' : '0');
-    applySandbox();
-    this.textContent = SANDBOX ? '模式:沙盒' : '模式:战斗';
-    this.className = SANDBOX ? 'on' : '';
-    HUD.center(SANDBOX ? '沙盒模式' : '战斗模式', SANDBOX ? '不刷怪 · 安心探索建造' : '刷怪 · Boss · 可 PVP', 2000);
-    Sfx.ui();
-  });
+  _on('bSandbox', 'click', function () { setMode(true); });
+  _on('bFight', 'click', function () { setMode(false); });
+  _on('modeChip', 'click', function () { setMode(!SANDBOX); });
   (function bindBuild() {
     var cv = document.getElementById('cv'); if (!cv) return;
     var dn = null;
@@ -2832,7 +2991,9 @@ function restorePrefs() {
   Aim.mode3d = load('tl_aim', '3d') !== '2d';
   Cam.autoAim = load('tl_assist', '0') === '1';
   SANDBOX = load('tl_sandbox', '1') !== '0';
-  if ($('bSandbox')) { $('bSandbox').textContent = SANDBOX ? '模式:沙盒' : '模式:战斗'; $('bSandbox').className = SANDBOX ? 'on' : ''; }
+  if ($('bSandbox')) $('bSandbox').className = SANDBOX ? 'on' : '';
+  if ($('bFight')) $('bFight').className = SANDBOX ? '' : 'on';
+  if ($('modeChip')) { $('modeChip').textContent = SANDBOX ? '🧱 沙盒' : '⚔ 战斗'; $('modeChip').className = 'chip' + (SANDBOX ? '' : ' on'); }
   Sfx.on = load('tl_sfx', '1') !== '0';
   Voice.muted = load('tl_mic', '1') === '0';
   if ($('bMic')) { $('bMic').textContent = '麦克风:' + (Voice.muted ? '关' : '开'); $('bMic').className = Voice.muted ? '' : 'on'; }
