@@ -132,6 +132,9 @@
   /* ★ 关键：body 上的 touch-action:none 会禁掉 range 滑条的触摸拖动 → 单独放开 */
   input[type=range]{touch-action:auto !important;pointer-events:auto !important;-webkit-appearance:auto;appearance:auto}
 
+  #treePanel .thead{display:flex;justify-content:space-between;align-items:center;
+    font-size:12px;color:#c084fc;letter-spacing:3px;padding:2px 4px 6px;border-bottom:1px solid rgba(168,85,247,.25);margin-bottom:4px}
+  #treePanel .thead span{cursor:pointer;color:#a78bfa;font-size:15px;padding:0 4px}
   /* ★ 极简 HUD：根目录式树菜单 */
   #treePanel{position:absolute;right:12px;top:52px;z-index:25;display:none;background:rgba(8,6,18,.95);border:1px solid var(--line);border-radius:12px;padding:8px 10px;min-width:196px;box-shadow:0 10px 34px rgba(0,0,0,.6);
     max-height:62vh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
@@ -170,10 +173,38 @@
   #buildBar .sep{width:1px;height:22px;background:rgba(168,85,247,.35);margin:0 3px}
   #buildBar .hint{font-size:11px;color:#8b7cb0;padding:0 4px}
 
+
+  /* ★ 二维码弹窗 */
+  #qrPanel{position:absolute;inset:0;z-index:40;display:none;align-items:center;justify-content:center;
+    background:rgba(3,3,8,.86);backdrop-filter:blur(3px)}
+  #qrPanel .qrbox{background:rgba(12,8,26,.98);border:1px solid var(--line);border-radius:16px;
+    padding:18px 20px;text-align:center;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.8)}
+  #qrPanel h3{margin:0 0 12px;font-size:15px;letter-spacing:3px;color:#e9d5ff}
+  #qrPanel .qrurl{word-break:break-all;font-size:11px;color:#7c6fa8;margin:10px 0 12px;
+    font-family:ui-monospace,Menlo,monospace;line-height:1.6;max-width:min(80vw,380px)}
+  #qrPanel .qbtns{display:flex;gap:9px;justify-content:center}
+  #qrPanel .qbtns button{background:rgba(30,20,50,.85);color:#e8e0f0;border:1px solid rgba(168,85,247,.4);
+    border-radius:9px;padding:9px 16px;font-size:13px;font-family:inherit}
+  #qrPanel .qrtip{margin-top:12px;font-size:11.5px;color:#8b7cb0;line-height:1.7}
+
 </style></head><body>
 <canvas id="cv"></canvas>
 
 <div class="hud">
+  <!-- ★ 二维码弹窗（链接转码，可长按保存 / 截图发群） -->
+  <div id="qrPanel">
+    <div class="qrbox">
+      <h3>扫码进游戏</h3>
+      <div id="qrImg"></div>
+      <div class="qrurl" id="qrUrl"></div>
+      <div class="qbtns">
+        <button id="qrCopy">📋 复制链接</button>
+        <button id="qrClose">关闭</button>
+      </div>
+      <div class="qrtip">长按二维码可保存 · 截图发群也行<br>对方扫码 → 直接进这个世界，不用输房间号</div>
+    </div>
+  </div>
+
   <!-- ★ 一次性 3D 引导（点过就永久消失） -->
   <div id="coach3d"><span class="arw"></span>点这里转视角 · 3D 模式</div>
 
@@ -198,6 +229,7 @@
 
   <!-- ★ 根目录式菜单：默认只有右上 4 个图标，点 ☰ 才像树一样展开 -->
   <div id="treePanel">
+    <div class="thead">菜 单 <span id="treeClose">✕</span></div>
     <div class="tgrp">声 音</div>
     <div class="tleaf"><button id="bMusic" class="on">音乐:开</button><button id="bSfx" class="on">音效:开</button><button id="bMic" class="on">麦克风:开</button></div>
     <div class="tgrp">显 示</div>
@@ -209,7 +241,7 @@
     <div class="tgrp">玩 法</div>
     <div class="tleaf"><button id="bSandbox" class="on">模式:沙盒</button></div>
     <div class="tgrp">世 界</div>
-    <div class="tleaf"><button id="bBoard">战况</button><button id="bHist">历史</button><button id="bInv">邀请</button></div>
+    <div class="tleaf"><button id="bBoard">战况</button><button id="bHist">历史</button><button id="bInv">邀请</button><button id="bShare">分享(0)</button></div>
     <div class="tgrp">其 它</div>
     <div class="tleaf"><a href="hub.html" style="text-decoration:none"><button>🏠 联机中枢 / 下载</button></a></div>
     <div class="tgrp">帮 助</div>
@@ -317,15 +349,16 @@
   </div>
 </div></div>
 
-<script src="js/vendor/three.min.js?v=1791848485"></script>
-<script src="js/tiles.js?v=1791848485"></script>
+<script src="js/vendor/three.min.js?v=1791850403"></script>
+<script src="js/tiles.js?v=1791850403"></script>
 <script src="assets3d/tree_green.js?v=V1"></script>
 <script src="assets3d/tree_sakura.js?v=V1"></script>
-<script src="js/arena3d.js?v=1791848485"></script>
-<script src="js/tileworld3d.js?v=1791848485"></script>
-<script src="js/mqtt.js?v=1791848485"></script>
-<script src="js/shooter.js?v=1791848485"></script>
-<script src="js/kernel.js?v=1791848485"></script>
+<script src="js/arena3d.js?v=1791850403"></script>
+<script src="js/tileworld3d.js?v=1791850403"></script>
+<script src="js/vendor/qrcode.js?v=1791850403"></script>
+<script src="js/mqtt.js?v=1791850403"></script>
+<script src="js/shooter.js?v=1791850403"></script>
+<script src="js/kernel.js?v=1791850403"></script>
 
 <div id="diag" style="display:none;position:fixed;left:4px;top:4px;z-index:99999;background:rgba(0,0,0,.78);color:#4f4;font:10px/1.35 monospace;padding:3px 6px;border-radius:4px;pointer-events:none;white-space:pre;max-width:96vw"></div>
 <script>

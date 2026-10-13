@@ -369,6 +369,8 @@ var WEAPONS = [
   { id: 'missile', name: '极速导弹',     short: '导弹', dmg: 130, rpm: 66, mag: 3,  reserve: 12,  reload: 3.6, spread: 0, moveSpread: 0, auto: false, pellets: 1, range: 500, recoil: 1.8, knock: 2.0, sfx: 'sniper', ads: 0.6, hip: 3.8, color: 0xff5f6d },
   { id: 'minigun', name: '重型机炮',     short: '机炮', dmg: 9,   rpm: 1150, mag: 600, reserve: 3000, reload: 5.0, spread: 0.021, moveSpread: 0.03, auto: true, pellets: 1, range: 130, recoil: 0.32, knock: 0.5, sfx: 'smg', ads: 0.85, hip: 3.6, color: 0xffd166 },
   { id: 'gl',      name: '榴弹炮',       short: '榴弹', dmg: 110, rpm: 68, mag: 6,   reserve: 30,  reload: 3.2, spread: 0.004, moveSpread: 0.02, auto: false, pellets: 1, range: 190, recoil: 2.4, knock: 1.5, sfx: 'shotgun', ads: 0.7, hip: 3.5, color: 0xff9a3d, aoe: 6.0 },
+  // ★ 神器：分享 3 个好友解锁（req = 需要邀请人数）
+  { id: 'relic',   name: '天泪 · 虚空之刃', short: '神器', dmg: 96, rpm: 200, mag: 24, reserve: 240, reload: 1.5, spread: 0, moveSpread: 0.01, auto: true, pellets: 1, range: 220, recoil: 0.5, knock: 3.0, sfx: 'sniper', ads: 0.30, hip: 3.4, color: 0x22d3ee, req: 3, secret: true },
 ];
 var WMAP = {}; WEAPONS.forEach(function (w, i) { WMAP[w.id] = w; w.index = i; });
 
@@ -711,17 +713,18 @@ var Net = {
       var n = (q.get('n') || q.get('name') || '').trim();
       if (r) this.room = r.replace(/[^0-9A-Za-z_\u4e00-\u9fa5-]/g, '').slice(0, 24) || GLOBAL_ROOM;
       if (n) this.name = n.slice(0, 16);
-      this.inv = (q.get('inv') || q.get('from') || '').trim().slice(0, 24);
+      this.inv = (q.get('inv') || q.get('from') || '').trim().slice(0, 24);   // 邀请人的 id
       if (q.has('room') || q.has('r') || q.has('auto')) this.fromLink = true;   // 点了分发链接 → 直接进
     } catch (e) {}
     if (!this.id) this.id = 'f' + Math.random().toString(36).slice(2, 8);
-    if (!this.name) this.name = '旅人' + Math.floor(100 + Math.random() * 900);
+    if (!this.name || this.name === '旅人') this.name = '旅人' + Math.floor(100 + Math.random() * 900);
     this.save();
   },
   // 生成分发链接：任何人拿到都能点开直接进同一个世界
   inviteLink: function () {
-    var u = publicEntry() + '?room=' + encodeURIComponent(this.room);
-    if (this.name) u += '&inv=' + encodeURIComponent(this.name);
+    // ★ 用 id（稳定）而不是名字来标记"是谁邀请的"，否则改名就断链
+    var u = publicEntry() + '?room=' + encodeURIComponent(this.room) + '&inv=' + encodeURIComponent(this.id);
+    if (this.name) u += '&n=' + encodeURIComponent(this.name);
     return u;
   },
   save: function () { try { localStorage.setItem('tianlei_fps', JSON.stringify({ name: this.name, room: this.room, id: this.id })); } catch (e) {} },
@@ -738,7 +741,9 @@ var Net = {
       mq.subscribe(self.tMob()); mq.subscribe(self.tEv()); mq.subscribe(self.tHost()); mq.subscribe(self.base() + 'p/+');
       mq.subscribe(self.tHistAll());                       // ★ 历史事件大厅：一进来就补齐全部历史
       mq.subscribe(self.base() + 'blk/#');                 // ★ 共享建造：一进来就拿到全服已建好的所有方块
+      mq.subscribe(self.base() + 'ref/' + self.id + '/+');  // ★ 我的邀请记录（分享领神器）
       self.broadcast({ k: 'join', name: self.name, inv: self.inv });
+      Ref.report();                                        // ★ 记一次邀请（谁带我来的）
       self.startHost();
       if (!self._cleanTimer) self._cleanTimer = setInterval(function () { self.clean(); }, 1500);
       if (!self._pingAt) self._pingAt = performance.now();
@@ -826,6 +831,10 @@ var Net = {
       if (this.onPlayers) this.onPlayers();
       return;
     }
+    if (topic.indexOf(this.base() + 'ref/') === 0) {                     // ★ 邀请记录
+      Ref.add(topic.slice((this.base() + 'ref/').length));
+      return;
+    }
     if (topic.indexOf(this.base() + 'blk/') === 0) {                     // ★ 共享建造同步
       var bk = topic.slice((this.base() + 'blk/').length);
       Build.apply(bk, o);
@@ -843,7 +852,7 @@ var Net = {
     o.hid = hid; o.room = this.room;
     this.hist.push(o);
     this.hist.sort(function (a, b) { return (a.at || 0) - (b.at || 0); });
-    while (this.hist.length > 400) { delete this._seen[this.hist.shift().hid]; }
+    while (this.hist.length > 800) { delete this._seen[this.hist.shift().hid]; }
     if (this.onHist) this.onHist();
   },
   // 记一条历史（只有房主写，避免多端重复；retain=true → broker 永久保存）
@@ -859,15 +868,24 @@ var Net = {
       if (this._histN % 12 === 0) this.trimHist();
     } catch (e) {}
   },
-  // broker 上的历史不会自己消失 → 定期删太老的（发空载荷 + retain 即清除）
+  // broker 上的历史不会自己消失 → 定期清理。
+  // ★ 关键：先淘汰「进入了世界」这类噪音，把击杀/Boss/波次/建房这些真正的事件留住，
+  //    否则人一多，大厅会被"XXX 进入了世界"刷屏，重要记录全被挤掉。
   trimHist: function () {
     if (!this.connected) return;
-    var cut = this.hist.slice(0, Math.max(0, this.hist.length - 200));
-    for (var i = 0; i < cut.length; i++) {
-      var h = cut[i]; if (!h.hid) continue;
-      try { this.pub(this.tHist(h.hid), '', true); delete this._seen[h.hid]; } catch (e) {}
+    var KEEP = 400;
+    if (this.hist.length <= KEEP) return;
+    var noise = [], keep = [];
+    for (var i = 0; i < this.hist.length; i++) {
+      var h = this.hist[i];
+      (h.k === 'join' ? noise : keep).push(h);
     }
-    this.hist = this.hist.slice(-200);
+    var over = this.hist.length - KEEP;
+    var drop = noise.slice(0, Math.min(over, noise.length));       // 先删噪音
+    if (drop.length < over) drop = drop.concat(keep.slice(0, over - drop.length));   // 不够再删老的正常记录
+    var dropSet = {};
+    for (var j = 0; j < drop.length; j++) { dropSet[drop[j].hid] = 1; if (drop[j].hid) { try { this.pub(this.tHist(drop[j].hid), '', true); delete this._seen[drop[j].hid]; } catch (e) {} } }
+    this.hist = this.hist.filter(function (h) { return !dropSet[h.hid]; });
     if (this.onHist) this.onHist();
   },
 
@@ -1404,8 +1422,23 @@ var Combat = {
   },
   reload: function () { var w = WMAP[P.weapon]; if (P.reloading > 0 || P.ammo[w.id] >= w.mag || P.reserve[w.id] <= 0 || !P.alive) return; P.reloading = w.reload; Sfx.reload(); HUD.ammo(); },
   finishReload: function () { var w = WMAP[P.weapon], need = w.mag - P.ammo[w.id], got = Math.min(need, P.reserve[w.id]); P.ammo[w.id] += got; P.reserve[w.id] -= got; HUD.ammo(); },
-  switchTo: function (i) { var w = WEAPONS[i]; if (!w || w.id === P.weapon) return; P.weapon = w.id; P.reloading = 0; P.fireCd = Math.max(P.fireCd, 0.25); P.ads = false; HUD.weapon(); Sfx.tick(600, 0.04, 0.1); },
-  next: function () { this.switchTo((WMAP[P.weapon].index + 1) % WEAPONS.length); },
+  canUse: function (w) { return !w || !w.req || Ref.count() >= w.req; },
+  switchTo: function (i) {
+    var w = WEAPONS[i];
+    if (!w || w.id === P.weapon) return;
+    if (!this.canUse(w)) {                                    // ★ 未解锁 → 提示怎么拿
+      HUD.center('🔒 ' + w.name, '邀请 ' + w.req + ' 位好友即可解锁（当前 ' + Ref.count() + '/' + w.req + '）', 2400);
+      Sfx.deny(); return;
+    }
+    P.weapon = w.id; P.reloading = 0; P.fireCd = Math.max(P.fireCd, 0.25); P.ads = false; HUD.weapon(); Sfx.tick(600, 0.04, 0.1);
+  },
+  next: function () {
+    var i = WMAP[P.weapon].index, n = WEAPONS.length;
+    for (var k = 1; k <= n; k++) {
+      var j = (i + k) % n;
+      if (this.canUse(WEAPONS[j])) { this.switchTo(j); return; }
+    }
+  },
   takeDamage: function (dmg, fromName, kind) {
     if (!P.alive) return;
     if (P.armor > 0) { var a = Math.min(P.armor, dmg * 0.6); P.armor -= a; dmg -= a; }
@@ -1621,7 +1654,7 @@ function bindInput() {
     if (k === 'g') Input.nade = true;
     if (k === ' ') Input.jump = true;
     if (k === 'e') Input.ads = !Input.ads;
-    if (k >= '1' && k <= '7') Combat.switchTo(parseInt(k, 10) - 1);
+    if (k >= '1' && k <= '8') Combat.switchTo(parseInt(k, 10) - 1);
     if (k === 'q') Combat.next();
     if (k === 'v') cycleCam();
     if (k === 'x') toggleAim();
@@ -1877,9 +1910,11 @@ var HUD = {
     el.innerHTML = P.reloading > 0 ? '换弹' : (P.ammo[w.id] + '<small> / ' + P.reserve[w.id] + '</small>');
     $('gunName').textContent = w.name;
     var wl = $('wlist'); wl.innerHTML = '';
+    var shown = 0;
     WEAPONS.forEach(function (ww, i) {
+      if (!Combat.canUse(ww)) return;                            // ★ 未解锁的不显示
       var d = document.createElement('div'); d.className = 'w' + (ww.id === P.weapon ? ' on' : '');
-      d.textContent = (i + 1) + ' ' + ww.short; wl.appendChild(d);
+      d.textContent = (i + 1) + ' ' + ww.short; wl.appendChild(d); shown++;
     });
   },
   weapon: function () { this.ammo(); },
@@ -1951,10 +1986,27 @@ var HUD = {
   },
   invite: function () {
     var u = Net.inviteLink();
-    var ok = function () { HUD.center('邀请链接已复制', '发给好友 · 点开直接进这个服', 2400); };
-    try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(u).then(ok, function () { HUD.promptLink(u); }); return; } } catch (e) {}
-    HUD.promptLink(u);
+    HUD.qr(u);                                   // ★ 先弹二维码（更好扩散）
+    var ok = function () { HUD.center('邀请链接已复制', '也可以让朋友直接扫码', 2400); };
+    try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(u).then(ok, function () {}); return; } } catch (e) {}
   },
+  /* ★ 二维码弹窗：链接转二维码，可长按保存 / 截图发群（微信里发链接会被折叠，发图不会） */
+  qr: function (url) {
+    var p = $('qrPanel'); if (!p) return;
+    $('qrUrl').textContent = url;
+    var box = $('qrImg');
+    try {
+      if (typeof qrcode !== 'undefined') {
+        var q = qrcode(0, 'M');               // 0 = 自动选版本，M = 15% 纠错
+        q.addData(url); q.make();
+        box.innerHTML = '<img src="' + q.createDataURL(7, 2) + '" style="width:min(56vw,220px);image-rendering:pixelated;background:#fff;padding:9px;border-radius:10px">';
+      } else {
+        box.textContent = '二维码库未加载，请复制下面的链接';
+      }
+    } catch (e) { box.textContent = '生成失败：' + (e.message || e); }
+    p.style.display = 'flex';
+  },
+  qrHide: function () { var p = $('qrPanel'); if (p) p.style.display = 'none'; },
   promptLink: function (u) { try { window.prompt('邀请链接（复制发给好友，点开直接进服）', u); } catch (e) {} },
   tip3D: function () {
     if (load('tl_3d_tip', '') === '1') return;      // 点过就永不再提示
@@ -2232,6 +2284,48 @@ function applySandbox() {
   } catch (e) { window.__sbErr = String((e && e.message) || e); }
 }
 
+/* ============================== ★ 分享领神器（邀请追踪） ==============================
+   原理：我生成邀请链接 → 好友点开进来 → 我用 retain 记一条 ref/<我的id>/<好友id>。
+        retain 天然去重（同一好友重复点不重复计数），换设备也还在。
+   里程碑：3 人 → 解锁神器「天泪·虚空之刃」。
+   ⚠️ 诚实说明：全部在客户端，认真的人用无痕窗口也能刷。但刷的成本 ≈ 真分享的成本，
+      对小规模游戏够用；真要防刷需要服务端账号体系。
+   ============================================================================ */
+var Ref = {
+  invited: {},              // 好友id -> 1
+  need: 3,
+  count: function () { var n = 0; for (var k in this.invited) n++; return n; },
+  add: function (k) {
+    if (!k) return;
+    var parts = k.split('/'), who = parts[parts.length - 1];
+    if (!who || who === Net.id) return;                    // 不能自己邀请自己
+    if (this.invited[who]) return;
+    var before = this.count();
+    this.invited[who] = 1;
+    if (this.count() > before) this.refresh(true);
+  },
+  report: function () {
+    var inv = Net.inv;
+    if (!inv || inv === Net.id) return;                    // 没邀请人 / 自己点自己 → 不记
+    if (!Net.connected) return;
+    try {
+      Net.pub(Net.base() + 'ref/' + inv + '/' + Net.id, JSON.stringify({ name: Net.name, at: Date.now() }), true);
+    } catch (e) {}
+  },
+  refresh: function (silent) {
+    var n = this.count(), need = this.need;
+    var el = $('bShare'); if (el) el.textContent = '分享(' + n + ')';
+    if (!silent) return;
+    if (n >= need) {
+      HUD.center('🎉 神器已解锁！', '按 8 或滚轮切出「天泪·虚空之刃」', 4200);
+      Sfx.waveUp(); Net.histPub({ k: 'relic', text: Net.name + ' 集齐 ' + need + ' 位好友，唤醒了虚空之刃！' });
+    } else {
+      HUD.center('好友 +1（' + n + '/' + need + '）', '再来 ' + (need - n) + ' 位就能解锁神器', 2600);
+      Sfx.kill();
+    }
+  },
+};
+
 /* ============================== ★ 共享建造（沙盒核心玩法） ==============================
    设计：一格建筑 = 一条 retained 消息，主题 base()+'blk/<x>_<y>'。
         · retain=true → broker 替你永久存着，任何人进来订阅 blk/# 就拿到"全服已建好的一切"
@@ -2404,6 +2498,8 @@ function startGame() {
   var _pn = (($('inName') && $('inName').value) || '').trim();
   var _pr = (($('inRoom') && $('inRoom').value) || '').trim();
   Net.name = _pn || Net.name || ('旅人' + Math.floor(100 + Math.random() * 900));
+  if (Net.name === '旅人') Net.name = '旅人' + Math.floor(100 + Math.random() * 900);   // ★ 空昵称自动加尾号，避免全场重名
+  if ($('inName')) $('inName').value = Net.name;
   Net.room = _pr || Net.room || GLOBAL_ROOM;
   Net.save();
   $('startPanel').style.display = 'none';
@@ -2530,7 +2626,7 @@ function bindUI() {
     b.addEventListener('mouseup', up);
     b.addEventListener('mouseleave', function () { if (Voice.rec && Voice.rec.state === 'recording') Voice.stop(); });
   })();
-  _on('bBuild', 'click', function () { Build.toggle(); });
+  _on('bBuild', 'click', function () { var p = $('treePanel'); if (p) p.style.display = 'none'; Build.toggle(); });
   _on('bKind', 'click', function () { Build.cycleKind(); });
   _on('bk_crate', 'click', function () { Build.setKind('crate'); });
   _on('bk_wall', 'click', function () { Build.setKind('wall'); });
@@ -2567,7 +2663,36 @@ function bindUI() {
     this.textContent = BUILD;
   });
   _on('b3D', 'click', toggle3D);
-  _on('bRoot', 'click', function () { var p = $('treePanel'); if (!p) return; var on = p.style.display !== 'block'; p.style.display = on ? 'block' : 'none'; if (on) Sfx.ui(); });
+  // ★ 关键修复：面板必须开在 ☰ 按钮"下方"，而不是写死 top:52px。
+  //   顶栏按钮一多就会换行，☰ 掉到第二行时，写死的面板正好盖住它 → 展开后关不掉。
+  function openTree(on) {
+    var p = $('treePanel'), b = $('bRoot');
+    if (!p) return;
+    if (!on) { p.style.display = 'none'; return; }
+    p.style.display = 'block';
+    if (b) {
+      var r = b.getBoundingClientRect();
+      p.style.top = Math.round(r.bottom + 6) + 'px';
+      p.style.maxHeight = Math.max(120, window.innerHeight - r.bottom - 18) + 'px';
+    }
+    Sfx.ui();
+  }
+  _on('bRoot', 'click', function (e) {
+    if (e) e.stopPropagation();
+    var p = $('treePanel'); if (!p) return;
+    openTree(p.style.display !== 'block');
+  });
+  _on('treeClose', 'click', function () { openTree(false); });          // 明确的关闭键
+  // 点面板外面 → 关掉（点里面不关）
+  document.addEventListener('pointerdown', function (e) {
+    var p = $('treePanel'); if (!p || p.style.display !== 'block') return;
+    if (p.contains(e.target)) return;
+    var b = $('bRoot'); if (b && b.contains(e.target)) return;
+    openTree(false);
+  }, true);
+  window.addEventListener('resize', function () {
+    var p = $('treePanel'); if (p && p.style.display === 'block') openTree(true);
+  });
   _on('bMusic', 'click', function () { Sfx.resume(); var on = Music.toggle(); this.textContent = '音乐' + (on ? ':开' : ':关'); this.className = on ? 'on' : ''; save('tl_music', on ? '1' : '0'); });
   _on('bSfx', 'click', function () { Sfx.on = !Sfx.on; this.textContent = '音效' + (Sfx.on ? ':开' : ':关'); this.className = Sfx.on ? 'on' : ''; save('tl_sfx', Sfx.on ? '1' : '0'); if (Sfx.on) Sfx.ui(); });
   _on('bMic', 'click', function () {
@@ -2592,6 +2717,19 @@ function bindUI() {
   _on('bHist', 'click', function () { var p = $('histPanel'); if (!p) return; var show = p.style.display !== 'block'; HUD.hist(); p.style.display = show ? 'block' : 'none'; });
   _on('histClose', 'click', function () { var p = $('histPanel'); if (p) p.style.display = 'none'; });
   _on('bInv', 'click', function () { HUD.invite(); });
+  _on('bShare', 'click', function () {
+    var n = Ref.count();
+    HUD.qr(Net.inviteLink());
+    HUD.center('分享领神器 · ' + n + '/' + Ref.need,
+      n >= Ref.need ? '已解锁！按 8 切出虚空之刃' : '每成功邀请 1 位好友进世界，进度 +1', 3200);
+    Sfx.ui();
+  });
+  _on('qrCopy', 'click', function () {
+    var u = $('qrUrl').textContent;
+    try { if (navigator.clipboard) navigator.clipboard.writeText(u); } catch (e) {}
+    this.textContent = '✅ 已复制';
+  });
+  _on('qrClose', 'click', function () { HUD.qrHide(); });
   _on('bGround', 'click', cycleGround);
   _on('bCam', 'click', cycleCam);
   if ($('bAim')) _on('bAim', 'click', toggleAssist);
@@ -2705,6 +2843,7 @@ else {   // ★ 宿主模式：暴露给 HD-2D 页每帧调用；并自动初始
       Net.onHist = function () { HUD.hist(); };
       placeAtSpawn();                                // ★ 统一出生点（宿主模式也必须调）
       try { Build.bar(); } catch (e) {}
+      try { Ref.refresh(false); } catch (e) {}
       try { HUD.vitals(); HUD.ammo(); HUD.score(); HUD.chat(); } catch (e) {}
       Net.connect();                                 // ★ HD-2D 主场景也自动进全服 */
       HUD.net('连接中…', false);
@@ -2721,7 +2860,7 @@ else {   // ★ 宿主模式：暴露给 HD-2D 页每帧调用；并自动初始
 
 /* 调试接口（可被 tl eval 调用） */
 window.SHOOTER = { P: P, Net: Net, Host: Host, Combat: Combat, Cam: Cam, Input: Input, Aim: Aim, Boss: BossSys, Homing: Homing, Perf: Perf, start: startGame, Sfx: Sfx, Music: Music, Voice: Voice, CamIntro: CamIntro, toggle3D: toggle3D, sync3DBtn: sync3DBtn, Build: Build,
-  build: function () { return BUILD; },
+  build: function () { return BUILD; }, Ref: Ref,
   sandbox: function () { return SANDBOX; }, setSandbox: function (v) { SANDBOX = !!v; applySandbox(); },
   running: function () { return running; }, facing: function (y) { return facingDir(P.x, P.z, y === undefined ? P.yaw : y, cam().position); },
   dbg: function () {
