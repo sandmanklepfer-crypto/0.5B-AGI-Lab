@@ -1045,6 +1045,50 @@ var Stats = {
   },
 };
 
+/* ★★ 存档（本地持久：战绩 / 建造 / 游玩时长 / 回归欢迎）★★
+   为什么需要：玩家"来一次就走"的最大原因是没有舍不得走的理由。
+   这里把跨局累计的战绩留在本地，回来就能看到"我上次砍了多少只 / 建了多少块"。
+   （建造方块本身是 MQTT 保留消息 → 全服持久；这里存的是"个人累计"数字。）
+   ============================================================================ */
+var Save = {
+  K: 'tianlei_save', d: null, _b: {},
+  load: function () {
+    var o = null; try { o = JSON.parse(localStorage.getItem(this.K) || 'null'); } catch (e) {}
+    this.d = o || { totalKills: 0, totalDeaths: 0, totalScore: 0, bestWave: 1, bestScore: 0, totalBuilds: 0, playSec: 0, sessions: 0, firstAt: Date.now(), lastAt: 0 };
+    return this.d;
+  },
+  begin: function () {
+    this._b = { k: P.kills, d: P.deaths, s: P.score, b: Build.list.size, t: performance.now() };
+    this.d.sessions = (this.d.sessions || 0) + 1; this.d.lastAt = Date.now();
+    this.chip(); this.welcome();
+  },
+  flush: function () {
+    if (!this.d || !this._b.t) return;
+    var d = this.d, k = P.kills - this._b.k, dd = P.deaths - this._b.d, s = P.score - this._b.s, b = Build.list.size;
+    if (k > 0) d.totalKills += k;
+    if (dd > 0) d.totalDeaths += dd;
+    if (s > 0) d.totalScore += s;
+    if (b > this._b.b) d.totalBuilds += (b - this._b.b);
+    this._b.k = P.kills; this._b.d = P.deaths; this._b.s = P.score; this._b.b = b;
+    if (Host.wave > (d.bestWave || 1)) d.bestWave = Host.wave;
+    if (P.score > (d.bestScore || 0)) d.bestScore = P.score;
+    var now = performance.now(); d.playSec = (d.playSec || 0) + Math.round((now - this._b.t) / 1000); this._b.t = now;
+    try { localStorage.setItem(this.K, JSON.stringify(d)); } catch (e) {}
+    this.chip();
+  },
+  chip: function () { var c = $('saveChip'); if (c && this.d) c.textContent = '🏆 累计击杀 ' + this.d.totalKills + ' · 建造 ' + this.d.totalBuilds; },
+  welcome: function () {
+    var d = this.d;
+    if (!d || (d.sessions <= 1 && !d.totalKills)) { this.chip(); return; }   // 首次进入不弹
+    HUD.center('🏆 欢迎回来', '累计击杀 ' + d.totalKills + ' · 最高波次 ' + (d.bestWave || 1) + ' · 共建造 ' + d.totalBuilds + ' 块 · 第 ' + d.sessions + ' 次进入', 3800);
+  },
+  line: function () {
+    var d = this.d; if (!d) return '';
+    return '🏆 累计击杀 ' + d.totalKills + ' · 累计积分 ' + d.totalScore + ' · 最高波次 ' + (d.bestWave || 1) +
+      ' · 建造 ' + d.totalBuilds + ' 块 · 游玩 ' + Math.floor((d.playSec || 0) / 60) + ' 分钟 · 共进入 ' + d.sessions + ' 次';
+  },
+};
+
 var TEAM_COLS = [0xff6b6b, 0x4ecdc4, 0xffd166, 0x9b5de5, 0x00bbf9, 0xf15bb5, 0x7bed9f, 0xff9f1c];
 Net.teamColor = function (id) {
   var h = 0; for (var i = 0; i < (id || '').length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
@@ -2233,6 +2277,8 @@ var HUD = {
   net: function (t, ok) { $('netText').textContent = t; $('netChip').className = 'chip' + (ok ? ' on' : ''); },
   board: function () {
     var body = $('boardBody'); body.innerHTML = '';
+    var sl = Save.line();
+    if (sl) { var sp = document.createElement('div'); sp.style.cssText = 'margin-bottom:8px;padding:7px 9px;border-radius:8px;background:rgba(155,93,229,.16);border:1px solid rgba(168,85,247,.35);font-size:12.5px'; sp.textContent = sl; body.appendChild(sp); }
     var rows = [{ name: Net.name + '（你）', k: P.kills, d: P.deaths, s: P.score, me: true, ping: Net.rtt }];
     Net.players.forEach(function (p) { rows.push({ name: p.name || '旅人', k: p.kills || 0, d: p.deaths || 0, s: p.score || 0, me: false, ping: Net.rtt }); });
     rows.sort(function (a, b) { return b.s - a.s; });
@@ -2803,6 +2849,7 @@ function startGame() {
   running = true; lastT = performance.now();
   bindInput();
   sync3DBtn();
+  try { Save.begin(); } catch (e) {}                       // ★ 存档：开局记一笔（并弹"欢迎回来"）
   setTimeout(function () { CamIntro.play(); }, 600);      // ★ 开局 3 秒镜头引导
 }
 /* ============================== ★ 影院模式（隐藏全部界面） ==============================
@@ -3161,6 +3208,11 @@ function sendChat() {
 Net.load();
 Voice.init();
 Build.init();
+/* ★ 存档：载入 + 定时落盘 + 切后台/关页落盘 */
+Save.load();
+setInterval(function () { try { Save.flush(); } catch (e) {} }, 5000);
+window.addEventListener('pagehide', function () { try { Save.flush(); } catch (e) {} });
+document.addEventListener('visibilitychange', function () { if (document.hidden) { try { Save.flush(); } catch (e) {} } });
 document.addEventListener('visibilitychange', function () { if (document.hidden) Voice.release(); });
 window.addEventListener('pagehide', function () { Voice.release(); });
 /* ★ 链接即进服：URL 带 room/n → 无感直接进入（不显示开始面板） */
@@ -3187,6 +3239,7 @@ else {   // ★ 宿主模式：暴露给 HD-2D 页每帧调用；并自动初始
       Net.onPlayers = function () { HUD.board(); };
       Net.onHist = function () { HUD.hist(); };
       placeAtSpawn();                                // ★ 统一出生点（宿主模式也必须调）
+      try { Save.begin(); } catch (e) {}             // ★ 存档：开局记一笔
       try { Build.bar(); } catch (e) {}
       try { Ref.refresh(false); } catch (e) {}
       try { HUD.vitals(); HUD.ammo(); HUD.score(); HUD.chat(); } catch (e) {}
@@ -3205,7 +3258,7 @@ else {   // ★ 宿主模式：暴露给 HD-2D 页每帧调用；并自动初始
 
 /* 调试接口（可被 tl eval 调用） */
 window.SHOOTER = { P: P, Net: Net, Host: Host, Combat: Combat, Cam: Cam, Input: Input, Aim: Aim, Boss: BossSys, Homing: Homing, Perf: Perf, start: startGame, Sfx: Sfx, Music: Music, Voice: Voice, CamIntro: CamIntro, toggle3D: toggle3D, sync3DBtn: sync3DBtn, Build: Build,
-  build: function () { return BUILD; }, Ref: Ref, Cine: Cine, Stats: Stats,
+  build: function () { return BUILD; }, Ref: Ref, Cine: Cine, Stats: Stats, Save: Save,
   /* ★ 演示工具（拍宣传素材用，本地生成，不占网络） */
   demo: function (n, cx, cz, R) {
     n = n || 3; cx = cx || P.x + 5; cz = cz || P.z; R = R || 4;
