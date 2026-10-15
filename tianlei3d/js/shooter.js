@@ -2527,25 +2527,34 @@ function buildMmBase() {
 /* ============================== 主循环 ============================== */
 /* ============================== ★ 性能调速器（保 60 帧：低了自动降画质，够了自动恢复） ============================== */
 var Perf = {
-  fps: 60, lo: 0, hi: 0, level: 2,           // 0=低 1=中 2=高
+  fps: 60, lo: 0, hi: 0, level: (typeof window !== 'undefined' && window.__ULTRA) ? 1 : 2,   // 0=流畅 1=高清 2=超清（APP 默认高清，保证流畅）
   cap60: true, _skip: 0, _acc: 0,
+  // ★ APP(ULTRA)：像素比三档 1.3 / 1.7 / 2.0（绝不糊到 0.55）；网页：0.7/0.85/1.0
+  PR: null, MANUAL: 0,                        // MANUAL>0 时手动锁定档位，不再自动调
   apply: function () {
-    var pr = [0.55, 0.75, 1.0][this.level];
-    try { A.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pr * (A.LEAN ? A.LEAN.pixel : 1))); A.resize(); } catch (e) {}
-    MobRender.range = [22, 34, 46][this.level];                  // 怪物视距
+    if (!this.PR) this.PR = window.__ULTRA ? [1.3, 1.7, 2.0] : [0.7, 0.85, 1.0];
+    var pr = this.PR[this.level];
+    try { A.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pr)); A.resize(); } catch (e) {}
+    MobRender.range = (window.__ULTRA ? [34, 46, 58] : [22, 34, 46])[this.level];   // 视距
     try { A.setLean && A.setLean({ rain: [180, 320, 450][this.level], reflect: false, spotLights: false, pointLights: false }); } catch (e) {}
-    if (FXp) FXp.on = this.level >= 1;                            // 最低档关后处理
+    if (FXp) FXp.on = window.__ULTRA ? true : (this.level >= 1);   // APP 后处理常开（是画质灵魂）
     try { if (A.scene && A.scene.fog) A.scene.fog.density = [0.014, 0.010, 0.0082][this.level]; } catch (e) {}
     window.__perfLevel = this.level;
   },
   tick: function (f) {                       // 每秒调用一次
     this.fps = f;
-    // ★ APP(file://) 顶级画质档：锁定最高档，绝不自动降画质
-    if (window.__ULTRA) { if (this.level !== 2) { this.level = 2; this.apply(); } return; }
-    if (f < 52 && this.level > 0) { this.lo++; this.hi = 0; if (this.lo >= 2) { this.level--; this.lo = 0; this.apply(); } }
-    else if (f > 58 && this.level < 2) { this.hi++; this.lo = 0; if (this.hi >= 5) { this.level++; this.hi = 0; this.apply(); } }
+    if (this.MANUAL) return;                  // 用户手动锁档 → 不自动调
+    // ★ APP：档位下限=1（高清），只在很卡时才降到 1.3 像素比；网页：可降到 0
+    var floor = window.__ULTRA ? 1 : 0;
+    var loAt = window.__ULTRA ? 46 : 52, hiAt = window.__ULTRA ? 57 : 58;
+    if (f < loAt && this.level > floor) { this.lo++; this.hi = 0; if (this.lo >= 2) { this.level--; this.lo = 0; this.apply(); } }
+    else if (f > hiAt && this.level < 2) { this.hi++; this.lo = 0; if (this.hi >= 5) { this.level++; this.hi = 0; this.apply(); } }
     else { this.lo = 0; this.hi = 0; }
   },
+  // ★ 手动档位：0=流畅 1=高清 2=超清
+  setLevel: function (lv) { this.level = Math.max(0, Math.min(2, lv)); this.MANUAL = 1; this.apply(); return this.level; },
+  auto: function () { this.MANUAL = 0; return '自动'; },
+  name: function () { return this.MANUAL ? ['流畅', '高清', '超清'][this.level] : '自动'; },
   // 60 帧上限（显示刷新率 >60 时省电/省热；掉帧时不限，保证能跑到 60）
   limit: function (now) { if (!this.cap60) return false; this._acc += (now - (this._last || now)); this._last = now; return false; },
 };
@@ -3349,6 +3358,15 @@ function bindUI() {
     }
   });
   _on('interactTip', 'click', function () { if (Piano.near) Piano.play(); });
+  _on('bQual', 'click', function () {
+    var order = ['auto', 0, 1, 2], cur = window.Perf && Perf.MANUAL ? Perf.level : 'auto';
+    var i = order.indexOf(cur); var nx = order[(i + 1) % order.length];
+    if (nx === 'auto') Perf.auto(); else Perf.setLevel(nx);
+    this.textContent = '画质:' + Perf.name();
+    this.className = (Perf.MANUAL && Perf.level === 2) ? 'on' : '';
+    HUD.center('画质 · ' + Perf.name(), Perf.MANUAL ? (['最省电', '清晰与流畅平衡', '最强画质'][Perf.level]) : '按帧率自动调整', 1800);
+    Sfx.ui();
+  });
   _on('bGround', 'click', cycleGround);
   _on('bCam', 'click', cycleCam);
   if ($('bAim')) _on('bAim', 'click', toggleAssist);

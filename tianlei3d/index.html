@@ -223,9 +223,9 @@
 <div class="tip" id="tipTxt">WASD/摇杆 移动 · 真 3D 地面 + 真阴影</div>
 <div id="perf"></div>
 
-<script src="js/tiles.js?v=1792070301"></script>
-<script src="js/vendor/three.min.js?v=1792070301"></script>
-<script src="js/vendor/GLTFLoader.js?v=1792070301"></script>
+<script src="js/tiles.js?v=1792070514"></script>
+<script src="js/vendor/three.min.js?v=1792070514"></script>
+<script src="js/vendor/GLTFLoader.js?v=1792070514"></script>
 
 
 <script src="assets3d/tree_green.js"></script>
@@ -652,7 +652,7 @@ scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffc79a, 1.65);
 sun.position.set(-30, 50, 26);      // 暮色角度，但抬高一点 → 别让正面全黑
 sun.castShadow = true;
-sun.shadow.mapSize.set(4096, 4096);
+sun.shadow.mapSize.set(2048, 2048);   // ★ 4096 太重→2048（视觉几乎无差，帧率翻倍）
 sun.shadow.camera.near = 1; sun.shadow.camera.far = 400;
 const SH = 52;
 sun.shadow.camera.left = -SH; sun.shadow.camera.right = SH;
@@ -799,7 +799,7 @@ function initFX() {
 function onResizeFx() {
   const dpr = renderer.getPixelRatio();
   rtScene.setSize(W * dpr, H * dpr);
-  const _bs = ULTRA ? 0.5 : 0.25;
+  const _bs = ULTRA ? 0.4 : 0.25;
   const bw = Math.max(2, (W * dpr * _bs) | 0), bh = Math.max(2, (H * dpr * _bs) | 0);
   rtBright.setSize(bw, bh); rtBlur.setSize(bw, bh);
   mBlurX.uniforms.uDir.value.set(1.6 / bw, 0);
@@ -1028,7 +1028,7 @@ window.__OCTO = {
     <div class="tgrp">声 音</div>
     <div class="tleaf"><button id="bMusic" class="on">音乐:开</button><button id="bSfx" class="on">音效:开</button><button id="bVol" class="on">音量:大</button><button id="bMic" class="on">麦克风:开</button></div>
     <div class="tgrp">显 示</div>
-    <div class="tleaf"><button id="bFx">后处理</button><button id="bFog">薄雾</button></div>
+    <div class="tleaf"><button id="bQual">画质:自动</button><button id="bFx">后处理</button><button id="bFog">薄雾</button></div>
     <div class="tleaf"><button id="bRain" class="on">下雨</button><button id="bSL" class="on">探照灯</button></div>
     <div class="tleaf"><button id="bGround">地面</button><button id="bView">视角:HD-2D</button></div>
     <div class="tleaf"><button id="bCam">机位:居中</button><button id="bAim">辅助:关</button></div>
@@ -1121,13 +1121,13 @@ window.__ATTACH_CITY = true;
 window.__ATTACH_RENDERER = window.__OCTO.renderer;
 window.__ATTACH_SCENE = window.__OCTO.scene;
 </script>
-<script src="js/arena3d.js?v=1792070301"></script>
+<script src="js/arena3d.js?v=1792070514"></script>
 <script>window.__HD2D_HOST = true;</script>
-<script src="js/vendor/qrcode.js?v=1792070301"></script>
-<script src="js/mqtt.js?v=1792070301"></script>
-<script src="js/fp.js?v=1792070301"></script>
-<script src="js/hd2d_arena.js?v=1792070301"></script>
-<script src="js/shooter.js?v=1792070301"></script>
-<script src="js/racestrip.js?v=1792070301"></script>
-<script src="js/kernel.js?v=1792070301"></script>
+<script src="js/vendor/qrcode.js?v=1792070514"></script>
+<script src="js/mqtt.js?v=1792070514"></script>
+<script src="js/fp.js?v=1792070514"></script>
+<script src="js/hd2d_arena.js?v=1792070514"></script>
+<script src="js/shooter.js?v=1792070514"></script>
+<script src="js/racestrip.js?v=1792070514"></script>
+<script src="js/kernel.js?v=1792070514"></script>
 </body></html>
