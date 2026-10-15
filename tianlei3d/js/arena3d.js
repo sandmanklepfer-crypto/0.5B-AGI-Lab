@@ -127,6 +127,10 @@ function resize() {
 }
 if (!ATTACH) window.addEventListener('resize', resize);
 
+/* ---------------- 环境反射探针（CubeCamera → 地面/楼体反出霓虹） ---------------- */
+var cubeRT = new THREE.WebGLCubeRenderTarget(256, { generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
+var cubeCam = new THREE.CubeCamera(0.5, 400, cubeRT);
+
 /* ---------------- PBR 贴图集（assets/tex：albedo + normal + roughness） ---------------- */
 var TL = new THREE.TextureLoader();
 function tex(url, srgb, repeat) {
@@ -152,10 +156,72 @@ GROUNDS.forEach(function (g) {
   var rep2 = g.uvRep || 3;                       // 一张贴图铺几格（越大越细密）
   var set = { map: tex('assets/tex/' + g.base + '.jpg', true, rep2) };
   var hasN = (g.base !== 'dirt' && g.base !== 'marble');
-  if (hasN) set.normalMap = tex('assets/tex/' + g.base + '_n.png', false, rep2);
-  set.roughnessMap = tex('assets/tex/' + g.base + '_r.png', false, rep2);
+  if (hasN) set.normalMap = tex('assets/tex/' + g.base + '_n.jpg', false, rep2);
+  set.roughnessMap = tex('assets/tex/' + g.base + '_r.jpg', false, rep2);
   GROUNDSETS[g.id] = set;
 });
+
+/* ★★ 全站统一 PBR 材质工厂（把"纯色塑料件"换成顶级扫描贴图）★★
+   name 取 assets/tex 里的扫描材质：stone/marble/brick/concrete/plaster/metal/
+   rustmetal/corrugated/roof/wood/planks/bark/foliage/grass/dirt/sand/gravel/
+   snow/rock/road/fabric/water/city ...   （albedo .jpg + 法线 _n.jpg + 粗糙 _r.jpg） */
+var _matCache = {};
+function matTex(name, opts) {
+  opts = opts || {};
+  var rep = opts.rep || 1;
+  var key = [name, rep, opts.color || '', opts.rough, opts.metal, opts.ns || '', opts.emissive || '', opts.emInt || ''].join('|');
+  if (_matCache[key]) return _matCache[key];
+  var m = new THREE.MeshStandardMaterial({
+    map: tex('assets/tex/' + name + '.jpg', true, rep),
+    normalMap: tex('assets/tex/' + name + '_n.jpg', false, rep),
+    roughnessMap: tex('assets/tex/' + name + '_r.jpg', false, rep),
+    roughness: (opts.rough != null ? opts.rough : 0.92),
+    metalness: (opts.metal != null ? opts.metal : 0.06)
+  });
+  if (opts.color) m.color.setHex(opts.color);
+  if (opts.ns) m.normalScale = new THREE.Vector2(opts.ns, opts.ns);
+  if (opts.emissive) { m.emissive.setHex(opts.emissive); m.emissiveIntensity = (opts.emInt != null ? opts.emInt : 0.4); }
+  if (opts.env != null) { m.envMap = cubeRT.texture; m.envMapIntensity = opts.env; }
+  _matCache[key] = m;
+  return m;
+}
+
+/* ★ 程序化树叶簇贴图（带 alpha）：一张 256² 里撒几十片叶子，边缘透明 → 交叉面片能看出树冠轮廓 */
+function leafTex(cols) {
+  var c = document.createElement('canvas'); c.width = c.height = 256; var g = c.getContext('2d');
+  g.clearRect(0, 0, 256, 256);
+  for (var i = 0; i < 130; i++) {
+    var a = Math.random() * 6.283, r = Math.pow(Math.random(), 0.55) * 112;
+    var x = 128 + Math.cos(a) * r, y = 128 + Math.sin(a) * r * 0.94;
+    var sz = 8 + Math.random() * 12;
+    g.save(); g.translate(x, y); g.rotate(Math.random() * 6.283);
+    g.fillStyle = cols[(Math.random() * cols.length) | 0];
+    g.beginPath(); g.ellipse(0, 0, sz, sz * 0.52, 0, 0, 6.283); g.fill();
+    g.strokeStyle = 'rgba(0,0,0,.16)'; g.lineWidth = 1; g.beginPath(); g.moveTo(-sz, 0); g.lineTo(sz, 0); g.stroke();
+    g.restore();
+  }
+  var t = new THREE.CanvasTexture(c);
+  if (THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding;
+  return t;
+}
+/* ★ 交叉面片 geometry：n 张平面绕 Y 轴均布（一个 draw call 出"立体树冠"） */
+function crossGeo(w, h, n) {
+  n = n || 3;
+  var pos = [], uv = [], nor = [], idx = [], b = 0, hw = w / 2;
+  for (var i = 0; i < n; i++) {
+    var a = (i / n) * Math.PI, dx = Math.cos(a), dz = Math.sin(a);
+    pos.push(-dx * hw, 0, -dz * hw, dx * hw, 0, dz * hw, dx * hw, h, dz * hw, -dx * hw, h, -dz * hw);
+    uv.push(0, 0, 1, 0, 1, 1, 0, 1);
+    for (var k = 0; k < 4; k++) nor.push(-dz, 0, dx);
+    idx.push(b, b + 1, b + 2, b, b + 2, b + 3); b += 4;
+  }
+  var gg = new THREE.BufferGeometry();
+  gg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  gg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  gg.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  gg.setIndex(idx);
+  return gg;
+}
 
 /* ---------------- 钢铁楼 / 玻璃幕墙（程序化 PBR 贴图） ---------------- */
 function makeSteel() {
@@ -196,42 +262,66 @@ var TEX_STEEL = makeSteel(), TEX_GLASS = makeGlassEmis();
     for (var i = 0; i < 2600; i++) { g.fillStyle = 'rgba(' + (60 + Math.random() * 50 | 0) + ',' + (95 + Math.random() * 60 | 0) + ',' + (48 + Math.random() * 40 | 0) + ',' + (Math.random() * 0.5) + ')'; g.fillRect(Math.random() * 256, Math.random() * 256, 1 + Math.random() * 2, 1 + Math.random() * 3); }
     var t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(campW * TILE / 3, GH * TILE / 3);
     if (THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding; return t; })();
-  var gm = new THREE.Mesh(gg, new THREE.MeshStandardMaterial({ map: gt, roughness: 1, metalness: 0.02 }));
+  var gm = new THREE.Mesh(gg, matTex('grass', { rep: 7, rough: 1, metal: 0.02 }));
   gm.position.set(campW * TILE / 2, 0.04, GH * TILE / 2); gm.receiveShadow = true;
   injectGI ? null : null; scene.add(gm);
   // 泥土路（营地→城市）
   var rg = new THREE.PlaneGeometry(OFF_U * TILE, 4.2 * TILE); rg.rotateX(-Math.PI / 2);
-  var rm = new THREE.Mesh(rg, new THREE.MeshStandardMaterial({ color: 0x6b5a42, roughness: 1 }));
+  var rm = new THREE.Mesh(rg, matTex('dirt', { rep: 5, rough: 1 }));
   rm.position.set(OFF_U * TILE * 0.5 + 3, 0.06, GH * TILE * 0.5); scene.add(rm);
-  // 树（低多边形，InstancedMesh）
-  var trunkG = new THREE.CylinderGeometry(0.16, 0.22, 1.6, 5), leafG = new THREE.ConeGeometry(1.5, 3.4, 7);
-  var trunkM = new THREE.MeshStandardMaterial({ color: 0x4a3320, roughness: 1 });
-  var leafM = new THREE.MeshStandardMaterial({ color: 0x2f6b2a, roughness: 1 });
-  var tr = [], lf = [], d = new THREE.Object3D();
-  for (var i = 0; i < 90; i++) {
+  // ★ 真·阔叶树：树干(树皮贴图) + 交叉面片树冠(程序化树叶 alpha)，3 种叶片混排
+  var trunkG = new THREE.CylinderGeometry(0.13, 0.22, 2.6, 6);
+  var trunkM = matTex('bark', { rep: 2, rough: 1 });
+  var LEAF_TEX = [
+    leafTex(['#2f5a2a', '#3a6b30', '#264d22', '#437a35']),   // 深绿阔叶
+    leafTex(['#4a6b22', '#5d7a2c', '#3d5a1c', '#6b8a38']),   // 黄绿
+    leafTex(['#356b45', '#2a5a3a', '#40804f', '#2d6440'])    // 青绿
+  ];
+  var LEAF_MAT = LEAF_TEX.map(function (t) {
+    return new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.92, metalness: 0 });
+  });
+  var leafGeo = crossGeo(3.6, 4.0, 3); leafGeo.translate(0, 1.7, 0);
+  var spots = [], d = new THREE.Object3D();
+  for (var i = 0; i < 96; i++) {
     var u = 2 + Math.random() * (campW - 4), v = 2 + Math.random() * (GH - 4);
     if (Math.abs(v - GH / 2) < 3) continue;                  // 让开中间的路
-    tr.push([u * TILE, v * TILE]); lf.push([u * TILE, v * TILE]);
+    spots.push([u * TILE, v * TILE, i % 3]);
   }
-  var tim = new THREE.InstancedMesh(trunkG, trunkM, tr.length), lim = new THREE.InstancedMesh(leafG, leafM, tr.length);
-  for (var j = 0; j < tr.length; j++) {
-    d.position.set(tr[j][0], 0.8, tr[j][1]); d.rotation.set(0, Math.random() * 6.28, 0); d.scale.set(1, 1, 1); d.updateMatrix(); tim.setMatrixAt(j, d.matrix);
-    d.position.set(tr[j][0], 3.3, tr[j][1]); d.updateMatrix(); lim.setMatrixAt(j, d.matrix);
-  }
-  tim.castShadow = lim.castShadow = true; scene.add(tim); scene.add(lim);
+  var tim = new THREE.InstancedMesh(trunkG, trunkM, spots.length);
+  var lims = [0, 1, 2].map(function (k) { return { im: new THREE.InstancedMesh(leafGeo, LEAF_MAT[k], spots.length), n: 0 }; });
+  spots.forEach(function (s2, j) {
+    d.position.set(s2[0], 1.3, s2[1]); d.rotation.set(0, Math.random() * 6.28, 0); d.scale.set(1, 1, 1); d.updateMatrix(); tim.setMatrixAt(j, d.matrix);
+    var g2 = lims[s2[2]], sc = 0.85 + Math.random() * 0.4;
+    d.position.set(s2[0], 0, s2[1]); d.rotation.set(0, Math.random() * 6.28, 0); d.scale.set(sc, 0.9 + Math.random() * 0.4, sc); d.updateMatrix();
+    g2.im.setMatrixAt(g2.n++, d.matrix);
+  });
+  lims.forEach(function (g2) { g2.im.count = g2.n; g2.im.castShadow = true; scene.add(g2.im); });
+  tim.castShadow = true; scene.add(tim);
   // 木屋（方块体块 + 屋顶）
-  var wallM = new THREE.MeshStandardMaterial({ color: 0x8a6a48, roughness: 0.9 });
-  var roofM = new THREE.MeshStandardMaterial({ color: 0x7d3a2a, roughness: 0.85 });
+  // ★ 木屋：墙用砖(亮) + 屋顶用瓦，并加自发光窗 + 真实暖光（夜景不再死黑）
+  var wallM = matTex('planks', { rep: 2, rough: 0.85, emissive: 0x2a1a0c, emInt: 0.45 });
+  var roofM = matTex('roof',   { rep: 2, rough: 0.8,  emissive: 0x1c0e08, emInt: 0.35 });
+  var winM  = new THREE.MeshBasicMaterial({ color: 0xffd28a });
   var houses = [[7, 10], [14, 38], [4, 30], [17, 16], [10, 44]];
   for (var h = 0; h < houses.length; h++) {
     var hx = houses[h][0] * TILE, hz = houses[h][1] * TILE;
     var b = new THREE.Mesh(new THREE.BoxGeometry(3.4, 2.6, 3.0), wallM); b.position.set(hx, 1.3, hz); b.castShadow = b.receiveShadow = true; scene.add(b);
     var r = new THREE.Mesh(new THREE.ConeGeometry(3.0, 1.8, 4), roofM); r.position.set(hx, 3.5, hz); r.rotation.y = Math.PI / 4; r.castShadow = true; scene.add(r);
-    emAdd(hx, hz, 2.4, 0xffc07a, 0.7, 22, true);             // 屋里暖光（进 GI）
+    // 发光窗（4 面各一扇）—— 夜里"屋里亮着灯"的关键
+    [[0, 1.51, 0.28, 0], [0.28, 0.28, 1.51, 0], [0, -0.28, 1.51, 0], [-1.51, 0.28, 0, 0]].forEach(function (w, wi) {
+      var wm = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.66), winM);
+      wm.position.set(hx + w[0] * (w[0] === 0 ? 1 : 1), 1.45 + (wi % 2) * 0.15, hz + w[2]);
+      if (w[0] !== 0) { wm.position.x = hx + (w[0] > 0 ? 1.72 : -1.72); wm.position.z = hz + (wi === 1 ? 0.6 : -0.6); wm.rotation.y = w[0] > 0 ? Math.PI / 2 : -Math.PI / 2; }
+      else { wm.position.z = hz + (w[2] > 0 ? 1.52 : -1.52); wm.rotation.y = w[2] > 0 ? 0 : Math.PI; }
+      scene.add(wm);
+    });
+    var pl = new THREE.PointLight(0xffb060, 0.9, 16, 2); pl.position.set(hx, 1.9, hz); scene.add(pl);
+    emAdd(hx, hz, 2.4, 0xffc07a, 1.2, 26, true);             // 屋里暖光（进 GI）
   }
+
   // 营地入口 · 告示牌（指引箭头）
   var sx = (campW - 1) * TILE, sz = GH * TILE * 0.5;
-  var post = new THREE.Mesh(new THREE.BoxGeometry(0.22, 2.4, 0.22), new THREE.MeshStandardMaterial({ color: 0x5a4228, roughness: 1 }));
+  var post = new THREE.Mesh(new THREE.BoxGeometry(0.22, 2.4, 0.22), matTex('wood', { rep: 1, rough: 1 }));
   post.position.set(sx, 1.2, sz); scene.add(post);
   var signCv = document.createElement('canvas'); signCv.width = 256; signCv.height = 128; var sg = signCv.getContext('2d');
   sg.fillStyle = '#c9a266'; sg.fillRect(0, 0, 256, 128); sg.fillStyle = '#3a2a18'; sg.font = 'bold 34px sans-serif'; sg.textAlign = 'center';
@@ -242,9 +332,6 @@ var TEX_STEEL = makeSteel(), TEX_GLASS = makeGlassEmis();
   window.__campReady = true;
 })();
 
-/* ---------------- 环境反射探针（CubeCamera → 地面/楼体反出霓虹） ---------------- */
-var cubeRT = new THREE.WebGLCubeRenderTarget(256, { generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
-var cubeCam = new THREE.CubeCamera(0.5, 400, cubeRT);
 
 /* ---------------- 地形网格（顶面=地面材质，侧面=钢铁+玻璃楼） ---------------- */
 var matTop, matSide, matGlass, topMesh = null, GROUNDMATS = {};
@@ -264,7 +351,7 @@ var terrain = (function buildTerrain() {
     var o = side.b, c = shade(Math.max(ay, cy));
     side.pos.push(ax, ay, az, bx, by, bz, cx, cy, cz, dx2, dy2, dz2);
     var w = Math.hypot(bx - ax, bz - az), hh = Math.hypot(dx2 - ax, dy2 - ay, dz2 - az);
-    side.uv.push(w / 5, 0, 0, 0, 0, hh / 5, w / 5, hh / 5);
+    side.uv.push(w / 2.6, 0, 0, 0, 0, hh / 2.6, w / 2.6, hh / 2.6);   // ★ 加密：墙面纹理更细腻
     for (var i = 0; i < 4; i++) side.col.push(c[0] * 0.95, c[1] * 0.97, c[2] * 1.0);
     side.idx.push(o, o + 1, o + 2, o, o + 2, o + 3); side.b += 4;
     // 幕墙玻璃（楼体上部 62% 挂深色玻璃，强反射霓虹）
@@ -297,8 +384,9 @@ var terrain = (function buildTerrain() {
     roughnessMap: GROUNDSETS.asphalt.roughnessMap, vertexColors: true, roughness: 0.72, metalness: 0.18,
     color: new THREE.Color(0xe6ebf5), envMap: cubeRT.texture, envMapIntensity: 0.85 });
   // ★ 真实石材/混凝土墙（写实 PBR：albedo + normal + roughness）
-  matSide = new THREE.MeshStandardMaterial({ map: tex('assets/tex/stone.jpg', true), normalMap: tex('assets/tex/stone_n.png'),
-    roughnessMap: tex('assets/tex/stone_r.png'), color: 0x8f949c, vertexColors: true,
+  matSide = new THREE.MeshStandardMaterial({ map: tex('assets/tex/concrete.jpg', true), normalMap: tex('assets/tex/concrete_n.jpg'),
+    roughnessMap: tex('assets/tex/concrete_r.jpg'), normalScale: new THREE.Vector2(1.7, 1.7),
+    color: 0xa8adb6, vertexColors: true,
     roughness: 0.93, metalness: 0.12, envMap: cubeRT.texture, envMapIntensity: 0.7, side: THREE.DoubleSide });
   // ★ 玻璃幕墙（深色高反射 + 稀疏亮窗）
   matGlass = new THREE.MeshStandardMaterial({ color: 0x243d5e, metalness: 1.0, roughness: 0.05,
@@ -324,9 +412,8 @@ var terrain = (function buildTerrain() {
       else if (r < 8) acs.push([(u + 0.5) * TILE, h, (v + 0.5) * TILE, (u * v) % 2]);
     }
   }
-  var mConc = new THREE.MeshStandardMaterial({ map: tex('assets/tex/stone.jpg', true), normalMap: tex('assets/tex/stone_n.png'),
-    color: 0x8b9098, roughness: 0.95, metalness: 0.10, envMap: cubeRT.texture, envMapIntensity: 0.45 });
-  var mMetal = new THREE.MeshStandardMaterial({ color: 0x6d747e, roughness: 0.35, metalness: 0.9, envMap: cubeRT.texture, envMapIntensity: 1.1 });
+  var mConc = matTex('concrete', { rep: 2, color: 0x9aa0a8, rough: 0.95, metal: 0.10, env: 0.45 });
+  var mMetal = matTex('metal', { rep: 2, rough: 0.35, metal: 0.9, env: 1.1 });
   var boxG = new THREE.BoxGeometry(1, 1, 1);
   function inst(geo, mat, list, apply) {
     if (!list.length) return;
@@ -375,7 +462,7 @@ var currentGround = 'asphalt';
   // 路灯：柱+头也用 InstancedMesh
   var lamps = [[16, 9], [35, 20], [9, 30], [40, 30], [26, 44], [44, 8], [6, 16], [30, 49]];
   var poleG = new THREE.CylinderGeometry(0.07, 0.09, 5.2, 6), headG = new THREE.SphereGeometry(0.26, 10, 8);
-  var poleM = new THREE.MeshStandardMaterial({ color: 0x2a2e38, roughness: 0.4, metalness: 0.85 });
+  var poleM = matTex('metal', { rep: 1, color: 0x3a3f4a, rough: 0.4, metal: 0.85, env: 1.0 });
   var headM = new THREE.MeshBasicMaterial({ color: 0xffd9a0 });
   var poles = new THREE.InstancedMesh(poleG, poleM, lamps.length);
   var heads = new THREE.InstancedMesh(headG, headM, lamps.length);
@@ -498,7 +585,7 @@ function injectGI(mat, amt) {
 }
 
 /* ---------------- 光照（★ 移植《极限刹车》夜城氛围） ---------------- */
-var hemi = new THREE.HemisphereLight(0x4a3a5a, 0x1a1418, 0.22); scene.add(hemi);
+var hemi = new THREE.HemisphereLight(0x554566, 0x201a20, 0.34); scene.add(hemi);
 var moon = new THREE.DirectionalLight(0xffb27a, 0.70);
 moon.position.set(70, 96, 34); moon.castShadow = true;
 moon.shadow.mapSize.set(512, 512);
@@ -526,6 +613,24 @@ GI_TEX = bakeGI();
 if (topMesh && GROUNDMATS.asphalt) { matTop = GROUNDMATS.asphalt; topMesh.material = matTop; }
 injectGI(matSide, 0.75);
 injectGI(matGlass, 1.0);
+
+/* ★★ 关键修复：把「城市霓虹 GI + 环境反射」补给全部材质 ★★
+   之前只有地面/楼体吃到了 GI，树/木屋/金属件/路灯都是"裸材质" → 夜里死黑。
+   这里在 GI 贴图与反射探针就绪后统一补齐，一律不再出现纯黑。 */
+(function bakeAllStaticMats() {
+  var seen = [];
+  scene.traverse(function (o) {
+    if (!o.isMesh && !o.isInstancedMesh) return;
+    var ms = Array.isArray(o.material) ? o.material : [o.material];
+    ms.forEach(function (m) {
+      if (!m || !m.isMeshStandardMaterial) return;
+      if (seen.indexOf(m) >= 0) return; seen.push(m);
+      if (!m.envMap) { m.envMap = cubeRT.texture; m.envMapIntensity = (m.envMapIntensity || 0.55); }
+      injectGI(m, 0.8);
+      m.needsUpdate = true;
+    });
+  });
+})();
 
 var T = 0, envAcc = 0, lastEnvX = 0, lastEnvZ = 0;
 function update(dt, camPos) {
