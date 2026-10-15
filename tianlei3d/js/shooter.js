@@ -3557,9 +3557,83 @@ else {   // ★ 宿主模式：暴露给 HD-2D 页每帧调用；并自动初始
 }
 
 /* 调试接口（可被 tl eval 调用） */
+/* ★★ 视觉小说对话（照搬原版 StoryMgr：立绘 + 打字机 + 点击推进；背景透明可见 3D 环境）★★ */
+var StoryMgr = {
+  dialogues: [], index: 0, typing: false, typeTimer: null, currentChar: null, onDone: null,
+  on: function () { var w = $('storySceneWrap'); return !!(w && w.style.display === 'block'); },
+  play: function (lines, onDone) {
+    this.dialogues = lines || []; this.index = 0; this.onDone = onDone || null;
+    var w = $('storySceneWrap'); if (w) w.style.display = 'block';
+    this.currentChar = null; this.showLine();
+  },
+  hide: function () {
+    var w = $('storySceneWrap'); if (w) w.style.display = 'none';
+    if (this.typeTimer) { clearInterval(this.typeTimer); this.typeTimer = null; }
+    this.typing = false; this.onDone = null; this.dialogues = []; this.index = 0;
+  },
+  showLine: function () {
+    if (this.index >= this.dialogues.length) { var f = this.onDone; this.onDone = null; this.hide(); if (f) try { f(); } catch (e) {} return; }
+    var line = this.dialogues[this.index] || {};
+    var nEl = $('dialogueName'), tEl = $('dialogueText'), img = $('storyCharImg'), ch = $('storyCharacter');
+    if (nEl) { nEl.textContent = line.speaker || '旅人'; nEl.style.background = line.color || 'rgba(147,51,234,.75)'; }
+    var src = line.char || 'assets/ch/dir_S.png';
+    if (img && this.currentChar !== src) {
+      img.src = src; img.style.display = 'block'; this.currentChar = src;
+      if (ch) { ch.style.animation = 'none'; try { ch.offsetHeight; } catch (e) {} ch.style.animation = ''; }
+    }
+    this.typing = true;
+    var self = this, full = String(line.text || ''), i = 0;
+    clearInterval(this.typeTimer); if (tEl) tEl.textContent = '';
+    this.typeTimer = setInterval(function () {
+      if (i < full.length) { if (tEl) tEl.textContent = full.slice(0, ++i); }
+      else { clearInterval(self.typeTimer); self.typeTimer = null; self.typing = false; }
+    }, 38);
+  },
+  next: function () {
+    if (!this.on()) return;
+    if (this.typing) {
+      clearInterval(this.typeTimer); this.typeTimer = null; this.typing = false;
+      var line = this.dialogues[this.index]; if (line && $('dialogueText')) $('dialogueText').textContent = line.text; return;
+    }
+    this.index++; this.showLine();
+  },
+};
+/* 昭和屋台：老板对话（统一用同一个角色立绘） */
+var STORY_CHEF = [
+  [{ speaker: '鱼板烧屋', color: 'rgba(220,120,60,.85)', text: 'いらっしゃい！刚烤好的鱼板烧～' },
+   { speaker: '鱼板烧屋', color: 'rgba(220,120,60,.85)', text: '雨天路滑，小心脚下啊。' },
+   { speaker: '旅人', text: '……这味道，像是回到了昭和的横丁。' },
+   { speaker: '鱼板烧屋', color: 'rgba(220,120,60,.85)', text: '要来一串吗？趁热吃最香。' }],
+  [{ speaker: '关东煮屋', color: 'rgba(90,170,220,.85)', text: '姑娘，来碗关东煮暖暖身子？' },
+   { speaker: '关东煮屋', color: 'rgba(90,170,220,.85)', text: '这汤头，熬了一整天了。' },
+   { speaker: '旅人', text: '好香。这雨夜，确实该吃点热的。' }],
+  [{ speaker: '团子屋', color: 'rgba(220,150,190,.85)', text: '三色团子，甜的咸的都有。' },
+   { speaker: '团子屋', color: 'rgba(220,150,190,.85)', text: '看你这身打扮，不像是本地人？' },
+   { speaker: '旅人', text: '路过。这里的灯，比城里暖。' }]
+];
+(function bindStory() {
+  var near = null;
+  setInterval(function () {
+    if (StoryMgr.on()) return;
+    var C = window.__CHEFS; var el = $('vnTip');
+    if (!C || !C.length) { if (el) el.style.display = 'none'; return; }
+    var bd = 3.8; near = null;
+    for (var i = 0; i < C.length; i++) { var d = Math.hypot(C[i].x - P.x, C[i].z - P.z); if (d < bd) { bd = d; near = C[i]; } }
+    if (el) { el.style.display = near ? 'block' : 'none'; if (near) el.textContent = '💬 按 E 和「' + near.name + '」交谈'; }
+  }, 300);
+  function talk() { if (!near) return; StoryMgr.play(STORY_CHEF[near.kind] || STORY_CHEF[0]); try { Sfx.ui(); } catch (e) {} }
+  window.addEventListener('keydown', function (e) {
+    if ((e.key || '').toLowerCase() !== 'e') return;
+    if (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    if (StoryMgr.on()) { e.preventDefault(); StoryMgr.next(); return; }
+    if (near) { e.preventDefault(); talk(); }
+  });
+  _on('vnTip', 'click', function () { talk(); });
+  _on('dialogueBox', 'click', function () { StoryMgr.next(); });
+})();
 window.SHOOTER = { P: P, Net: Net, Host: Host, Combat: Combat, Cam: Cam, Input: Input, Aim: Aim, Boss: BossSys, Homing: Homing, Perf: Perf, start: startGame, Sfx: Sfx, Music: Music, Voice: Voice, CamIntro: CamIntro, toggle3D: toggle3D, sync3DBtn: sync3DBtn, Build: Build,
   build: function () { return BUILD; }, Ref: Ref, Cine: Cine, Stats: Stats, Save: Save,
-  Fp: (typeof Fp !== 'undefined' ? Fp : null),
+  Fp: (typeof Fp !== 'undefined' ? Fp : null), Story: StoryMgr,
   /* ★ 演示工具（拍宣传素材用，本地生成，不占网络） */
   demo: function (n, cx, cz, R) {
     n = n || 3; cx = cx || P.x + 5; cz = cz || P.z; R = R || 4;

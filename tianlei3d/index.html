@@ -223,9 +223,9 @@
 <div class="tip" id="tipTxt">WASD/摇杆 移动 · 真 3D 地面 + 真阴影</div>
 <div id="perf"></div>
 
-<script src="js/tiles.js?v=1792072331"></script>
-<script src="js/vendor/three.min.js?v=1792072331"></script>
-<script src="js/vendor/GLTFLoader.js?v=1792072331"></script>
+<script src="js/tiles.js?v=1792072766"></script>
+<script src="js/vendor/three.min.js?v=1792072766"></script>
+<script src="js/vendor/GLTFLoader.js?v=1792072766"></script>
 
 
 <script src="assets3d/tree_green.js"></script>
@@ -669,10 +669,10 @@ function buildBuildings() {
     const SL = Math.hypot(D * 0.55, 1.15);
     [-1, 1].forEach(function (sg) {
       const sl = new THREE.Mesh(new THREE.BoxGeometry(W + 1.3, 0.95, SL), tile);
-      sl.position.set(0, RY + 0.45, sg * D * 0.30); sl.rotation.x = -sg * 0.52; sl.castShadow = true; g.add(sl);
+      sl.position.set(0, RY - 0.10, sg * D * 0.30); sl.rotation.x = sg * 0.52; sl.castShadow = true; g.add(sl);   // ★ 修正：中间高两边低
       for (let k = 0; k < 14; k++) {
         const rid = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.11, SL), dark);
-        rid.position.set((k - 6.5) * (W + 1.1) / 13, RY + 0.94, sg * D * 0.30); rid.rotation.x = -sg * 0.52; g.add(rid);
+        rid.position.set((k - 6.5) * (W + 1.1) / 13, RY + 0.40, sg * D * 0.30); rid.rotation.x = sg * 0.52; g.add(rid);
       }
     });
     box(W + 1.35, 0.26, 0.36, RY + 0.90, tile);
@@ -963,6 +963,75 @@ const nBld = buildBuildings();
   window.__STREET = { z: zz };
   say('🌍 街景：石板路 + 路灯 + 木栅栏 + 盆栽 已就位');
 })();
+
+/* ★★ 昭和横丁 · 屋台街（高密度小店 + 老板NPC + 飘动幌子 + 烟火气）★★ */
+var SMOKES = [], FLAGS = [];
+(function buildYatai() {
+  const NPC_DIRS = ['S', 'SE', 'E', 'SW', 'S'];
+  const NPC_T = NPC_DIRS.map(function (d) { var t = L.load('assets/ch/dir_' + d + '.png'); if (THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding; return t; });
+  function warmM(name, hex, k, col) { var m = pbrMat(name); m.emissive.setHex(hex); m.emissiveIntensity = k; if (col) m.color.setHex(col); return m; }
+  const W2 = warmM('planks', 0x3d2614, 0.85, 0xd9ba8d); W2.roughness = 0.85;
+  const CVS = new THREE.MeshStandardMaterial({ color: 0xd8c9a8, roughness: 0.95, side: THREE.DoubleSide, emissive: 0x2a2418, emissiveIntensity: 0.55 });
+  const LMP = new THREE.MeshStandardMaterial({ color: 0xffd9a0, emissive: 0xffa64d, emissiveIntensity: 3.6, roughness: 0.5 });
+  const FSH = new THREE.MeshStandardMaterial({ color: 0xf2e2c0, roughness: 0.7, emissive: 0x4a3a22, emissiveIntensity: 0.7 });   // 鱼板
+  const BRTH = new THREE.MeshStandardMaterial({ color: 0xb2763c, roughness: 0.6, emissive: 0x4a2c10, emissiveIntensity: 0.7 });   // 高汤
+  const REDF = new THREE.MeshStandardMaterial({ color: 0xc9433a, roughness: 0.92, side: THREE.DoubleSide, emissive: 0x4a1410, emissiveIntensity: 0.8 });
+  const SMK = (function () { var c = document.createElement('canvas'); c.width = c.height = 64; var g = c.getContext('2d');
+    var gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,240,220,0.5)'); gr.addColorStop(1, 'rgba(255,240,220,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
+  function flagMesh() {
+    var geo = new THREE.PlaneGeometry(0.6, 1.8, 1, 8), uni = { uT: { value: 0 } };
+    var mat = new THREE.ShaderMaterial({
+      uniforms: uni, transparent: true, side: THREE.DoubleSide,
+      vertexShader: 'uniform float uT; varying vec2 vUv; varying float vSh; void main(){ vUv=uv; vec3 p=position; float a=(1.0-uv.y); p.x+=sin(uv.y*6.0+uT*4.0)*0.16*a; p.z+=sin(uv.y*5.0+uT*3.0)*0.08*a; vSh=0.72+0.28*cos(uv.y*6.0+uT*4.0); gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0); }',
+      fragmentShader: 'varying vec2 vUv; varying float vSh; void main(){ vec3 c=vec3(0.85,0.24,0.20); if(vUv.x<0.16) c=vec3(0.95,0.91,0.84); if(vUv.y>0.93) c=vec3(0.30,0.26,0.24); gl_FragColor=vec4(c*vSh,1.0); }'
+    });
+    return { mesh: new THREE.Mesh(geo, mat), uni: uni };
+  }
+  const Z = (window.__STREET && window.__STREET.z) || 62;
+  const N = 6, X0 = 8, DX = 6.0;
+  for (let i = 0; i < N; i++) {
+    const g = new THREE.Group();
+    const x = X0 + i * DX, z = Z + (i % 2 ? 2.4 : -2.0);
+    g.position.set(x, 0, z); g.rotation.y = (i % 2 ? Math.PI : 0); scene.add(g);
+    const bx = (w, h, d, y, m, x0, z0) => { const q = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); q.position.set(x0 || 0, y, z0 || 0); q.castShadow = q.receiveShadow = true; g.add(q); return q; };
+    // 顶棚 + 支柱 + 台面
+    bx(3.1, 0.12, 1.9, 2.42, CVS, 0, 0);
+    [[-1.45, -0.85], [1.45, -0.85], [-1.45, 0.85], [1.45, 0.85]].forEach(function (p) { bx(0.1, 2.36, 0.1, 1.18, W2, p[0], p[1]); });
+    bx(3.1, 0.12, 1.05, 0.98, W2, 0, 0.2);
+    bx(3.1, 0.86, 0.1, 0.48, W2, 0, 0.7);
+    // 灯笼 ×2 + 灯
+    [-1.05, 1.05].forEach(function (lx) { var ln = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.38, 10), LMP); ln.position.set(lx, 2.06, 0.78); g.add(ln); });
+    var pl = new THREE.PointLight(0xffb060, 0.9, 9.5, 2); pl.position.set(0, 1.95, 0.65); g.add(pl);
+    // 商品（3 种轮换）
+    if (i % 3 === 0) {                                   // 鱼板烧 / 竹轮
+      for (var k = -1; k <= 1; k++) { var f = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.58, 8), FSH); f.rotation.z = Math.PI / 2; f.position.set(k * 0.55, 1.12, 0.2); g.add(f); }
+      bx(0.5, 0.06, 0.4, 1.06, BRTH, 0, 0.2);            // 铁板
+    } else if (i % 3 === 1) {                            // 关东煮
+      var pot = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.4, 0.32, 12), BRTH); pot.position.set(0, 1.16, 0.15); g.add(pot);
+      for (var k2 = 0; k2 < 6; k2++) { var st = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.85, 5), W2); st.position.set(-0.34 + k2 * 0.14, 1.34, 0.15); g.add(st); }
+    } else {                                             // 团子串 + 拉面
+      for (var k3 = -1; k3 <= 1; k3++) for (var q = 0; q < 3; q++) { var dg = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), FSH); dg.position.set(k3 * 0.5, 1.08 + q * 0.17, 0.2); g.add(dg); }
+      var bw = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.2, 0.24, 12), FSH); bw.position.set(0.95, 1.08, 0.25); g.add(bw);
+    }
+    // 老板 NPC（主角同款立绘）
+    const nm = new THREE.MeshStandardMaterial({ map: NPC_T[i % NPC_T.length], transparent: true, alphaTest: 0.4, depthWrite: true, side: THREE.DoubleSide, emissive: 0x3a2a1c, emissiveIntensity: 0.8 });
+    const nh = 1.75;
+    const nn = new THREE.Mesh(new THREE.PlaneGeometry(nh * 0.56, nh), nm);
+    nn.position.set(-0.6, nh / 2, -0.62); nn.rotation.y = Math.PI; g.add(nn);
+    (window.__CHEFS = window.__CHEFS || []).push({ x: x - 0.6, z: z - 0.62, kind: i % 3, name: ['鱼板烧屋', '关东煮屋', '团子屋'][i % 3] });
+    // 幌子旗（飘动）
+    var fl = flagMesh(); fl.mesh.position.set(1.75, 3.0, -0.1); g.add(fl.mesh); FLAGS.push(fl);
+    // 烟（3 片，循环上升）
+    for (var sm = 0; sm < 3; sm++) {
+      var m2 = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.5), new THREE.MeshBasicMaterial({ map: SMK, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+      m2.position.set(0, 1.4, 0.2); g.add(m2);
+      SMOKES.push({ m: m2, base: g.position.clone(), t: sm / 3, ph: i });
+    }
+  }
+  window.__YATAI = N;
+  say('🏮 昭和横丁：' + N + ' 家屋台 + ' + (N) + ' 位老板已开张');
+})();
 if (IS_TOUCH) document.getElementById('tipTxt').textContent = '左下摇杆移动 · 真 3D 地面 + 真阴影';
 say('🌍 3D 世界：真 3D 树 ' + nRealTrees + ' · 道具 ' + nProps + ' · 建筑 ' + nBld);
 
@@ -1024,6 +1093,15 @@ function loop(now) {
       var _d = ((_tgt - _cm.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
       _cm.rotation.y += _d * Math.min(1, dt * 6);
     }
+  }
+  /* ★ 幌子旗飘动 + 屋台烟火 */
+  for (var _fi = 0; _fi < FLAGS.length; _fi++) FLAGS[_fi].uni.uT.value += dt;
+  for (var _si = 0; _si < SMOKES.length; _si++) {
+    var _S0 = SMOKES[_si]; _S0.t += dt * 0.22; if (_S0.t > 1) _S0.t -= 1;
+    _S0.m.position.y = 1.4 + _S0.t * 1.9;
+    var _sc = 0.5 + _S0.t * 1.6; _S0.m.scale.set(_sc, _sc, 1);
+    _S0.m.material.opacity = (1 - _S0.t) * 0.30;
+    _S0.m.rotation.z = _S0.t * 1.2;
   }
   /* ★ 门：靠近自动开、走远自动关 */
   if (window.__DOORS) {
@@ -1287,23 +1365,55 @@ window.__OCTO = {
     <h3 style="margin:0 0 8px;font-size:14px;color:#c084fc;letter-spacing:2px">📜 历 史 事 件 大 厅 <span id="histClose" style="float:right;cursor:pointer;color:#a78bfa">✕</span></h3>
     <div id="histBody" style="font-size:12.5px;line-height:1.95;color:#d8c8ff"></div>
   </div>
-  <style>#histBody .hev{border-bottom:1px dashed rgba(168,85,247,.18);padding:2px 0}#histBody .hev i{color:#8b7cc0;font-style:normal;margin-right:6px}</style>
+  <style>#histBody .hev{border-bottom:1px dashed rgba(168,85,247,.18);padding:2px 0}#histBody .hev i{color:#8b7cc0;font-style:normal;margin-right:6px}/* ==== 视觉小说对话（照搬原版，★背景透明以显示 3D 环境）==== */
+#storySceneWrap{position:fixed;inset:0;z-index:75;display:none}
+#storySceneWrap .story-bg{position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 60%, rgba(4,4,10,0) 38%, rgba(4,4,10,.60) 100%)}
+#storyCharacter{position:absolute;left:19%;bottom:21%;height:63%;z-index:2;
+  animation:charFadeIn .55s ease-out;filter:drop-shadow(0 0 26px rgba(168,85,247,.5))}
+#storyCharacter img{height:100%;width:auto;object-fit:contain}
+@keyframes charFadeIn{0%{opacity:0;transform:translateY(22px) scale(.97)}100%{opacity:1;transform:none}}
+.dialogue-box{position:absolute;bottom:3.5%;left:50%;transform:translateX(-50%);width:84%;max-width:740px;
+  background:linear-gradient(180deg,rgba(18,15,34,.78),rgba(10,8,20,.90));border:1px solid rgba(168,85,247,.45);
+  border-radius:10px;padding:16px 26px 30px;z-index:3;box-shadow:0 8px 34px rgba(0,0,0,.6);cursor:pointer;
+  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.dialogue-name{display:inline-block;padding:4px 16px;background:rgba(147,51,234,.8);border-radius:5px;color:#fff;
+  font-size:15px;letter-spacing:3px;margin-bottom:10px}
+.dialogue-text{font-size:17.5px;line-height:1.8;color:#efe8ff;letter-spacing:1px;min-height:74px;
+  white-space:pre-wrap;text-shadow:0 2px 8px #000}
+.dialogue-continue{position:absolute;bottom:8px;right:20px;font-size:13px;color:#c4b5fd;animation:hintBounce 1s ease-in-out infinite}
+@keyframes hintBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
+#vnTip{display:none;position:fixed;left:50%;bottom:22%;transform:translateX(-50%);z-index:35;
+  background:rgba(12,10,22,.92);border:1px solid rgba(255,150,70,.6);border-radius:11px;padding:9px 20px;
+  color:#ffe3c8;font:600 14px/1 system-ui,sans-serif;cursor:pointer;box-shadow:0 8px 26px rgba(0,0,0,.6)}
+</style>
   <div id="dmgVig"></div>
 </div>
 <div id="driveTip" style="display:none;position:fixed;left:50%;bottom:22%;transform:translateX(-50%);z-index:35;background:rgba(12,10,22,.9);border:1px solid rgba(34,211,238,.55);border-radius:11px;padding:9px 18px;color:#dffaff;font:600 14px/1 system-ui,sans-serif;box-shadow:0 8px 26px rgba(0,0,0,.6);cursor:pointer">🚗 按 E 上车</div>
 <div id="interactTip" style="display:none;position:fixed;left:50%;bottom:16%;transform:translateX(-50%);z-index:35;background:rgba(12,10,22,.9);border:1px solid rgba(168,85,247,.5);border-radius:11px;padding:9px 18px;color:#efe6ff;font:600 14px/1 system-ui,sans-serif;box-shadow:0 8px 26px rgba(0,0,0,.6);cursor:pointer">🎹 按 E 弹奏钢琴</div>
+<!-- ★ 视觉小说对话层（照搬原版；背景透明，能看见 3D 环境） -->
+<div id="storySceneWrap">
+  <div class="story-bg"></div>
+  <div class="story-character" id="storyCharacter"><img id="storyCharImg" alt="" style="display:none"></div>
+  <div class="dialogue-box" id="dialogueBox">
+    <div class="dialogue-name" id="dialogueName"></div>
+    <div class="dialogue-text" id="dialogueText"></div>
+    <div class="dialogue-continue">▼</div>
+  </div>
+</div>
+<div id="vnTip">💬 按 E 交谈</div>
 <div id="dmgLayer"></div><script>
 window.__ATTACH_CITY = true;
 window.__ATTACH_RENDERER = window.__OCTO.renderer;
 window.__ATTACH_SCENE = window.__OCTO.scene;
 </script>
-<script src="js/arena3d.js?v=1792072331"></script>
+<script src="js/arena3d.js?v=1792072766"></script>
 <script>window.__HD2D_HOST = true;</script>
-<script src="js/vendor/qrcode.js?v=1792072331"></script>
-<script src="js/mqtt.js?v=1792072331"></script>
-<script src="js/fp.js?v=1792072331"></script>
-<script src="js/hd2d_arena.js?v=1792072331"></script>
-<script src="js/shooter.js?v=1792072331"></script>
-<script src="js/racestrip.js?v=1792072331"></script>
-<script src="js/kernel.js?v=1792072331"></script>
+<script src="js/vendor/qrcode.js?v=1792072766"></script>
+<script src="js/mqtt.js?v=1792072766"></script>
+<script src="js/fp.js?v=1792072766"></script>
+<script src="js/hd2d_arena.js?v=1792072766"></script>
+<script src="js/shooter.js?v=1792072766"></script>
+<script src="js/racestrip.js?v=1792072766"></script>
+<script src="js/kernel.js?v=1792072766"></script>
 </body></html>
