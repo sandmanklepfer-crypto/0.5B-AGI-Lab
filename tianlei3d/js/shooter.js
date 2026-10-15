@@ -2529,14 +2529,16 @@ function buildMmBase() {
 var Perf = {
   fps: 60, lo: 0, hi: 0, level: 1,   // 0标清 1高清 2超清 3极高 4顶级3A（默认高清起步，自适应按帧率升降）
   cap60: true, _skip: 0, _acc: 0,
-  // ★ APP(ULTRA)：像素比三档 1.3 / 1.7 / 2.0（绝不糊到 0.55）；网页：0.7/0.85/1.0
+  // 自适应=原版三档(0.55/0.75/1.0)；手动=5 档像素比
   PR: null, MANUAL: 0,                        // MANUAL>0 时手动锁定档位，不再自动调
   apply: function () {
     if (!this.PR) this.PR = window.__ULTRA ? [0.75, 1.2, 1.7, 2.3, 3.25] : [0.55, 0.75, 1.0, 1.3, 1.5];
-    var pr = this.PR[this.level];
+    var pr;
+    if (this.MANUAL) { pr = this.PR[this.level]; }                                    // 手动 5 档
+    else { pr = [0.55, 0.75, 1.0][Math.min(this.level, 2)] * (A.LEAN ? A.LEAN.pixel : 1); }   // ★ 自适应=原版公式（一模一样）
     try { A.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pr)); A.resize(); } catch (e) {}
     MobRender.range = (window.__ULTRA ? [28, 34, 46, 58, 72] : [18, 22, 34, 46, 58])[this.level];   // 视距
-    try { A.setLean && A.setLean({ rain: [180, 320, 450][this.level], reflect: false, spotLights: false, pointLights: false }); } catch (e) {}
+    try { A.setLean && A.setLean({ rain: [180, 320, 450, 520, 600][this.level], reflect: false, spotLights: false, pointLights: false }); } catch (e) {}
     if (FXp) FXp.on = window.__ULTRA ? (this.level >= 1) : (this.level >= 2);   // 最低档关后处理
     try { if (A.scene && A.scene.fog) A.scene.fog.density = [0.016, 0.013, 0.010, 0.0082, 0.0068][this.level]; } catch (e) {}
     window.__perfLevel = this.level;
@@ -2547,12 +2549,12 @@ var Perf = {
     // ★ 自适应（像网页版）：掉帧快降、流畅慢升，5 档全覆盖
     var loAt = 52, hiAt = 58;      // ★ 与网页版完全一致（真的会升会降）
     if (f < loAt && this.level > 0) { this.lo++; this.hi = 0; if (this.lo >= 2) { this.level--; this.lo = 0; this.apply(); } }
-    else if (f > hiAt && this.level < 4) { this.hi++; this.lo = 0; if (this.hi >= 4) { this.level++; this.hi = 0; this.apply(); } }
+    else if (f > hiAt && this.level < 2) { this.hi++; this.lo = 0; if (this.hi >= 5) { this.level++; this.hi = 0; this.apply(); } }   // ★ 自适应上限=2（原版三档）
     else { this.lo = 0; this.hi = 0; }
   },
-  // ★ 手动档位：0=流畅 1=高清 2=超清
+  // ★ 手动档位：0标清 1高清 2超清 3极高 4顶级3A
   setLevel: function (lv) { this.level = Math.max(0, Math.min(4, lv)); this.MANUAL = 1; this.apply(); return this.level; },
-  auto: function () { this.MANUAL = 0; return '自动'; },
+  auto: function () { this.MANUAL = 0; this.level = 2; this.apply(); return '自适应'; },
   name: function () { return this.MANUAL ? ['标清', '高清', '超清', '极高', '顶级3A'][this.level] : '自适应'; },
   tips: ['最省电 · 老机型', '清晰与流畅平衡', '高画质', '很高画质 · 旗舰', '顶级3A · 拉满'],
   // 60 帧上限（显示刷新率 >60 时省电/省热；掉帧时不限，保证能跑到 60）
