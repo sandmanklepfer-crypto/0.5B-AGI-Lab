@@ -454,6 +454,10 @@
       if (tx < b.x || tx >= b.x + b.w || ty < b.y || ty >= b.y + b.h) continue;
       // 门洞（2 格宽）
       if (b.door && ty === b.y + b.h - 1 && (tx === b.door.x || tx === b.door.x + 1)) return false;
+      // ★★ 建筑内部可走（只有四面外墙挡路）→ 玩家能进门、在室内走动、上楼
+      const innerX = tx > b.x && tx < b.x + b.w - 1;
+      const innerY = ty > b.y && ty < b.y + b.h - 1;
+      if (innerX && innerY) return false;
       // 门前台阶（2 格，在建筑外南侧）
       return true;
     }
