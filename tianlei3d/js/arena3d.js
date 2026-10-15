@@ -181,6 +181,43 @@ function matTex(name, opts) {
   return m;
 }
 
+/* ★ 程序化树叶簇贴图（带 alpha）：一张 256² 里撒几十片叶子，边缘透明 → 交叉面片能看出树冠轮廓 */
+function leafTex(cols) {
+  var c = document.createElement('canvas'); c.width = c.height = 256; var g = c.getContext('2d');
+  g.clearRect(0, 0, 256, 256);
+  for (var i = 0; i < 130; i++) {
+    var a = Math.random() * 6.283, r = Math.pow(Math.random(), 0.55) * 112;
+    var x = 128 + Math.cos(a) * r, y = 128 + Math.sin(a) * r * 0.94;
+    var sz = 8 + Math.random() * 12;
+    g.save(); g.translate(x, y); g.rotate(Math.random() * 6.283);
+    g.fillStyle = cols[(Math.random() * cols.length) | 0];
+    g.beginPath(); g.ellipse(0, 0, sz, sz * 0.52, 0, 0, 6.283); g.fill();
+    g.strokeStyle = 'rgba(0,0,0,.16)'; g.lineWidth = 1; g.beginPath(); g.moveTo(-sz, 0); g.lineTo(sz, 0); g.stroke();
+    g.restore();
+  }
+  var t = new THREE.CanvasTexture(c);
+  if (THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding;
+  return t;
+}
+/* ★ 交叉面片 geometry：n 张平面绕 Y 轴均布（一个 draw call 出"立体树冠"） */
+function crossGeo(w, h, n) {
+  n = n || 3;
+  var pos = [], uv = [], nor = [], idx = [], b = 0, hw = w / 2;
+  for (var i = 0; i < n; i++) {
+    var a = (i / n) * Math.PI, dx = Math.cos(a), dz = Math.sin(a);
+    pos.push(-dx * hw, 0, -dz * hw, dx * hw, 0, dz * hw, dx * hw, h, dz * hw, -dx * hw, h, -dz * hw);
+    uv.push(0, 0, 1, 0, 1, 1, 0, 1);
+    for (var k = 0; k < 4; k++) nor.push(-dz, 0, dx);
+    idx.push(b, b + 1, b + 2, b, b + 2, b + 3); b += 4;
+  }
+  var gg = new THREE.BufferGeometry();
+  gg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  gg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  gg.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  gg.setIndex(idx);
+  return gg;
+}
+
 /* ---------------- 钢铁楼 / 玻璃幕墙（程序化 PBR 贴图） ---------------- */
 function makeSteel() {
   var c = document.createElement('canvas'); c.width = c.height = 256; var g = c.getContext('2d');
@@ -227,22 +264,34 @@ var TEX_STEEL = makeSteel(), TEX_GLASS = makeGlassEmis();
   var rg = new THREE.PlaneGeometry(OFF_U * TILE, 4.2 * TILE); rg.rotateX(-Math.PI / 2);
   var rm = new THREE.Mesh(rg, matTex('dirt', { rep: 5, rough: 1 }));
   rm.position.set(OFF_U * TILE * 0.5 + 3, 0.06, GH * TILE * 0.5); scene.add(rm);
-  // 树（低多边形，InstancedMesh）
-  var trunkG = new THREE.CylinderGeometry(0.16, 0.22, 1.6, 5), leafG = new THREE.ConeGeometry(1.5, 3.4, 7);
+  // ★ 真·阔叶树：树干(树皮贴图) + 交叉面片树冠(程序化树叶 alpha)，3 种叶片混排
+  var trunkG = new THREE.CylinderGeometry(0.13, 0.22, 2.6, 6);
   var trunkM = matTex('bark', { rep: 2, rough: 1 });
-  var leafM = matTex('foliage', { rep: 2, rough: 1 });
-  var tr = [], lf = [], d = new THREE.Object3D();
-  for (var i = 0; i < 90; i++) {
+  var LEAF_TEX = [
+    leafTex(['#2f5a2a', '#3a6b30', '#264d22', '#437a35']),   // 深绿阔叶
+    leafTex(['#4a6b22', '#5d7a2c', '#3d5a1c', '#6b8a38']),   // 黄绿
+    leafTex(['#356b45', '#2a5a3a', '#40804f', '#2d6440'])    // 青绿
+  ];
+  var LEAF_MAT = LEAF_TEX.map(function (t) {
+    return new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.92, metalness: 0 });
+  });
+  var leafGeo = crossGeo(3.6, 4.0, 3); leafGeo.translate(0, 1.7, 0);
+  var spots = [], d = new THREE.Object3D();
+  for (var i = 0; i < 96; i++) {
     var u = 2 + Math.random() * (campW - 4), v = 2 + Math.random() * (GH - 4);
     if (Math.abs(v - GH / 2) < 3) continue;                  // 让开中间的路
-    tr.push([u * TILE, v * TILE]); lf.push([u * TILE, v * TILE]);
+    spots.push([u * TILE, v * TILE, i % 3]);
   }
-  var tim = new THREE.InstancedMesh(trunkG, trunkM, tr.length), lim = new THREE.InstancedMesh(leafG, leafM, tr.length);
-  for (var j = 0; j < tr.length; j++) {
-    d.position.set(tr[j][0], 0.8, tr[j][1]); d.rotation.set(0, Math.random() * 6.28, 0); d.scale.set(1, 1, 1); d.updateMatrix(); tim.setMatrixAt(j, d.matrix);
-    d.position.set(tr[j][0], 3.3, tr[j][1]); d.updateMatrix(); lim.setMatrixAt(j, d.matrix);
-  }
-  tim.castShadow = lim.castShadow = true; scene.add(tim); scene.add(lim);
+  var tim = new THREE.InstancedMesh(trunkG, trunkM, spots.length);
+  var lims = [0, 1, 2].map(function (k) { return { im: new THREE.InstancedMesh(leafGeo, LEAF_MAT[k], spots.length), n: 0 }; });
+  spots.forEach(function (s2, j) {
+    d.position.set(s2[0], 1.3, s2[1]); d.rotation.set(0, Math.random() * 6.28, 0); d.scale.set(1, 1, 1); d.updateMatrix(); tim.setMatrixAt(j, d.matrix);
+    var g2 = lims[s2[2]], sc = 0.85 + Math.random() * 0.4;
+    d.position.set(s2[0], 0, s2[1]); d.rotation.set(0, Math.random() * 6.28, 0); d.scale.set(sc, 0.9 + Math.random() * 0.4, sc); d.updateMatrix();
+    g2.im.setMatrixAt(g2.n++, d.matrix);
+  });
+  lims.forEach(function (g2) { g2.im.count = g2.n; g2.im.castShadow = true; scene.add(g2.im); });
+  tim.castShadow = true; scene.add(tim);
   // 木屋（方块体块 + 屋顶）
   var wallM = matTex('planks', { rep: 2, rough: 0.9 });
   var roofM = matTex('roof', { rep: 2, rough: 0.85 });
@@ -549,6 +598,24 @@ GI_TEX = bakeGI();
 if (topMesh && GROUNDMATS.asphalt) { matTop = GROUNDMATS.asphalt; topMesh.material = matTop; }
 injectGI(matSide, 0.75);
 injectGI(matGlass, 1.0);
+
+/* ★★ 关键修复：把「城市霓虹 GI + 环境反射」补给全部材质 ★★
+   之前只有地面/楼体吃到了 GI，树/木屋/金属件/路灯都是"裸材质" → 夜里死黑。
+   这里在 GI 贴图与反射探针就绪后统一补齐，一律不再出现纯黑。 */
+(function bakeAllStaticMats() {
+  var seen = [];
+  scene.traverse(function (o) {
+    if (!o.isMesh && !o.isInstancedMesh) return;
+    var ms = Array.isArray(o.material) ? o.material : [o.material];
+    ms.forEach(function (m) {
+      if (!m || !m.isMeshStandardMaterial) return;
+      if (seen.indexOf(m) >= 0) return; seen.push(m);
+      if (!m.envMap) { m.envMap = cubeRT.texture; m.envMapIntensity = (m.envMapIntensity || 0.55); }
+      injectGI(m, 0.8);
+      m.needsUpdate = true;
+    });
+  });
+})();
 
 var T = 0, envAcc = 0, lastEnvX = 0, lastEnvZ = 0;
 function update(dt, camPos) {
