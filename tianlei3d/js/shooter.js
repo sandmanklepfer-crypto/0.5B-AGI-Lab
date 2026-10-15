@@ -3368,6 +3368,37 @@ function bindUI() {
     HUD.center('画质 · ' + Perf.name(), Perf.MANUAL ? Perf.tips[Perf.level] : '按帧率自动升降档（当前 ' + ['标清', '高清', '超清', '极高', '顶级3A'][Perf.level] + '）', 1800);
     Sfx.ui();
   });
+  /* ★★ 开车：靠近车 → 按 E / 点提示 上车；再按 E 下车 ★★ */
+  (function bindDrive() {
+    var D = null;
+    function refresh() {
+      var DD = window.__DRIVE, cars = window.__CARS; if (!DD || !cars || !cars.length) return;
+      D = DD;
+      var el = $('driveTip');
+      if (DD.on) { if (el) { el.style.display = 'block'; el.textContent = '🚗 按 E 下车'; } return; }
+      var best = null, bd = 4.5;
+      cars.forEach(function (c) {
+        var cx = c.mesh ? c.mesh.position.x : c.x, cz = c.mesh ? c.mesh.position.z : c.z;
+        var d = Math.hypot(cx - P.x, cz - P.z); if (d < bd) { bd = d; best = c; }
+      });
+      DD.near = best;
+      if (el) { el.style.display = best ? 'block' : 'none'; if (best) el.textContent = '🚗 按 E 上车'; }
+    }
+    setInterval(refresh, 300); refresh();
+    function toggleDrive() {
+      var DD = window.__DRIVE; if (!DD) return;
+      if (DD.on) { DD.on = false; DD.car = null; HUD.center('下车', '', 1200); }
+      else if (DD.near) { DD.on = true; DD.car = DD.near; HUD.center('🚗 上车', 'WASD/摇杆 开车 · 再按 E 下车', 2600); }
+      Sfx.ui();
+    }
+    window.addEventListener('keydown', function (e) {
+      if ((e.key || '').toLowerCase() !== 'e') return;
+      if (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+      var DD = window.__DRIVE; if (!DD || (!DD.on && !DD.near)) return;
+      e.preventDefault(); toggleDrive();
+    });
+    _on('driveTip', 'click', function () { toggleDrive(); });
+  })();
   _on('bGround', 'click', cycleGround);
   _on('bCam', 'click', cycleCam);
   if ($('bAim')) _on('bAim', 'click', toggleAssist);

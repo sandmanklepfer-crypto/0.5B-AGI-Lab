@@ -67,6 +67,7 @@ try {
   }
 
   /* ⑥ 车（复刻刹车那台白色 SUV：车漆PBR + 贯穿式红色尾灯） */
+  var CARS = [];
   function buildCar(px, pz, yaw) {
     var car = new T.Group(); car.position.set(px, 0, pz); car.rotation.y = yaw || 0;
     var paint = new T.MeshStandardMaterial({ color: 0xeef1f2, roughness: 0.26, metalness: 0.62 });
@@ -84,11 +85,13 @@ try {
     tl.position.set(2.36, 1.16, 0); car.add(tl);
     var hl = new T.Mesh(new T.BoxGeometry(0.06, 0.12, 1.7), new T.MeshStandardMaterial({ color: 0xfff2d0, emissive: 0xffe6b0, emissiveIntensity: 3.2 }));
     hl.position.set(-2.36, 1.16, 0); car.add(hl);
-    G.add(car); return car;
+    G.add(car); CARS.push({ mesh: car, x: px, z: pz, yaw: yaw || 0 }); return car;
   }
   buildCar(CX, CZ - 4.4, 0);            // 一台（车头朝 +x）
   buildCar(CX - 18, CZ + 4.4, Math.PI); // 对向一台
 
+  window.__CARS = CARS;
+  window.__DRIVE = { on: false, car: null };   // ★ 驾驶状态（上车/下车由 shooter 控制）
   window.__RACE_STRIP = { X0: X0, X1: X1, Z0: Z0, Z1: Z1, spawn: { x: CX + 9, z: CZ - 4.4 } };
   window.__raceReady = true;
   try { console.log('[racestrip] 就绪', CX, CZ); } catch (e) {}

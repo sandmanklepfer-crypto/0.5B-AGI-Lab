@@ -223,9 +223,9 @@
 <div class="tip" id="tipTxt">WASD/摇杆 移动 · 真 3D 地面 + 真阴影</div>
 <div id="perf"></div>
 
-<script src="js/tiles.js?v=1792070565"></script>
-<script src="js/vendor/three.min.js?v=1792070565"></script>
-<script src="js/vendor/GLTFLoader.js?v=1792070565"></script>
+<script src="js/tiles.js?v=1792070770"></script>
+<script src="js/vendor/three.min.js?v=1792070770"></script>
+<script src="js/vendor/GLTFLoader.js?v=1792070770"></script>
 
 
 <script src="assets3d/tree_green.js"></script>
@@ -835,8 +835,11 @@ function loop(now) {
   } else { inX = inY = 0; }
   // 目标速度：幅度 0~1 平方 → 低推极慢（微调），满推 = hero.speed
   const curve = mag * mag;
-  const tvx = inX * hero.speed * curve, tvy = inY * hero.speed * curve;
-  const accel = (mag > 0.02 ? 9.0 : 14.0) * dt;      // 手上有输入加速，松手快速收
+  const DRIVE = window.__DRIVE;
+  const driving = !!(DRIVE && DRIVE.on);
+  const spdMul = driving ? 3.4 : 1;                  // ★ 开车：速度 ×3.4
+  const tvx = inX * hero.speed * spdMul * curve, tvy = inY * hero.speed * spdMul * curve;
+  const accel = (mag > 0.02 ? (driving ? 2.6 : 9.0) : (driving ? 1.2 : 14.0)) * dt;   // ★ 开车：大惯性
   hero.vx += (tvx - hero.vx) * Math.min(1, accel);
   hero.vy += (tvy - hero.vy) * Math.min(1, accel);
   const sp = Math.hypot(hero.vx, hero.vy);
@@ -860,6 +863,18 @@ function loop(now) {
   if (CH[hero.dir] && heroUni.uMap.value !== CH[hero.dir]) { heroUni.uMap.value = CH[hero.dir]; }
   const bob = sp > 0.12 ? Math.abs(Math.sin(hero.t * 9)) * 3.0 : 0;                 // 走动起伏
   const breathe = Math.sin(now/1000 * 2.2) * 0.018;                                  // 待机呼吸
+  // ★ 开车：车辆跟随玩家位置与朝向（视觉上「你在开车」）
+  if (driving && DRIVE.car) {
+    var _cm = DRIVE.car.mesh;
+    _cm.position.set(hero.x, 0, hero.y);
+    if (sp > 0.35) {
+      var _a2 = (CAM_MODE === 'persp') ? (camPS.yaw + Math.PI) : (Math.PI / 4);
+      var _wx = hero.vx * Math.cos(_a2) + hero.vy * Math.sin(_a2), _wz = -hero.vx * Math.sin(_a2) + hero.vy * Math.cos(_a2);
+      var _tgt = Math.atan2(_wx, _wz);
+      var _d = ((_tgt - _cm.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+      _cm.rotation.y += _d * Math.min(1, dt * 6);
+    }
+  }
   heroMesh.position.set(hero.x, (bob/UNIT_PX), hero.y);
   if (charReady && charRoot) {
     charRoot.position.set(hero.x, 0, hero.y);
@@ -1115,19 +1130,20 @@ window.__OCTO = {
   <style>#histBody .hev{border-bottom:1px dashed rgba(168,85,247,.18);padding:2px 0}#histBody .hev i{color:#8b7cc0;font-style:normal;margin-right:6px}</style>
   <div id="dmgVig"></div>
 </div>
+<div id="driveTip" style="display:none;position:fixed;left:50%;bottom:22%;transform:translateX(-50%);z-index:35;background:rgba(12,10,22,.9);border:1px solid rgba(34,211,238,.55);border-radius:11px;padding:9px 18px;color:#dffaff;font:600 14px/1 system-ui,sans-serif;box-shadow:0 8px 26px rgba(0,0,0,.6);cursor:pointer">🚗 按 E 上车</div>
 <div id="interactTip" style="display:none;position:fixed;left:50%;bottom:16%;transform:translateX(-50%);z-index:35;background:rgba(12,10,22,.9);border:1px solid rgba(168,85,247,.5);border-radius:11px;padding:9px 18px;color:#efe6ff;font:600 14px/1 system-ui,sans-serif;box-shadow:0 8px 26px rgba(0,0,0,.6);cursor:pointer">🎹 按 E 弹奏钢琴</div>
 <div id="dmgLayer"></div><script>
 window.__ATTACH_CITY = true;
 window.__ATTACH_RENDERER = window.__OCTO.renderer;
 window.__ATTACH_SCENE = window.__OCTO.scene;
 </script>
-<script src="js/arena3d.js?v=1792070565"></script>
+<script src="js/arena3d.js?v=1792070770"></script>
 <script>window.__HD2D_HOST = true;</script>
-<script src="js/vendor/qrcode.js?v=1792070565"></script>
-<script src="js/mqtt.js?v=1792070565"></script>
-<script src="js/fp.js?v=1792070565"></script>
-<script src="js/hd2d_arena.js?v=1792070565"></script>
-<script src="js/shooter.js?v=1792070565"></script>
-<script src="js/racestrip.js?v=1792070565"></script>
-<script src="js/kernel.js?v=1792070565"></script>
+<script src="js/vendor/qrcode.js?v=1792070770"></script>
+<script src="js/mqtt.js?v=1792070770"></script>
+<script src="js/fp.js?v=1792070770"></script>
+<script src="js/hd2d_arena.js?v=1792070770"></script>
+<script src="js/shooter.js?v=1792070770"></script>
+<script src="js/racestrip.js?v=1792070770"></script>
+<script src="js/kernel.js?v=1792070770"></script>
 </body></html>
