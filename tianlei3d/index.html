@@ -223,9 +223,9 @@
 <div class="tip" id="tipTxt">WASD/摇杆 移动 · 真 3D 地面 + 真阴影</div>
 <div id="perf"></div>
 
-<script src="js/tiles.js?v=1792069998"></script>
-<script src="js/vendor/three.min.js?v=1792069998"></script>
-<script src="js/vendor/GLTFLoader.js?v=1792069998"></script>
+<script src="js/tiles.js?v=1792070301"></script>
+<script src="js/vendor/three.min.js?v=1792070301"></script>
+<script src="js/vendor/GLTFLoader.js?v=1792070301"></script>
 
 
 <script src="assets3d/tree_green.js"></script>
@@ -252,10 +252,13 @@ const BUILDINGS = TileWorld.buildings;
 const cv = document.getElementById('cv'), hudLog = document.getElementById('log'), perf = document.getElementById('perf');
 window.onerror = function(m, u, l, c){ try{ document.getElementById('log').textContent='❌ '+m+' @'+(l||'')+':'+(c||''); }catch(e){} };
 addEventListener('unhandledrejection', e=>{ try{ document.getElementById('log').textContent='❌ '+e.reason; }catch(_){} });
+/* ★ 画质档：APK 内是 file:// → 资源本地、零流量 → 直接顶级画质；网页版保守 */
+const ULTRA = (location.protocol === 'file:') || /android_asset/i.test(location.href);
+window.__ULTRA = ULTRA;
 const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: false, preserveDrawingBuffer: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
-renderer.shadowMap.enabled = false;   // 改用接地影（成熟解法）
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, ULTRA ? 2.0 : 1.5));
+renderer.shadowMap.enabled = ULTRA;    // ★ APP：开 4096 真阴影；网页：接地影
+renderer.shadowMap.type = ULTRA ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
 if (THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
 if (THREE.ACESFilmicToneMapping) renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
@@ -317,7 +320,7 @@ function loadTex(name, kind) {
   const t = L.load(url);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   if (kind === 'albedo' && THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding;
-  t.anisotropy = Math.min(8, (renderer.capabilities && renderer.capabilities.getMaxAnisotropy) ? renderer.capabilities.getMaxAnisotropy() : 8);
+  t.anisotropy = Math.min(ULTRA ? 16 : 8, (renderer.capabilities && renderer.capabilities.getMaxAnisotropy) ? renderer.capabilities.getMaxAnisotropy() : 8);
   TEX_CACHE[key] = t; return t;
 }
 function pbrMat(name, opt) {
@@ -796,7 +799,8 @@ function initFX() {
 function onResizeFx() {
   const dpr = renderer.getPixelRatio();
   rtScene.setSize(W * dpr, H * dpr);
-  const bw = Math.max(2, (W * dpr * 0.25) | 0), bh = Math.max(2, (H * dpr * 0.25) | 0);
+  const _bs = ULTRA ? 0.5 : 0.25;
+  const bw = Math.max(2, (W * dpr * _bs) | 0), bh = Math.max(2, (H * dpr * _bs) | 0);
   rtBright.setSize(bw, bh); rtBlur.setSize(bw, bh);
   mBlurX.uniforms.uDir.value.set(1.6 / bw, 0);
   mBlurY.uniforms.uDir.value.set(0, 1.6 / bh);
@@ -1117,13 +1121,13 @@ window.__ATTACH_CITY = true;
 window.__ATTACH_RENDERER = window.__OCTO.renderer;
 window.__ATTACH_SCENE = window.__OCTO.scene;
 </script>
-<script src="js/arena3d.js?v=1792069998"></script>
+<script src="js/arena3d.js?v=1792070301"></script>
 <script>window.__HD2D_HOST = true;</script>
-<script src="js/vendor/qrcode.js?v=1792069998"></script>
-<script src="js/mqtt.js?v=1792069998"></script>
-<script src="js/fp.js?v=1792069998"></script>
-<script src="js/hd2d_arena.js?v=1792069998"></script>
-<script src="js/shooter.js?v=1792069998"></script>
-<script src="js/racestrip.js?v=1792069998"></script>
-<script src="js/kernel.js?v=1792069998"></script>
+<script src="js/vendor/qrcode.js?v=1792070301"></script>
+<script src="js/mqtt.js?v=1792070301"></script>
+<script src="js/fp.js?v=1792070301"></script>
+<script src="js/hd2d_arena.js?v=1792070301"></script>
+<script src="js/shooter.js?v=1792070301"></script>
+<script src="js/racestrip.js?v=1792070301"></script>
+<script src="js/kernel.js?v=1792070301"></script>
 </body></html>

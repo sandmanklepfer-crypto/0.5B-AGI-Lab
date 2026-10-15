@@ -2540,6 +2540,8 @@ var Perf = {
   },
   tick: function (f) {                       // 每秒调用一次
     this.fps = f;
+    // ★ APP(file://) 顶级画质档：锁定最高档，绝不自动降画质
+    if (window.__ULTRA) { if (this.level !== 2) { this.level = 2; this.apply(); } return; }
     if (f < 52 && this.level > 0) { this.lo++; this.hi = 0; if (this.lo >= 2) { this.level--; this.lo = 0; this.apply(); } }
     else if (f > 58 && this.level < 2) { this.hi++; this.lo = 0; if (this.hi >= 5) { this.level++; this.hi = 0; this.apply(); } }
     else { this.lo = 0; this.hi = 0; }
