@@ -157,6 +157,30 @@ GROUNDS.forEach(function (g) {
   GROUNDSETS[g.id] = set;
 });
 
+/* ★★ 全站统一 PBR 材质工厂（把"纯色塑料件"换成顶级扫描贴图）★★
+   name 取 assets/tex 里的扫描材质：stone/marble/brick/concrete/plaster/metal/
+   rustmetal/corrugated/roof/wood/planks/bark/foliage/grass/dirt/sand/gravel/
+   snow/rock/road/fabric/water/city ...   （albedo .jpg + 法线 _n.png + 粗糙 _r.png） */
+var _matCache = {};
+function matTex(name, opts) {
+  opts = opts || {};
+  var rep = opts.rep || 1;
+  var key = [name, rep, opts.color || '', opts.rough, opts.metal, opts.ns || ''].join('|');
+  if (_matCache[key]) return _matCache[key];
+  var m = new THREE.MeshStandardMaterial({
+    map: tex('assets/tex/' + name + '.jpg', true, rep),
+    normalMap: tex('assets/tex/' + name + '_n.png', false, rep),
+    roughnessMap: tex('assets/tex/' + name + '_r.png', false, rep),
+    roughness: (opts.rough != null ? opts.rough : 0.92),
+    metalness: (opts.metal != null ? opts.metal : 0.06)
+  });
+  if (opts.color) m.color.setHex(opts.color);
+  if (opts.ns) m.normalScale = new THREE.Vector2(opts.ns, opts.ns);
+  if (opts.env != null) { m.envMap = cubeRT.texture; m.envMapIntensity = opts.env; }
+  _matCache[key] = m;
+  return m;
+}
+
 /* ---------------- 钢铁楼 / 玻璃幕墙（程序化 PBR 贴图） ---------------- */
 function makeSteel() {
   var c = document.createElement('canvas'); c.width = c.height = 256; var g = c.getContext('2d');
@@ -196,17 +220,17 @@ var TEX_STEEL = makeSteel(), TEX_GLASS = makeGlassEmis();
     for (var i = 0; i < 2600; i++) { g.fillStyle = 'rgba(' + (60 + Math.random() * 50 | 0) + ',' + (95 + Math.random() * 60 | 0) + ',' + (48 + Math.random() * 40 | 0) + ',' + (Math.random() * 0.5) + ')'; g.fillRect(Math.random() * 256, Math.random() * 256, 1 + Math.random() * 2, 1 + Math.random() * 3); }
     var t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(campW * TILE / 3, GH * TILE / 3);
     if (THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding; return t; })();
-  var gm = new THREE.Mesh(gg, new THREE.MeshStandardMaterial({ map: gt, roughness: 1, metalness: 0.02 }));
+  var gm = new THREE.Mesh(gg, matTex('grass', { rep: 7, rough: 1, metal: 0.02 }));
   gm.position.set(campW * TILE / 2, 0.04, GH * TILE / 2); gm.receiveShadow = true;
   injectGI ? null : null; scene.add(gm);
   // 泥土路（营地→城市）
   var rg = new THREE.PlaneGeometry(OFF_U * TILE, 4.2 * TILE); rg.rotateX(-Math.PI / 2);
-  var rm = new THREE.Mesh(rg, new THREE.MeshStandardMaterial({ color: 0x6b5a42, roughness: 1 }));
+  var rm = new THREE.Mesh(rg, matTex('dirt', { rep: 5, rough: 1 }));
   rm.position.set(OFF_U * TILE * 0.5 + 3, 0.06, GH * TILE * 0.5); scene.add(rm);
   // 树（低多边形，InstancedMesh）
   var trunkG = new THREE.CylinderGeometry(0.16, 0.22, 1.6, 5), leafG = new THREE.ConeGeometry(1.5, 3.4, 7);
-  var trunkM = new THREE.MeshStandardMaterial({ color: 0x4a3320, roughness: 1 });
-  var leafM = new THREE.MeshStandardMaterial({ color: 0x2f6b2a, roughness: 1 });
+  var trunkM = matTex('bark', { rep: 2, rough: 1 });
+  var leafM = matTex('foliage', { rep: 2, rough: 1 });
   var tr = [], lf = [], d = new THREE.Object3D();
   for (var i = 0; i < 90; i++) {
     var u = 2 + Math.random() * (campW - 4), v = 2 + Math.random() * (GH - 4);
@@ -220,8 +244,8 @@ var TEX_STEEL = makeSteel(), TEX_GLASS = makeGlassEmis();
   }
   tim.castShadow = lim.castShadow = true; scene.add(tim); scene.add(lim);
   // 木屋（方块体块 + 屋顶）
-  var wallM = new THREE.MeshStandardMaterial({ color: 0x8a6a48, roughness: 0.9 });
-  var roofM = new THREE.MeshStandardMaterial({ color: 0x7d3a2a, roughness: 0.85 });
+  var wallM = matTex('planks', { rep: 2, rough: 0.9 });
+  var roofM = matTex('roof', { rep: 2, rough: 0.85 });
   var houses = [[7, 10], [14, 38], [4, 30], [17, 16], [10, 44]];
   for (var h = 0; h < houses.length; h++) {
     var hx = houses[h][0] * TILE, hz = houses[h][1] * TILE;
@@ -231,7 +255,7 @@ var TEX_STEEL = makeSteel(), TEX_GLASS = makeGlassEmis();
   }
   // 营地入口 · 告示牌（指引箭头）
   var sx = (campW - 1) * TILE, sz = GH * TILE * 0.5;
-  var post = new THREE.Mesh(new THREE.BoxGeometry(0.22, 2.4, 0.22), new THREE.MeshStandardMaterial({ color: 0x5a4228, roughness: 1 }));
+  var post = new THREE.Mesh(new THREE.BoxGeometry(0.22, 2.4, 0.22), matTex('wood', { rep: 1, rough: 1 }));
   post.position.set(sx, 1.2, sz); scene.add(post);
   var signCv = document.createElement('canvas'); signCv.width = 256; signCv.height = 128; var sg = signCv.getContext('2d');
   sg.fillStyle = '#c9a266'; sg.fillRect(0, 0, 256, 128); sg.fillStyle = '#3a2a18'; sg.font = 'bold 34px sans-serif'; sg.textAlign = 'center';
@@ -297,8 +321,8 @@ var terrain = (function buildTerrain() {
     roughnessMap: GROUNDSETS.asphalt.roughnessMap, vertexColors: true, roughness: 0.72, metalness: 0.18,
     color: new THREE.Color(0xe6ebf5), envMap: cubeRT.texture, envMapIntensity: 0.85 });
   // ★ 真实石材/混凝土墙（写实 PBR：albedo + normal + roughness）
-  matSide = new THREE.MeshStandardMaterial({ map: tex('assets/tex/stone.jpg', true), normalMap: tex('assets/tex/stone_n.png'),
-    roughnessMap: tex('assets/tex/stone_r.png'), color: 0x8f949c, vertexColors: true,
+  matSide = new THREE.MeshStandardMaterial({ map: tex('assets/tex/concrete.jpg', true), normalMap: tex('assets/tex/concrete_n.png'),
+    roughnessMap: tex('assets/tex/concrete_r.png'), color: 0x9aa0a8, vertexColors: true,
     roughness: 0.93, metalness: 0.12, envMap: cubeRT.texture, envMapIntensity: 0.7, side: THREE.DoubleSide });
   // ★ 玻璃幕墙（深色高反射 + 稀疏亮窗）
   matGlass = new THREE.MeshStandardMaterial({ color: 0x243d5e, metalness: 1.0, roughness: 0.05,
@@ -324,9 +348,8 @@ var terrain = (function buildTerrain() {
       else if (r < 8) acs.push([(u + 0.5) * TILE, h, (v + 0.5) * TILE, (u * v) % 2]);
     }
   }
-  var mConc = new THREE.MeshStandardMaterial({ map: tex('assets/tex/stone.jpg', true), normalMap: tex('assets/tex/stone_n.png'),
-    color: 0x8b9098, roughness: 0.95, metalness: 0.10, envMap: cubeRT.texture, envMapIntensity: 0.45 });
-  var mMetal = new THREE.MeshStandardMaterial({ color: 0x6d747e, roughness: 0.35, metalness: 0.9, envMap: cubeRT.texture, envMapIntensity: 1.1 });
+  var mConc = matTex('concrete', { rep: 2, color: 0x9aa0a8, rough: 0.95, metal: 0.10, env: 0.45 });
+  var mMetal = matTex('metal', { rep: 2, rough: 0.35, metal: 0.9, env: 1.1 });
   var boxG = new THREE.BoxGeometry(1, 1, 1);
   function inst(geo, mat, list, apply) {
     if (!list.length) return;
@@ -375,7 +398,7 @@ var currentGround = 'asphalt';
   // 路灯：柱+头也用 InstancedMesh
   var lamps = [[16, 9], [35, 20], [9, 30], [40, 30], [26, 44], [44, 8], [6, 16], [30, 49]];
   var poleG = new THREE.CylinderGeometry(0.07, 0.09, 5.2, 6), headG = new THREE.SphereGeometry(0.26, 10, 8);
-  var poleM = new THREE.MeshStandardMaterial({ color: 0x2a2e38, roughness: 0.4, metalness: 0.85 });
+  var poleM = matTex('metal', { rep: 1, color: 0x3a3f4a, rough: 0.4, metal: 0.85, env: 1.0 });
   var headM = new THREE.MeshBasicMaterial({ color: 0xffd9a0 });
   var poles = new THREE.InstancedMesh(poleG, poleM, lamps.length);
   var heads = new THREE.InstancedMesh(headG, headM, lamps.length);

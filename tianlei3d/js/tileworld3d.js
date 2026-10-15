@@ -144,9 +144,9 @@ function tex(name) {
 
 /* ---------------- 墙体 / 建筑（3D 体块） ---------------- */
 (function buildWalls() {
-  var wallMat = new THREE.MeshStandardMaterial({ map: tex('stone'), normalMap: ntex('stone'), roughnessMap: rtex('stone'), normalScale: new THREE.Vector2(1.1, 1.1), roughness: 0.9, metalness: 0.08, color: 0xa8a49c });
+  var wallMat = new THREE.MeshStandardMaterial({ map: tex('concrete'), normalMap: ntex('concrete'), roughnessMap: rtex('concrete'), normalScale: new THREE.Vector2(1.1, 1.1), roughness: 0.9, metalness: 0.08, color: 0x9aa0a8 });
   if (A.injectGI) A.injectGI(wallMat, 0.8);
-  var roofMat = new THREE.MeshStandardMaterial({ map: tex('wood'), normalMap: ntex('wood'), roughnessMap: rtex('wood'), normalScale: new THREE.Vector2(1.0, 1.0), roughness: 0.85, color: 0xb07a5a });
+  var roofMat = new THREE.MeshStandardMaterial({ map: tex('roof'), normalMap: ntex('roof'), roughnessMap: rtex('roof'), normalScale: new THREE.Vector2(1.0, 1.0), roughness: 0.85, color: 0xb0785a });
   var box = new THREE.BoxGeometry(1, 1, 1), d = new THREE.Object3D(), list = [];
   for (var vv = 0; vv < MH; vv++) for (var u = 0; u < MW; u++) {
     if (H[vv * MW + u] < 1) continue;
