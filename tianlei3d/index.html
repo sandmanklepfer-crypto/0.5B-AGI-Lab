@@ -223,9 +223,9 @@
 <div class="tip" id="tipTxt">WASD/摇杆 移动 · 真 3D 地面 + 真阴影</div>
 <div id="perf"></div>
 
-<script src="js/tiles.js?v=1792071865"></script>
-<script src="js/vendor/three.min.js?v=1792071865"></script>
-<script src="js/vendor/GLTFLoader.js?v=1792071865"></script>
+<script src="js/tiles.js?v=1792072006"></script>
+<script src="js/vendor/three.min.js?v=1792072006"></script>
+<script src="js/vendor/GLTFLoader.js?v=1792072006"></script>
 
 
 <script src="assets3d/tree_green.js"></script>
@@ -591,15 +591,17 @@ function buildBuildings() {
   /* ★★★ 和风木构町屋 · 高细节版（对照官网 AI 概念图） ★★★
      石基座 / 木格栅墙 / 转角木柱 / 双层坡瓦顶(带瓦垄) / 檐下椽子 /
      木阳台栏杆 / 格字窗(暖黄) / 灯笼串 / 暖帘 / 竖招牌 / 石阶 / 石灯笼 / 盆栽 */
-  const stone = pbrMat('stone');  stone.roughness = 0.93; stone.metalness = 0.03;
-  const wood  = pbrMat('planks'); wood.roughness = 0.86;
-  const beam  = pbrMat('wood');   beam.roughness = 0.9;
-  const tile  = pbrMat('roof');   tile.roughness = 0.78;           // 深色瓦
-  const dark  = new THREE.MeshStandardMaterial({ color: 0x1b1620, roughness: 0.85, metalness: 0.05 });
-  const win   = new THREE.MeshBasicMaterial({ color: 0xffc478 });   // 暖黄窗
+  /* ★ 材质按 AI 概念图：**木构暖亮**（不是大理石）+ 暖自发光 → 夜里像被灯笼照亮，不再死黑 */
+  function warm(m, hex, k, color) { m.emissive.setHex(hex); m.emissiveIntensity = k; if (color) m.color.setHex(color); return m; }
+  const stone = warm(pbrMat('stone'),  0x2a1f16, 0.5, 0xc9b49a); stone.roughness = 0.93; stone.metalness = 0.03;
+  const wood  = warm(pbrMat('planks'), 0x3d2614, 0.8, 0xd9ba8d); wood.roughness = 0.80;   // ★ 木墙：暖棕、亮
+  const beam  = warm(pbrMat('wood'),   0x50300f, 1.0, 0xe6c79a); beam.roughness = 0.82;   // ★ 阳台/立柱：最亮
+  const tile  = warm(pbrMat('roof'),   0x241e30, 0.55, 0x9a90b4); tile.roughness = 0.70;  // 瓦：深蓝紫（不是黑）
+  const dark  = new THREE.MeshStandardMaterial({ color: 0x2a2233, roughness: 0.85, metalness: 0.05, emissive: 0x1a1424, emissiveIntensity: 0.55 });
+  const win   = new THREE.MeshBasicMaterial({ color: 0xffcf8c });   // 暖黄窗（对齐 AI 图）
   const lant  = new THREE.MeshStandardMaterial({ color: 0xffd39a, emissive: 0xff8f2e, emissiveIntensity: 2.8, roughness: 0.5 });
   const lantP = new THREE.MeshStandardMaterial({ color: 0xffe0b0, emissive: 0xffb45a, emissiveIntensity: 3.2, roughness: 0.5 });
-  const cloth = new THREE.MeshStandardMaterial({ color: 0x2e3a6b, roughness: 0.92, side: THREE.DoubleSide });
+  const cloth = new THREE.MeshStandardMaterial({ color: 0x5b3b8f, roughness: 0.92, side: THREE.DoubleSide, emissive: 0x2a1a48, emissiveIntensity: 0.7 });   // ★ 紫暖帘（对齐 AI 图）
   // 招牌贴图（竖排“湯・茶・宿”）
   const signTex = (function () {
     var c = document.createElement('canvas'); c.width = 64; c.height = 256; var g = c.getContext('2d');
@@ -608,7 +610,7 @@ function buildBuildings() {
     ['湯', '茶', '宿'].forEach(function (t, k) { g.fillText(t, 32, 62 + k * 74); });
     var t = new THREE.CanvasTexture(c); if (THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding; return t;
   })();
-  const signMat = new THREE.MeshStandardMaterial({ map: signTex, roughness: 0.8, side: THREE.DoubleSide, emissive: 0x3a1a12, emissiveIntensity: 0.6 });
+  const signMat = new THREE.MeshStandardMaterial({ map: signTex, roughness: 0.8, side: THREE.DoubleSide, emissive: 0xffffff, emissiveIntensity: 0.35 });
 
   let li = 0;
   for (const b of BUILDINGS) {
@@ -1218,13 +1220,13 @@ window.__ATTACH_CITY = true;
 window.__ATTACH_RENDERER = window.__OCTO.renderer;
 window.__ATTACH_SCENE = window.__OCTO.scene;
 </script>
-<script src="js/arena3d.js?v=1792071865"></script>
+<script src="js/arena3d.js?v=1792072006"></script>
 <script>window.__HD2D_HOST = true;</script>
-<script src="js/vendor/qrcode.js?v=1792071865"></script>
-<script src="js/mqtt.js?v=1792071865"></script>
-<script src="js/fp.js?v=1792071865"></script>
-<script src="js/hd2d_arena.js?v=1792071865"></script>
-<script src="js/shooter.js?v=1792071865"></script>
-<script src="js/racestrip.js?v=1792071865"></script>
-<script src="js/kernel.js?v=1792071865"></script>
+<script src="js/vendor/qrcode.js?v=1792072006"></script>
+<script src="js/mqtt.js?v=1792072006"></script>
+<script src="js/fp.js?v=1792072006"></script>
+<script src="js/hd2d_arena.js?v=1792072006"></script>
+<script src="js/shooter.js?v=1792072006"></script>
+<script src="js/racestrip.js?v=1792072006"></script>
+<script src="js/kernel.js?v=1792072006"></script>
 </body></html>
