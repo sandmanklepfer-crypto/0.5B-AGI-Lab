@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="img/icon.png">
 <link rel="stylesheet" href="css/site.css">
 </head>
-<body>
+<body data-track="site">
 
 <!-- ================= 顶部导航（电脑） ================= -->
 <nav class="nav" id="nav">
@@ -342,5 +342,9 @@
   }).catch(function () {});
 })();
 </script>
+<!-- ★ 访客留痕（官网 = 与游戏同一指纹，一人一条记录） -->
+<script src="../js/mqtt.js"></script>
+<script src="../js/fp.js"></script>
+<script src="js/track.js"></script>
 </body>
 </html>

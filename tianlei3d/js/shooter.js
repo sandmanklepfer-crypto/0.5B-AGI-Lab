@@ -742,6 +742,8 @@ var Net = {
       this.inv = (q.get('inv') || q.get('from') || '').trim().slice(0, 24);   // 邀请人的 id
       if (q.has('room') || q.has('r') || q.has('auto')) this.fromLink = true;   // 点了分发链接 → 直接进
     } catch (e) {}
+    // ★ 稳定身份：用设备指纹派生 id（换了浏览器/清了缓存也认得出是同一个人）
+    if (window.Fp) { try { this.id = Fp.uid(); } catch (e) {} }
     if (!this.id) this.id = 'f' + Math.random().toString(36).slice(2, 8);
     if (!this.name || this.name === '旅人') this.name = '旅人' + Math.floor(100 + Math.random() * 900);
     this.save();
@@ -992,8 +994,10 @@ var Net = {
    ============================================================================ */
 var Stats = {
   V: 'zhz/tianlei/stats/v/',
-  visits: new Map(),          // id -> {name, at, room}
+  visits: new Map(),          // id -> {name, at, room, page, ip, pages, ...}
   mark: function () {
+    // ★ 统一走指纹库留痕：哪怕换了浏览器/清了缓存，也认得出是同一个人（不再用随机的 Net.id）
+    if (window.Fp) { try { Fp.track('game', { name: Net.name, room: Net.room }, { nofcount: true }); return; } catch (e) {} }
     if (!Net.connected) return;
     try {
       Net.pub(this.V + Net.id, JSON.stringify({
@@ -1005,7 +1009,15 @@ var Stats = {
   },
   on: function (topic, payload) {
     var id = topic.slice(this.V.length); if (!id) return;
-    try { var o = JSON.parse(payload || '{}'); this.visits.set(id, { name: o.name, at: o.at || 0, room: o.room }); } catch (e) {}
+    try {
+      var o = JSON.parse(payload || '{}');
+      this.visits.set(id, {
+        name: o.name, at: o.at || 0, room: o.room, page: o.page || '',
+        ip: o.ip || '', ipMode: o.ipMode || '', geo: o.geo || '', org: o.org || '',
+        plat: o.plat || '', tz: o.tz || '', scr: o.scr || '', mobile: o.mobile,
+        pages: o.pages || {}, v: o.visits || 0, fp: o.fp || ''
+      });
+    } catch (e) {}
     this.render();
   },
   count: function () { return this.visits.size; },
@@ -1014,7 +1026,9 @@ var Stats = {
     this.visits.forEach(function (v) { if ((v.at || 0) >= d0.getTime()) n++; });
     return n;
   },
-  list: function () { var a = []; this.visits.forEach(function (v, id) { a.push({ id: id, name: v.name, at: v.at, room: v.room }); }); return a.sort(function (x, y) { return (y.at || 0) - (x.at || 0); }); },
+  list: function () { var a = []; this.visits.forEach(function (v, id) { a.push({ id: id, name: v.name, at: v.at, room: v.room, page: v.page, ip: v.ip, geo: v.geo, plat: v.plat, tz: v.tz, scr: v.scr, mobile: v.mobile, pages: v.pages, v: v.v, fp: v.fp }); }); return a.sort(function (x, y) { return (y.at || 0) - (x.at || 0); }); },
+  siteCount: function () { var n = 0; this.visits.forEach(function (v) { if (v.pages && v.pages.site) n++; }); return n; },
+  gameCount: function () { var n = 0; this.visits.forEach(function (v) { if (v.pages && v.pages.game) n++; }); return n; },
   render: function () {
     var t = $('visitChip');
     if (t) t.textContent = '👣 访客 ' + this.count() + (this.today() ? ' · 今日 ' + this.today() : '');
@@ -1023,7 +1037,7 @@ var Stats = {
     var el = document.getElementById('visitPanel');
     if (!el) {
       el = document.createElement('div'); el.id = 'visitPanel';
-      el.style.cssText = 'position:fixed;right:12px;top:104px;z-index:40;width:min(48vw,430px);max-height:62vh;overflow:auto;' +
+      el.style.cssText = 'position:fixed;right:12px;top:104px;z-index:40;width:min(52vw,460px);max-height:62vh;overflow:auto;' +
         'background:rgba(10,8,22,.95);border:1px solid rgba(168,85,247,.45);border-radius:12px;padding:12px 14px;color:#e8e0ff;' +
         'font:13px/1.65 system-ui,sans-serif;box-shadow:0 10px 34px rgba(0,0,0,.6)';
       document.body.appendChild(el);
@@ -1033,15 +1047,27 @@ var Stats = {
       '<b>👣 累计访客 ' + rows.length + '</b>' +
       '<span style="opacity:.8">今日 ' + this.today() + '</span>' +
       '<span id="vpClose" style="cursor:pointer;padding:0 6px">✕</span></div>' +
-      '<div style="opacity:.6;font-size:11.5px;margin-bottom:8px">保留消息统计 · 跨设备 · 每条=一个独立访客（重复进服只算一次）</div>';
+      '<div style="opacity:.7;font-size:11.5px;margin-bottom:8px">官网 ' + this.siteCount() + ' 人 · 游戏 ' + this.gameCount() + ' 人 · ' +
+      '指纹去重（换浏览器/清缓存仍是同一人）· 人物记录与游戏存档分开，清档不影响</div>';
     if (!rows.length) h += '<div style="opacity:.6">暂无记录（你自己这条要先连上才有）</div>';
     rows.slice(0, 300).forEach(function (v) {
       var t = v.at ? new Date(v.at).toLocaleString('zh-CN') : '';
-      h += '<div style="padding:3px 0;border-bottom:1px solid rgba(255,255,255,.06)">' +
-        (v.name || '（无名）') + ' <span style="opacity:.5;font-size:11.5px">' + t + (v.room ? ' · ' + v.room : '') + '</span></div>';
+      var tags = []; if (v.pages && v.pages.site) tags.push('官网'); if (v.pages && v.pages.game) tags.push('游戏');
+      var dev = [v.plat || '', v.scr || '', v.tz || '', (v.mobile ? '手机' : '电脑')].filter(Boolean).join(' · ');
+      h += '<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)">' +
+        '<div>' + (v.name || '（无名）') +
+        ' <span style="opacity:.5;font-size:11.5px">' + t + (v.room ? ' · ' + v.room : '') + '</span>' +
+        (tags.length ? ' <span style="font-size:11px;color:#a7f">[' + tags.join('/') + ']</span>' : '') + '</div>' +
+        '<div style="opacity:.5;font-size:11px">' + (v.ip ? ('IP ' + v.ip + (v.geo ? ' · ' + v.geo : '')) : 'IP 未取到') +
+        (dev ? ' · ' + dev : '') + '</div></div>';
     });
     el.innerHTML = h; el.style.display = 'block';
     var c = document.getElementById('vpClose'); if (c) c.onclick = function () { el.style.display = 'none'; };
+  },
+  // ★ 只清游戏数据（战绩/建造/时长），人物记录一律不动
+  wipeGame: function () {
+    var rm = (window.Fp ? Fp.wipeGame() : []);
+    HUD.center('🗑 已清理本地游戏战绩', '人物记录(访客/指纹)完整保留 —— ' + (rm.length ? rm.join(',') : '本来就空'), 2600);
   },
 };
 
@@ -3259,6 +3285,7 @@ else {   // ★ 宿主模式：暴露给 HD-2D 页每帧调用；并自动初始
 /* 调试接口（可被 tl eval 调用） */
 window.SHOOTER = { P: P, Net: Net, Host: Host, Combat: Combat, Cam: Cam, Input: Input, Aim: Aim, Boss: BossSys, Homing: Homing, Perf: Perf, start: startGame, Sfx: Sfx, Music: Music, Voice: Voice, CamIntro: CamIntro, toggle3D: toggle3D, sync3DBtn: sync3DBtn, Build: Build,
   build: function () { return BUILD; }, Ref: Ref, Cine: Cine, Stats: Stats, Save: Save,
+  Fp: (typeof Fp !== 'undefined' ? Fp : null),
   /* ★ 演示工具（拍宣传素材用，本地生成，不占网络） */
   demo: function (n, cx, cz, R) {
     n = n || 3; cx = cx || P.x + 5; cz = cz || P.z; R = R || 4;
