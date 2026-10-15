@@ -2527,20 +2527,30 @@ function buildMmBase() {
 /* ============================== 主循环 ============================== */
 /* ============================== ★ 性能调速器（保 60 帧：低了自动降画质，够了自动恢复） ============================== */
 var Perf = {
-  fps: 60, lo: 0, hi: 0, level: 1,   // 0标清 1高清 2超清 3极高 4顶级3A（默认高清起步，自适应按帧率升降）
+  fps: 60, lo: 0, hi: 0, level: 2,   // 自适应: 0低 1中 2高(原版三档) ; 手动: 0标清..4顶级3A
   cap60: true, _skip: 0, _acc: 0,
   // 自适应=原版三档(0.55/0.75/1.0)；手动=5 档像素比
   PR: null, MANUAL: 0,                        // MANUAL>0 时手动锁定档位，不再自动调
   apply: function () {
-    if (!this.PR) this.PR = window.__ULTRA ? [0.75, 1.2, 1.7, 2.3, 3.25] : [0.55, 0.75, 1.0, 1.3, 1.5];
-    var pr;
-    if (this.MANUAL) { pr = this.PR[this.level]; }                                    // 手动 5 档
-    else { pr = [0.55, 0.75, 1.0][Math.min(this.level, 2)] * (A.LEAN ? A.LEAN.pixel : 1); }   // ★ 自适应=原版公式（一模一样）
-    try { A.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pr)); A.resize(); } catch (e) {}
-    MobRender.range = (window.__ULTRA ? [28, 34, 46, 58, 72] : [18, 22, 34, 46, 58])[this.level];   // 视距
-    try { A.setLean && A.setLean({ rain: [180, 320, 450, 520, 600][this.level], reflect: false, spotLights: false, pointLights: false }); } catch (e) {}
-    if (FXp) FXp.on = window.__ULTRA ? (this.level >= 1) : (this.level >= 2);   // 最低档关后处理
-    try { if (A.scene && A.scene.fog) A.scene.fog.density = [0.016, 0.013, 0.010, 0.0082, 0.0068][this.level]; } catch (e) {}
+    var U = !!window.__ULTRA;
+    if (this.MANUAL) {
+      /* ★ 手动 5 档（APP 高 / 网页保守） */
+      if (!this.PR) this.PR = U ? [0.75, 1.2, 1.7, 2.3, 3.25] : [0.55, 0.75, 1.0, 1.3, 1.5];
+      var pr = this.PR[this.level];
+      try { A.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pr)); A.resize(); } catch (e) {}
+      MobRender.range = (U ? [28, 34, 46, 58, 72] : [22, 34, 46, 58, 72])[this.level];
+      try { A.setLean && A.setLean({ rain: [180, 320, 450, 520, 600][this.level], reflect: false, spotLights: false, pointLights: false }); } catch (e) {}
+      if (FXp) FXp.on = true;
+      try { if (A.scene && A.scene.fog) A.scene.fog.density = [0.016, 0.013, 0.010, 0.0082, 0.0068][this.level]; } catch (e) {}
+    } else {
+      /* ★★ 自适应 = 原版限流器，一模一样（0.55/0.75/1.0，三档，会掉到模糊） */
+      var lv = Math.min(this.level, 2);
+      try { A.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, [0.55, 0.75, 1.0][lv] * (A.LEAN ? A.LEAN.pixel : 1))); A.resize(); } catch (e) {}
+      MobRender.range = [22, 34, 46][lv];
+      try { A.setLean && A.setLean({ rain: [180, 320, 450][lv], reflect: false, spotLights: false, pointLights: false }); } catch (e) {}
+      if (FXp) FXp.on = lv >= 1;
+      try { if (A.scene && A.scene.fog) A.scene.fog.density = [0.014, 0.010, 0.0082][lv]; } catch (e) {}
+    }
     window.__perfLevel = this.level;
   },
   tick: function (f) {                       // 每秒调用一次
