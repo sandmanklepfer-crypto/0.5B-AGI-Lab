@@ -223,9 +223,9 @@
 <div class="tip" id="tipTxt">WASD/摇杆 移动 · 真 3D 地面 + 真阴影</div>
 <div id="perf"></div>
 
-<script src="js/tiles.js?v=1792073419"></script>
-<script src="js/vendor/three.min.js?v=1792073419"></script>
-<script src="js/vendor/GLTFLoader.js?v=1792073419"></script>
+<script src="js/tiles.js?v=1792074656"></script>
+<script src="js/vendor/three.min.js?v=1792074656"></script>
+<script src="js/vendor/GLTFLoader.js?v=1792074656"></script>
 
 
 <script src="assets3d/tree_green.js"></script>
@@ -786,7 +786,7 @@ const CH = {};
 DIRS.forEach(d => { const t = L.load('assets/ch/dir_' + d + '.png'); if (THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding; CH[d] = t; });
 function dirFromAngle(a) { a = ((a % 360) + 360) % 360; let best = 'S', bd = 999; for (const d of DIRS) { const k = Math.abs(((CH_ANG[d] - a + 540) % 360) - 180); if (k < bd) { bd = k; best = d; } } return best; }
 
-const hero = { x: 36.5, y: 21.5, dir: 'S', t: 0, speed: 5.2, vx: 0, vy: 0 };
+const hero = { x: 36.5, y: 58, dir: 'S', t: 0, speed: 5.2, vx: 0, vy: 0 };
 window.__hero = hero;
 /* ★ 角色改为「吃光的公告板」：采样烘焙 GI + 方向光 + 边缘光 → 与场景交互 */
 CH.S.anisotropy = 8; CH.S.minFilter = THREE.LinearMipmapLinearFilter;
@@ -872,6 +872,7 @@ joEl.addEventListener('touchend', () => { jo.on = false; jo.x = jo.y = 0; joEl.q
 
 const CAMP_W = (window.TileWorld && window.TileWorld.MW) ? window.TileWorld.MW : 72;   // ★ octo 的 TW 是瓦片尺寸，不能拿它取 MW
 const solid = (x, y) => {
+  // ★ 水也能走（这个世界不设死路，谁也卡不住）
   // ★ 公路/赛道区：强制可走（它在地图外，不这么判会被 TileWorld 当墙 → 传送过去动不了）
   var _RS = window.__RACE_STRIP;
   if (_RS && _RS.inStrip && _RS.inStrip(x, y)) return false;
@@ -974,6 +975,220 @@ const nBld = buildBuildings();
   window.__STREET = { z: zz };
   say('🌍 街景：石板路 + 路灯 + 木栅栏 + 盆栽 已就位');
 })();
+
+
+/* ★★ 花火大会：星空 + 烟花 + 运河 + 鸟居 + 石拱桥 + 天际线 + 人海 ★★ */
+var FIREWORKS = { pool: [], active: [], timer: 1.5 };
+(function buildMatsuri() {
+  const RND = (a, b) => a + Math.random() * (b - a);
+  const stoneM = pbrMat('stone'); stoneM.roughness = 0.92; stoneM.metalness = 0.04;
+  const woodM  = pbrMat('planks'); woodM.roughness = 0.85;
+
+  /* ① 星空 */
+  (function () {
+    const N = 560, pos = new Float32Array(N * 3);
+    for (let i = 0; i < N; i++) { pos[i * 3] = RND(-140, 220); pos[i * 3 + 1] = RND(48, 110); pos[i * 3 + 2] = RND(-140, 180); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xcfd8ff, size: 0.6, transparent: true, opacity: 0.9, depthWrite: false })));
+  })();
+
+  /* ② 运河水面 + 石岸 */
+  const WY0 = 17, WY1 = 38;      // ★ 扩大成「湖」（分隔近景平房与远景高楼）
+  (function () {
+    const wm = pbrMat('water'); wm.roughness = 0.07; wm.metalness = 0.92; wm.color.setHex(0x0e1c34);
+    wm.emissive.setHex(0x0c1830); wm.emissiveIntensity = 0.85;
+    // ★ 自然环境映射光（不用反射相机）：反射整座城的霓虹/烟花
+    try { const et = (window.__CITY3D && __CITY3D.cubeRT) ? __CITY3D.cubeRT.texture : null; if (et) { wm.envMap = et; wm.envMapIntensity = 1.7; } } catch (e) {}
+    const w = new THREE.Mesh(new THREE.PlaneGeometry(MW + 26, WY1 - WY0), wm);
+    w.rotation.x = -Math.PI / 2; w.position.set(MW / 2, -0.32, (WY0 + WY1) / 2); scene.add(w);
+    window.__WATER_RECT = { x0: -13, x1: MW + 13, z0: WY0, z1: WY1 };
+    [WY0 - 0.7, WY1 + 0.7].forEach(function (z) {
+      const q = new THREE.Mesh(new THREE.BoxGeometry(MW + 26, 1.3, 1.5), stoneM);
+      q.position.set(MW / 2, 0.28, z); q.castShadow = q.receiveShadow = true; scene.add(q);
+    });
+  })();
+
+  /* ③ 鸟居 ×2（大 + 小） */
+  function torii(x, z, h, col) {
+    const g = new THREE.Group(); g.position.set(x, 0, z); scene.add(g);
+    const M = new THREE.MeshStandardMaterial({ color: col, roughness: 0.62, metalness: 0.12, emissive: 0x3a0e08, emissiveIntensity: 0.75 });
+    const r = h * 0.05, W = h * 0.62;
+    [-1, 1].forEach(function (s) { const p = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.15, h, 10), M); p.position.set(s * W / 2, h / 2, 0); p.castShadow = true; g.add(p); });
+    const top = new THREE.Mesh(new THREE.BoxGeometry(W + h * 0.30, h * 0.075, r * 2.4), M); top.position.y = h * 0.98; g.add(top);
+    const nuki = new THREE.Mesh(new THREE.BoxGeometry(W + h * 0.10, h * 0.055, r * 1.8), M); nuki.position.y = h * 0.78; g.add(nuki);
+    const gaku = new THREE.Mesh(new THREE.BoxGeometry(h * 0.10, h * 0.13, r * 1.6), M); gaku.position.y = h * 0.87; g.add(gaku);
+    return g;
+  }
+  torii(MW / 2 - 12, WY0 - 2.2, 7.2, 0xd6412f);
+  torii(MW / 2 + 16, WY1 + 2.4, 4.4, 0xd6412f);
+
+  /* ④ 石拱桥（跨运河） */
+  (function () {
+    const g = new THREE.Group(); g.position.set(MW / 2 + 26, 0, (WY0 + WY1) / 2); scene.add(g);
+    const N = 13, span = WY1 - WY0 + 3.2, hgt = 2.6;
+    for (let i = 0; i < N; i++) {
+      const t = i / (N - 1), zz = -span / 2 + t * span, y = Math.sin(t * Math.PI) * hgt;
+      const st = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.34, span / N + 0.12), stoneM);
+      st.position.set(0, y + 0.7, zz); st.castShadow = st.receiveShadow = true; g.add(st);
+      [-2.0, 2.0].forEach(function (sx) { const rl = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.7, span / N + 0.12), stoneM); rl.position.set(sx, y + 1.15, zz); g.add(rl); });
+    }
+  })();
+
+  /* ⑤ 远景天际线 + 悬索桥 + 远山 */
+  (function () {
+    const sky = new THREE.MeshStandardMaterial({ color: 0x1a2238, roughness: 0.7, metalness: 0.3, emissive: 0x141c30, emissiveIntensity: 0.9 });
+    const lit = new THREE.MeshBasicMaterial({ color: 0xffd9a0 });
+    for (let i = 0; i < 46; i++) {
+      const x = RND(-70, MW + 70), z = RND(-34, 12), w = RND(4, 13), h = RND(8, 30);
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), sky); b.position.set(x, h / 2, z); scene.add(b);
+      for (let k = 0; k < 6; k++) { const q = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.5), lit); q.position.set(x + RND(-w / 3, w / 3), RND(3, h - 2), z + w / 2 + 0.06); scene.add(q); }
+    }
+    // 远山
+    const mtn = new THREE.MeshStandardMaterial({ color: 0x101728, roughness: 1 });
+    for (let i = 0; i < 9; i++) { const m = new THREE.Mesh(new THREE.ConeGeometry(RND(16, 30), RND(14, 26), 5), mtn); m.position.set(RND(-80, MW + 80), 4, RND(-70, -34)); scene.add(m); }
+    // 悬索桥
+    const cb = new THREE.Group(); cb.position.set(MW / 2 - 30, 0, -22); scene.add(cb);
+    const steel = new THREE.MeshStandardMaterial({ color: 0x39445c, roughness: 0.5, metalness: 0.7 });
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(64, 0.5, 4), steel); deck.position.y = 7; cb.add(deck);
+    [-22, 22].forEach(function (px) { const tow = new THREE.Mesh(new THREE.BoxGeometry(1.0, 17, 1.0), steel); tow.position.set(px, 8.5, 0); cb.add(tow); });
+    for (let i = 0; i <= 22; i++) { const t = i / 22, xx = -30 + t * 60, yy = 7 + 6 * Math.sin(t * Math.PI); const cbl = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.12), steel); cbl.position.set(xx, yy, 0); cb.add(cbl); }
+    cb.children.forEach(function (o) { o.castShadow = false; });
+  })();
+
+  /* ⑥ 人海（浴衣路人：用玩家同一 heroMat 的 billboard） */
+  (function () {
+    const spots = [];
+    for (let i = 0; i < 96; i++) spots.push([RND(1, MW - 1), RND(WY1 + 1.2, WY1 + 7.5)]);   // ★ 人山人海
+    for (let i = 0; i < 24; i++) spots.push([MW / 2 + 26 + RND(-3.2, 3.2), RND(WY0 + 1, WY1 - 1)]);   // 桥上+岸边
+    spots.forEach(function (p, i) {
+      const geo = new THREE.PlaneGeometry(HERO_W * 0.97, HERO_H * 0.97); geo.translate(0, HERO_H / 2, 0);
+      const m = new THREE.Mesh(geo, heroMat); m.position.set(p[0], 0, p[1]); scene.add(m);
+      (window.__NPCS = window.__NPCS || []).push(m);
+    });
+  })();
+
+  /* ⑦ 烟花 */
+  const spark = (function () {
+    const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d');
+    const gr = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 32, 32); return new THREE.CanvasTexture(c);
+  })();
+  for (let i = 0; i < 900; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: spark, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    s.visible = false; scene.add(s); FIREWORKS.pool.push(s);
+  }
+  /* ★ 地面/水面光池：烟花爆开时，光洒在湖面与街道上（渐隐） */
+  const POOLS = [];
+  const poolTex = (function () {                                  // ★ 光池径向渐变贴图（勿引用别处局部变量）
+    const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(255,255,255,.85)'); gr.addColorStop(0.4, 'rgba(255,255,255,.32)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c);
+  })();
+  FIREWORKS.lightPool = function (x, z, col, r) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ map: poolTex, color: col, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
+    m.rotation.x = -Math.PI / 2; m.position.set(x, 0.07, z); scene.add(m);
+    POOLS.push({ m: m, t: 0, max: 1.5, r: r || 26 });
+  };
+  FIREWORKS.stepPools = function (dt) {
+    for (let i = POOLS.length - 1; i >= 0; i--) {
+      const q = POOLS[i]; q.t += dt;
+      const k = q.t / q.max, sc = q.r * (0.55 + k * 1.5);
+      q.m.scale.set(sc, sc, 1); q.m.material.opacity = Math.max(0, 0.85 * (1 - k) * (1 - k));
+      if (k >= 1) { scene.remove(q.m); try { q.m.geometry.dispose(); q.m.material.dispose(); } catch (e) {} POOLS.splice(i, 1); }
+    }
+  };
+  /* ★ 顶级烟花：二次爆炸 + 拖尾 + 闪光核 + 光池 */
+  FIREWORKS.burst = function (x, y, z, col) {
+    const self = this;
+    const core = this.pool.pop();
+    if (core) { core.material.color.setHex(0xffffff); core.material.opacity = 1; core.visible = true; core.position.set(x, y, z); core.scale.set(9, 9, 1);
+      this.active.push({ s: core, x: x, y: y, z: z, vx: 0, vy: 0, vz: 0, life: 0, max: 0.22, flash: 1 }); }
+    const ring = (n, spd, color, jitter, maxL) => {
+      for (let i = 0; i < n; i++) {
+        const s = self.pool.pop(); if (!s) return;
+        const th = Math.random() * 6.283, ph = Math.acos(2 * Math.random() - 1);
+        const sp = spd * (0.75 + Math.random() * jitter);
+        s.material.color.setHex(color); s.material.opacity = 1; s.visible = true; s.position.set(x, y, z); s.scale.set(1.7, 1.7, 1);
+        self.active.push({ s: s, x: x, y: y, z: z, vx: Math.sin(ph) * Math.cos(th) * sp, vy: Math.cos(ph) * sp, vz: Math.sin(ph) * Math.sin(th) * sp, life: 0, max: maxL || RND(1.3, 2.0), trail: 1 });
+      }
+    };
+    ring(74, 7.2, col, 0.5, RND(1.4, 2.0));                       // 主爆
+    ring(28, 4.4, 0xffffff, 0.35, RND(0.7, 1.1));                 // 白芯
+    this.lightPool(x, z, col, 30);                                // 湖面/地面光池
+    // 二次爆炸（错时）
+    setTimeout(function () {
+      const cy = y + RND(-4, 2), cx = x + RND(-6, 6), cz = z + RND(-4, 4);
+      ring(46, 6.0, [0xffd166, 0x4dd0ff, 0xff8ac4, 0x9dff8a][(Math.random() * 4) | 0], 0.5);
+      self.lightPool(cx, cz, col, 22);
+    }, 420 + Math.random() * 380);
+  };
+  /* ⑧ 平房之间的连桥（空中飞廊）：相邻两栋之间架廊 + 栏杆 */
+  (function () {
+    for (let i = 0; i < BUILDINGS.length; i++) for (let j = i + 1; j < BUILDINGS.length; j++) {
+      const A2 = BUILDINGS[i], B2 = BUILDINGS[j];
+      const ax = A2.x + A2.w / 2, az = A2.y + A2.h / 2, bx = B2.x + B2.w / 2, bz = B2.y + B2.h / 2;
+      const d = Math.hypot(bx - ax, bz - az); if (d > 14 || d < 1) continue;
+      const ang = Math.atan2(bx - ax, bz - az), mid = { x: (ax + bx) / 2, z: (az + bz) / 2 };
+      const walk = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.22, d), woodM);
+      walk.position.set(mid.x, 3.5, mid.z); walk.rotation.y = ang; walk.castShadow = walk.receiveShadow = true; scene.add(walk);
+      [-0.86, 0.86].forEach(function (off) {
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, d), woodM);
+        rail.position.set(mid.x + Math.cos(ang) * off, 4.42, mid.z - Math.sin(ang) * off); rail.rotation.y = ang; scene.add(rail);
+        for (let k = -1; k <= 1; k++) { const po = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.9, 0.08), woodM); po.position.set(mid.x + Math.cos(ang) * off + Math.sin(ang) * k * d / 2.6, 3.96, mid.z - Math.sin(ang) * off + Math.cos(ang) * k * d / 2.6); scene.add(po); }
+      });
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.16, d), woodM);
+      roof.position.set(mid.x, 5.6, mid.z); roof.rotation.y = ang; scene.add(roof);
+    }
+  })();
+
+  /* ⑨ 跨湖细长栈道（从街道一直走到对岸高楼） */
+  (function () {
+    [MW / 2 - 24, MW / 2 + 46].forEach(function (px, pi) {
+      const z0 = WY1 + 2.0, z1 = WY0 - 2.0, len = z0 - z1, zm = (z0 + z1) / 2;
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.22, len), woodM);
+      deck.position.set(px, 0.55, zm); deck.castShadow = deck.receiveShadow = true; scene.add(deck);
+      for (let k = 0; k <= 8; k++) {
+        [-0.96, 0.96].forEach(function (off) {
+          const po = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.5, 0.14), woodM);
+          po.position.set(px + off, 0.34, z1 + k * len / 8); scene.add(po);
+          const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, len), woodM);
+          rail.position.set(px + off, 1.02, zm); scene.add(rail);
+        });
+        if (k % 2 === 0) { const lp = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.5, 6), woodM); lp.position.set(px + 1.0, 1.6, z1 + k * len / 8); scene.add(lp); }
+      }
+    });
+  })();
+
+  window.__MATSURI = { skyline: true, water: window.__WATER_RECT };
+  say('🎆 花火大会：星空 / 运河 / 鸟居 / 石拱桥 / 天际线 / 人海 已就位');
+})();
+
+/* 烟花每帧更新（循环里调用） */
+function updateFireworks(dt) {
+  if (!FIREWORKS.burst) return;
+  FIREWORKS.timer -= dt;
+  if (FIREWORKS.timer <= 0) {
+    FIREWORKS.timer = 1.1 + Math.random() * 2.2;
+    const cols = [0xff4d6d, 0xffd166, 0x4dd0ff, 0xb98cff, 0xff8ac4, 0x9dff8a, 0xffffff];
+    const n = 1 + (Math.random() < 0.35 ? 1 : 0);
+    for (let k = 0; k < n; k++) FIREWORKS.burst(RND(-20, MW + 20), RND(26, 46), RND(-10, WY0 + 6), cols[(Math.random() * cols.length) | 0]);
+  }
+  if (FIREWORKS.stepPools) FIREWORKS.stepPools(dt);
+  for (let i = FIREWORKS.active.length - 1; i >= 0; i--) {
+    const p = FIREWORKS.active[i]; p.life += dt;
+    p.vy -= 4.2 * dt; p.vx *= 0.985; p.vz *= 0.985;
+    p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+    p.s.position.set(p.x, p.y, p.z);
+    const k = p.life / p.max;
+    p.s.material.opacity = Math.max(0, (p.flash ? 1 - k : 1) * (1 - k * k));
+    const sc = (p.flash ? 9 * (1 + k * 1.6) : 1.7 * (1 - k * 0.45));
+    p.s.scale.set(sc, sc, 1);
+    if (p.life >= p.max) { p.s.visible = false; FIREWORKS.pool.push(p.s); FIREWORKS.active.splice(i, 1); }
+  }
+}
 
 /* ★★ 昭和横丁 · 屋台街（高密度小店 + 老板NPC + 飘动幌子 + 烟火气）★★ */
 var SMOKES = [], FLAGS = [];
@@ -1107,6 +1322,7 @@ function loop(now) {
       _cm.rotation.y += _d * Math.min(1, dt * 6);
     }
   }
+  try { updateFireworks(dt); } catch (e) {}
   /* ★ NPC / 老板立绘：每帧对齐相机（和玩家 heroMesh 完全同一朝向，消除"纸片"） */
   if (window.__NPCS) for (var _ni = 0; _ni < window.__NPCS.length; _ni++) window.__NPCS[_ni].quaternion.copy(heroMesh.quaternion);
   /* ★ 进入建筑 → 屋顶+二层淡出（HD-2D 也能看见室内；走出即恢复） */
@@ -1434,13 +1650,13 @@ window.__ATTACH_CITY = true;
 window.__ATTACH_RENDERER = window.__OCTO.renderer;
 window.__ATTACH_SCENE = window.__OCTO.scene;
 </script>
-<script src="js/arena3d.js?v=1792073419"></script>
+<script src="js/arena3d.js?v=1792074656"></script>
 <script>window.__HD2D_HOST = true;</script>
-<script src="js/vendor/qrcode.js?v=1792073419"></script>
-<script src="js/mqtt.js?v=1792073419"></script>
-<script src="js/fp.js?v=1792073419"></script>
-<script src="js/hd2d_arena.js?v=1792073419"></script>
-<script src="js/shooter.js?v=1792073419"></script>
-<script src="js/racestrip.js?v=1792073419"></script>
-<script src="js/kernel.js?v=1792073419"></script>
+<script src="js/vendor/qrcode.js?v=1792074656"></script>
+<script src="js/mqtt.js?v=1792074656"></script>
+<script src="js/fp.js?v=1792074656"></script>
+<script src="js/hd2d_arena.js?v=1792074656"></script>
+<script src="js/shooter.js?v=1792074656"></script>
+<script src="js/racestrip.js?v=1792074656"></script>
+<script src="js/kernel.js?v=1792074656"></script>
 </body></html>

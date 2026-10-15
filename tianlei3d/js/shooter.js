@@ -40,7 +40,8 @@ var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, f
    sandbox=true  → 不刷怪、不出 Boss、不打玩家伤害。世界是你的，建造/探索/联机闲聊为主。
    sandbox=false → 原来的 PVE/PVP 射击场。 */
 var SANDBOX = true;
-var BUILD = 'b' + Date.now().toString(36).slice(-6);   // ★ 构建号：界面可见，用于确认版本真的更新了
+var VERSION = '1.4.0';                                   // ★ 语义化版本（与 APK versionName 同步）
+var BUILD = VERSION + ' · ' + Date.now().toString(36).slice(-5);   // 版本 + 构建号（界面可见）
 
 /* ============================== 音效（纯合成） ============================== */
 var Sfx = {
