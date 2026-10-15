@@ -92,7 +92,7 @@ try {
 
   window.__CARS = CARS;
   window.__DRIVE = { on: false, car: null };   // ★ 驾驶状态（上车/下车由 shooter 控制）
-  window.__RACE_STRIP = { X0: X0, X1: X1, Z0: Z0, Z1: Z1, spawn: { x: CX + 9, z: CZ - 4.4 } };
+  window.__RACE_STRIP = { X0: X0, X1: X1, Z0: Z0, Z1: Z1, inStrip: inStrip, spawn: { x: CX + 9, z: CZ - 4.4 } };
   window.__raceReady = true;
   try { console.log('[racestrip] 就绪', CX, CZ); } catch (e) {}
 } catch (e) { window.__raceErr = (e && (e.stack || e.message)) || String(e); }

@@ -2527,7 +2527,7 @@ function buildMmBase() {
 /* ============================== 主循环 ============================== */
 /* ============================== ★ 性能调速器（保 60 帧：低了自动降画质，够了自动恢复） ============================== */
 var Perf = {
-  fps: 60, lo: 0, hi: 0, level: 2,   // 0标清 1高清 2超清 3极高 4顶级3A（默认取中档，自适应会上下调）
+  fps: 60, lo: 0, hi: 0, level: 1,   // 0标清 1高清 2超清 3极高 4顶级3A（默认高清起步，自适应按帧率升降）
   cap60: true, _skip: 0, _acc: 0,
   // ★ APP(ULTRA)：像素比三档 1.3 / 1.7 / 2.0（绝不糊到 0.55）；网页：0.7/0.85/1.0
   PR: null, MANUAL: 0,                        // MANUAL>0 时手动锁定档位，不再自动调
@@ -2545,7 +2545,7 @@ var Perf = {
     this.fps = f;
     if (this.MANUAL) return;                  // 用户手动锁档 → 不自动调
     // ★ 自适应（像网页版）：掉帧快降、流畅慢升，5 档全覆盖
-    var loAt = window.__ULTRA ? 46 : 52, hiAt = window.__ULTRA ? 57 : 58;
+    var loAt = 52, hiAt = 58;      // ★ 与网页版完全一致（真的会升会降）
     if (f < loAt && this.level > 0) { this.lo++; this.hi = 0; if (this.lo >= 2) { this.level--; this.lo = 0; this.apply(); } }
     else if (f > hiAt && this.level < 4) { this.hi++; this.lo = 0; if (this.hi >= 4) { this.level++; this.hi = 0; this.apply(); } }
     else { this.lo = 0; this.hi = 0; }
