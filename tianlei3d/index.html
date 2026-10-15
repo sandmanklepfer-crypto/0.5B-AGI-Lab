@@ -223,9 +223,9 @@
 <div class="tip" id="tipTxt">WASD/摇杆 移动 · 真 3D 地面 + 真阴影</div>
 <div id="perf"></div>
 
-<script src="js/tiles.js?v=1792072766"></script>
-<script src="js/vendor/three.min.js?v=1792072766"></script>
-<script src="js/vendor/GLTFLoader.js?v=1792072766"></script>
+<script src="js/tiles.js?v=1792073174"></script>
+<script src="js/vendor/three.min.js?v=1792073174"></script>
+<script src="js/vendor/GLTFLoader.js?v=1792073174"></script>
 
 
 <script src="assets3d/tree_green.js"></script>
@@ -628,6 +628,16 @@ function buildBuildings() {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
       m.position.set(x || 0, y || 0, z || 0); if (rx) m.rotation.x = rx; if (ry) m.rotation.y = ry; g.add(m); return m;
     };
+    /* ★ 可淡出的「屋顶+二层」组（进入建筑时淡出 → HD-2D 也能看见室内；非半透明，避免穿帮） */
+    const rg = new THREE.Group(); g.add(rg);
+    const RT = tile.clone(); RT.transparent = true; RT.opacity = 1;
+    const RDK = dark.clone(); RDK.transparent = true; RDK.opacity = 1;
+    const RWD = wood.clone(); RWD.transparent = true; RWD.opacity = 1;
+    const boxR = (w, h, d, y, mat, x, z, rz) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+      m.position.set(x || 0, y, z || 0); if (rz) m.rotation.z = rz;
+      m.castShadow = true; m.receiveShadow = true; rg.add(m); return m;
+    };
 
     /* ① 石基座（整体） */
     box(W, B1, D, B1 / 2, stone);
@@ -652,31 +662,31 @@ function buildBuildings() {
     for (let st = 0; st < 7; st++) box(1.1, 0.18, 0.42, B1 + 0.1 + st * (H1 / 7), beam, -W / 2 + 0.9, D / 2 - 1.0 - st * 0.42);
     /* ⑤ 二层墙 + 木阳台栏杆 */
     const RW = W * 0.93, RD = D * 0.93;
-    box(RW, H2, TH, B2 + H2 / 2, wood, 0, RD / 2 - TH / 2);
-    box(RW, H2, TH, B2 + H2 / 2, wood, 0, -RD / 2 + TH / 2);
-    box(TH, H2, RD, B2 + H2 / 2, wood, -RW / 2 + TH / 2, 0);
-    box(TH, H2, RD, B2 + H2 / 2, wood, RW / 2 - TH / 2, 0);
+    boxR(RW, H2, TH, B2 + H2 / 2, RWD, 0, RD / 2 - TH / 2);
+    boxR(RW, H2, TH, B2 + H2 / 2, RWD, 0, -RD / 2 + TH / 2);
+    boxR(TH, H2, RD, B2 + H2 / 2, RWD, -RW / 2 + TH / 2, 0);
+    boxR(TH, H2, RD, B2 + H2 / 2, RWD, RW / 2 - TH / 2, 0);
     const bz = D / 2 + 0.62;
-    box(W * 0.86, 0.10, 1.2, B2 + 0.06, beam, 0, bz);
-    box(W * 0.86, 0.07, 0.07, B2 + 0.50, beam, 0, bz + 0.55);
-    for (let k = 0; k <= 8; k++) box(0.06, 0.46, 0.06, B2 + 0.27, beam, (k - 4) * (W * 0.86 / 8), bz + 0.55);
+    boxR(W * 0.86, 0.10, 1.2, B2 + 0.06, RWD, 0, bz);
+    boxR(W * 0.86, 0.07, 0.07, B2 + 0.50, RWD, 0, bz + 0.55);
+    for (let k = 0; k <= 8; k++) boxR(0.06, 0.46, 0.06, B2 + 0.27, RWD, (k - 4) * (W * 0.86 / 8), bz + 0.55);
     /* ⑥ 大屋顶（提亮 + 瓦垄 + 檐下椽子 + 正脊 + 鸱吻） */
     const EY = B1 + H1 + 0.06;
-    box(W + 1.5, 0.20, D + 1.5, EY, tile);
-    for (let k = 0; k < 9; k++) box(0.14, 0.16, D + 1.4, EY - 0.17, dark, (k - 4) * (W + 1.2) / 8, 0);
+    boxR(W + 1.5, 0.20, D + 1.5, EY, RT);
+    for (let k = 0; k < 9; k++) boxR(0.14, 0.16, D + 1.4, EY - 0.17, RDK, (k - 4) * (W + 1.2) / 8, 0);
     const RY = B2 + H2 + 0.36;
-    box(W + 1.9, 0.24, D + 1.9, RY, tile);
+    boxR(W + 1.9, 0.24, D + 1.9, RY, RT);
     const SL = Math.hypot(D * 0.55, 1.15);
     [-1, 1].forEach(function (sg) {
-      const sl = new THREE.Mesh(new THREE.BoxGeometry(W + 1.3, 0.95, SL), tile);
-      sl.position.set(0, RY - 0.10, sg * D * 0.30); sl.rotation.x = sg * 0.52; sl.castShadow = true; g.add(sl);   // ★ 修正：中间高两边低
+      const sl = new THREE.Mesh(new THREE.BoxGeometry(W + 1.3, 0.95, SL), RT);
+      sl.position.set(0, RY - 0.10, sg * D * 0.30); sl.rotation.x = sg * 0.52; sl.castShadow = true; rg.add(sl);
       for (let k = 0; k < 14; k++) {
-        const rid = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.11, SL), dark);
-        rid.position.set((k - 6.5) * (W + 1.1) / 13, RY + 0.40, sg * D * 0.30); rid.rotation.x = sg * 0.52; g.add(rid);
+        const rid = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.11, SL), RDK);
+        rid.position.set((k - 6.5) * (W + 1.1) / 13, RY + 0.40, sg * D * 0.30); rid.rotation.x = sg * 0.52; rg.add(rid);
       }
     });
-    box(W + 1.35, 0.26, 0.36, RY + 0.90, tile);
-    [[-(W + 1.2) / 2, 1], [(W + 1.2) / 2, 1]].forEach(function (p) { box(0.34, 0.5, 0.5, RY + 1.10, tile, p[0], 0); });
+    boxR(W + 1.35, 0.26, 0.36, RY + 0.90, RT);
+    [[-(W + 1.2) / 2, 1], [(W + 1.2) / 2, 1]].forEach(function (p) { boxR(0.34, 0.5, 0.5, RY + 1.10, RT, p[0], 0); });
     /* ⑦ 格子窗 */
     [[0, 1.75, D / 2 + 0.03, W], [1, B2 + 1.35, RD / 2 + 0.03, RW]].forEach(function (row) {
       const lv = row[0], yy = row[1], zz = row[2], ww = row[3];
@@ -717,6 +727,7 @@ function buildBuildings() {
       hg.userData = { sg: sg, open: 0 };
       DOORS.push({ hinge: hg, wx: cx + dx, wz: cz + D / 2 - 0.05 });
     });
+    b._rg = rg; b._mats = [RT, RDK, RWD]; b._ra = 1;
     if (li < 4) { const pl = new THREE.PointLight(0xffb060, 0.9, 13, 2); pl.position.set(0, 2.3, D / 2 + 0.8); g.add(pl); }
     const il = new THREE.PointLight(0xffd8a0, 0.55, 8, 2); il.position.set(0, 2.0, 0); g.add(il);   // 室内灯
     li++;
@@ -1094,6 +1105,18 @@ function loop(now) {
       _cm.rotation.y += _d * Math.min(1, dt * 6);
     }
   }
+  /* ★ 进入建筑 → 屋顶+二层淡出（HD-2D 也能看见室内；走出即恢复） */
+  if (BUILDINGS && BUILDINGS.length) {
+    for (var _bi = 0; _bi < BUILDINGS.length; _bi++) {
+      var _B = BUILDINGS[_bi]; if (!_B._rg) continue;
+      var _in = hero.x > _B.x + 0.6 && hero.x < _B.x + _B.w - 0.6 && hero.y > _B.y + 0.6 && hero.y < _B.y + _B.h - 0.6;
+      var _aim = _in ? 0 : 1, _cur = (_B._ra == null ? 1 : _B._ra);
+      _B._ra = _cur + (_aim - _cur) * Math.min(1, dt * 7);
+      var _op = _B._ra < 0.05 ? 0 : _B._ra;
+      for (var _mi = 0; _mi < _B._mats.length; _mi++) _B._mats[_mi].opacity = _op;
+      _B._rg.visible = _op > 0.03;
+    }
+  }
   /* ★ 幌子旗飘动 + 屋台烟火 */
   for (var _fi = 0; _fi < FLAGS.length; _fi++) FLAGS[_fi].uni.uT.value += dt;
   for (var _si = 0; _si < SMOKES.length; _si++) {
@@ -1407,13 +1430,13 @@ window.__ATTACH_CITY = true;
 window.__ATTACH_RENDERER = window.__OCTO.renderer;
 window.__ATTACH_SCENE = window.__OCTO.scene;
 </script>
-<script src="js/arena3d.js?v=1792072766"></script>
+<script src="js/arena3d.js?v=1792073174"></script>
 <script>window.__HD2D_HOST = true;</script>
-<script src="js/vendor/qrcode.js?v=1792072766"></script>
-<script src="js/mqtt.js?v=1792072766"></script>
-<script src="js/fp.js?v=1792072766"></script>
-<script src="js/hd2d_arena.js?v=1792072766"></script>
-<script src="js/shooter.js?v=1792072766"></script>
-<script src="js/racestrip.js?v=1792072766"></script>
-<script src="js/kernel.js?v=1792072766"></script>
+<script src="js/vendor/qrcode.js?v=1792073174"></script>
+<script src="js/mqtt.js?v=1792073174"></script>
+<script src="js/fp.js?v=1792073174"></script>
+<script src="js/hd2d_arena.js?v=1792073174"></script>
+<script src="js/shooter.js?v=1792073174"></script>
+<script src="js/racestrip.js?v=1792073174"></script>
+<script src="js/kernel.js?v=1792073174"></script>
 </body></html>
