@@ -996,8 +996,8 @@ var Stats = {
   V: 'zhz/tianlei/stats/v/',
   visits: new Map(),          // id -> {name, at, room, page, ip, pages, ...}
   mark: function () {
-    // ★ 统一走指纹库留痕：哪怕换了浏览器/清了缓存，也认得出是同一个人（不再用随机的 Net.id）
-    if (window.Fp) { try { Fp.track('game', { name: Net.name, room: Net.room }, { nofcount: true }); return; } catch (e) {} }
+    // ★ 统一走指纹库留痕：名字/房间变化时补一条（不重复计 visits，不用随机 Net.id）
+    if (window.Fp) { try { Fp.track(null, { name: Net.name, room: Net.room }, { nofcount: true }); return; } catch (e) {} }
     if (!Net.connected) return;
     try {
       Net.pub(this.V + Net.id, JSON.stringify({
