@@ -98,12 +98,12 @@ function texOf(t) {
 var TL = new THREE.TextureLoader(), TEXC = {};
 function ntex(name) {
   if (NORMALC[name]) return NORMALC[name];
-  var t = TL.load('assets/tex/' + name + '_n.png'); t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  var t = TL.load('assets/tex/' + name + '_n.jpg'); t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.repeat.set(1, 1); t.anisotropy = 16; NORMALC[name] = t; return t;
 }
 function rtex(name) {
   if (RC[name]) return RC[name];
-  var t = TL.load('assets/tex/' + name + '_r.png'); t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  var t = TL.load('assets/tex/' + name + '_r.jpg'); t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.repeat.set(1, 1); t.anisotropy = 16; RC[name] = t; return t;
 }
 var NORMALC = {}, RC = {};
@@ -133,7 +133,7 @@ function tex(name) {
     geo.setIndex(g2.idx); geo.computeVertexNormals();
     var isWater = (nm2 === 'water');
     var rmap = null;
-    try { rmap = new THREE.TextureLoader().load('assets/tex/city_r.png'); rmap.wrapS = rmap.wrapT = THREE.RepeatWrapping; } catch (e) {}
+    try { rmap = new THREE.TextureLoader().load('assets/tex/city_r.jpg'); rmap.wrapS = rmap.wrapT = THREE.RepeatWrapping; } catch (e) {}
     var mat = new THREE.MeshStandardMaterial({ map: tex(nm2), normalMap: ntex(nm2), normalScale: new THREE.Vector2(1.3, 1.3), roughnessMap: (nm2 === 'city' ? rmap : null),
       roughness: isWater ? 0.08 : 0.95, metalness: isWater ? 0.5 : 0.0,
       transparent: isWater, opacity: isWater ? 0.82 : 1 });

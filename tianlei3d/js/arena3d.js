@@ -152,15 +152,15 @@ GROUNDS.forEach(function (g) {
   var rep2 = g.uvRep || 3;                       // 一张贴图铺几格（越大越细密）
   var set = { map: tex('assets/tex/' + g.base + '.jpg', true, rep2) };
   var hasN = (g.base !== 'dirt' && g.base !== 'marble');
-  if (hasN) set.normalMap = tex('assets/tex/' + g.base + '_n.png', false, rep2);
-  set.roughnessMap = tex('assets/tex/' + g.base + '_r.png', false, rep2);
+  if (hasN) set.normalMap = tex('assets/tex/' + g.base + '_n.jpg', false, rep2);
+  set.roughnessMap = tex('assets/tex/' + g.base + '_r.jpg', false, rep2);
   GROUNDSETS[g.id] = set;
 });
 
 /* ★★ 全站统一 PBR 材质工厂（把"纯色塑料件"换成顶级扫描贴图）★★
    name 取 assets/tex 里的扫描材质：stone/marble/brick/concrete/plaster/metal/
    rustmetal/corrugated/roof/wood/planks/bark/foliage/grass/dirt/sand/gravel/
-   snow/rock/road/fabric/water/city ...   （albedo .jpg + 法线 _n.png + 粗糙 _r.png） */
+   snow/rock/road/fabric/water/city ...   （albedo .jpg + 法线 _n.jpg + 粗糙 _r.jpg） */
 var _matCache = {};
 function matTex(name, opts) {
   opts = opts || {};
@@ -169,8 +169,8 @@ function matTex(name, opts) {
   if (_matCache[key]) return _matCache[key];
   var m = new THREE.MeshStandardMaterial({
     map: tex('assets/tex/' + name + '.jpg', true, rep),
-    normalMap: tex('assets/tex/' + name + '_n.png', false, rep),
-    roughnessMap: tex('assets/tex/' + name + '_r.png', false, rep),
+    normalMap: tex('assets/tex/' + name + '_n.jpg', false, rep),
+    roughnessMap: tex('assets/tex/' + name + '_r.jpg', false, rep),
     roughness: (opts.rough != null ? opts.rough : 0.92),
     metalness: (opts.metal != null ? opts.metal : 0.06)
   });
@@ -321,8 +321,8 @@ var terrain = (function buildTerrain() {
     roughnessMap: GROUNDSETS.asphalt.roughnessMap, vertexColors: true, roughness: 0.72, metalness: 0.18,
     color: new THREE.Color(0xe6ebf5), envMap: cubeRT.texture, envMapIntensity: 0.85 });
   // ★ 真实石材/混凝土墙（写实 PBR：albedo + normal + roughness）
-  matSide = new THREE.MeshStandardMaterial({ map: tex('assets/tex/concrete.jpg', true), normalMap: tex('assets/tex/concrete_n.png'),
-    roughnessMap: tex('assets/tex/concrete_r.png'), color: 0x9aa0a8, vertexColors: true,
+  matSide = new THREE.MeshStandardMaterial({ map: tex('assets/tex/concrete.jpg', true), normalMap: tex('assets/tex/concrete_n.jpg'),
+    roughnessMap: tex('assets/tex/concrete_r.jpg'), color: 0x9aa0a8, vertexColors: true,
     roughness: 0.93, metalness: 0.12, envMap: cubeRT.texture, envMapIntensity: 0.7, side: THREE.DoubleSide });
   // ★ 玻璃幕墙（深色高反射 + 稀疏亮窗）
   matGlass = new THREE.MeshStandardMaterial({ color: 0x243d5e, metalness: 1.0, roughness: 0.05,

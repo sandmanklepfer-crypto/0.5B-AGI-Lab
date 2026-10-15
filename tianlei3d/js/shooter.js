@@ -50,15 +50,15 @@ var Sfx = {
     if (this.ctx) return; var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
     try { this.ctx = new AC(); } catch (e) { return; }
     // ★ 母线：压缩器防爆音 + 总增益拉高（原来 0.5 太小）
-    this.master = this.ctx.createGain(); this.master.gain.value = 0.95;
+    this.master = this.ctx.createGain(); this.master.gain.value = 1.0;
     try {
       this.comp = this.ctx.createDynamicsCompressor();
-      this.comp.threshold.value = -12; this.comp.knee.value = 24; this.comp.ratio.value = 6;
+      this.comp.threshold.value = -6; this.comp.knee.value = 12; this.comp.ratio.value = 4;
       this.comp.attack.value = 0.003; this.comp.release.value = 0.25;
       this.master.connect(this.comp); this.comp.connect(this.ctx.destination);
     } catch (e) { this.master.connect(this.ctx.destination); }
-    this.sfxBus = this.ctx.createGain(); this.sfxBus.gain.value = 1.0; this.sfxBus.connect(this.master);
-    this.musicBus = this.ctx.createGain(); this.musicBus.gain.value = 0.30; this.musicBus.connect(this.master);
+    this.sfxBus = this.ctx.createGain(); this.sfxBus.gain.value = this.vol; this.sfxBus.connect(this.master);
+    this.musicBus = this.ctx.createGain(); this.musicBus.gain.value = 0.85 * this.vol; this.musicBus.connect(this.master);
   },
   resume: function () { this.init(); if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
   _noise: function (dur) {
@@ -66,7 +66,7 @@ var Sfx = {
     for (var i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
     var s = this.ctx.createBufferSource(); s.buffer = buf; return s;
   },
-  setVol: function (v) { this.vol = Math.max(0, Math.min(1.5, v)); if (this.sfxBus) this.sfxBus.gain.value = this.vol; if (this.musicBus) this.musicBus.gain.value = 0.30 * this.vol; },
+  setVol: function (v) { this.vol = Math.max(0, Math.min(2.8, v)); if (this.sfxBus) this.sfxBus.gain.value = this.vol; if (this.musicBus) this.musicBus.gain.value = 0.85 * this.vol; },
   gun: function (kind, dist) {
     if (!this.on) return; this.init(); if (!this.ctx) return;
     var t = this.ctx.currentTime, g = this.ctx.createGain(), f = this.ctx.createBiquadFilter();
@@ -163,6 +163,16 @@ var Sfx = {
 };
 
 /* ============================== ★ 背景音乐（程序化合成 · 免外部文件） ============================== */
+/* ★ 音量档位：中 / 大 / 超大 / 爆表（整体增益，音乐+音效一起） */
+Sfx.VOL_STEPS = [1.0, 1.4, 2.0, 2.6];
+Sfx.VOL_NAMES = ['中', '大', '超大', '爆表'];
+Sfx.volIdx = 1;
+Sfx.applyVol = function () {
+  this.setVol(this.VOL_STEPS[this.volIdx]);
+  var b = document.getElementById('bVol');
+  if (b) { b.textContent = '音量:' + this.VOL_NAMES[this.volIdx]; b.className = this.volIdx > 0 ? 'on' : ''; }
+};
+
 var Music = {
   on: false, timer: null, nextT: 0, bar: 0,
   // Am - F - C - G 循环，暗色调，贴合"雨夜诡都"
@@ -190,14 +200,14 @@ var Music = {
       var o = ctx.createOscillator(), g = ctx.createGain(), fl = ctx.createBiquadFilter();
       o.type = 'sawtooth'; o.frequency.value = f / 2; o.detune.value = (i - 1) * 6;
       fl.type = 'lowpass'; fl.frequency.setValueAtTime(420, t0); fl.frequency.linearRampToValueAtTime(760, t0 + self.BAR * 0.6);
-      g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.10, t0 + 0.7);
+      g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.18, t0 + 0.7);
       g.gain.linearRampToValueAtTime(0.0001, t0 + self.BAR);
       o.connect(fl); fl.connect(g); g.connect(bus); o.start(t0); o.stop(t0 + self.BAR + 0.05);
     });
     // bass：根音
     var bo = ctx.createOscillator(), bg = ctx.createGain();
     bo.type = 'triangle'; bo.frequency.value = ch[0] / 4;
-    bg.gain.setValueAtTime(0.0001, t0); bg.gain.linearRampToValueAtTime(0.18, t0 + 0.06);
+    bg.gain.setValueAtTime(0.0001, t0); bg.gain.linearRampToValueAtTime(0.30, t0 + 0.06);
     bg.gain.exponentialRampToValueAtTime(0.0001, t0 + self.BAR * 0.95);
     bo.connect(bg); bg.connect(bus); bo.start(t0); bo.stop(t0 + self.BAR);
     // 鼓：kick 1/3 拍，snare 2/4 拍，hat 8 分
@@ -207,20 +217,20 @@ var Music = {
       if (b % 2 === 0) {   // kick
         var ko = ctx.createOscillator(), kg = ctx.createGain();
         ko.type = 'sine'; ko.frequency.setValueAtTime(150, tb); ko.frequency.exponentialRampToValueAtTime(42, tb + 0.11);
-        kg.gain.setValueAtTime(0.32, tb); kg.gain.exponentialRampToValueAtTime(0.0001, tb + 0.16);
+        kg.gain.setValueAtTime(0.50, tb); kg.gain.exponentialRampToValueAtTime(0.0001, tb + 0.16);
         ko.connect(kg); kg.connect(bus); ko.start(tb); ko.stop(tb + 0.18);
       } else {             // snare
         var sn = Sfx._noise(0.13), sf = ctx.createBiquadFilter(), sg = ctx.createGain();
         sf.type = 'highpass'; sf.frequency.value = 1400;
         sn.connect(sf); sf.connect(sg); sg.connect(bus);
-        sg.gain.setValueAtTime(0.16, tb); sg.gain.exponentialRampToValueAtTime(0.0001, tb + 0.13);
+        sg.gain.setValueAtTime(0.26, tb); sg.gain.exponentialRampToValueAtTime(0.0001, tb + 0.13);
         sn.start(tb); sn.stop(tb + 0.15);
       }
       for (var h = 0; h < 2; h++) {   // hat
         var ht = tb + h * beat / 2, hn = Sfx._noise(0.03), hf = ctx.createBiquadFilter(), hg = ctx.createGain();
         hf.type = 'highpass'; hf.frequency.value = 7000;
         hn.connect(hf); hf.connect(hg); hg.connect(bus);
-        hg.gain.setValueAtTime(h * 0.05 + 0.03, ht); hg.gain.exponentialRampToValueAtTime(0.0001, ht + 0.03);
+        hg.gain.setValueAtTime(h * 0.08 + 0.05, ht); hg.gain.exponentialRampToValueAtTime(0.0001, ht + 0.03);
         hn.start(ht); hn.stop(ht + 0.04);
       }
     }
@@ -2065,9 +2075,10 @@ function bindPointer() {
     var st = el.querySelector('.k'); if (st) st.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
   }
   window.addEventListener('pointerdown', function (e) {
-    // ★ 表单控件（滑条/输入框/下拉）一律不拦截，否则 range 拖不动
-    var tag = (e.target && e.target.tagName || '').toLowerCase();
-    if (tag === 'input' || tag === 'select' || tag === 'textarea' || (e.target && e.target.closest && e.target.closest('#distBox,.hrbtns'))) return;
+    // ★ 任何 UI 浮层/控件都不抢手势：按钮/链接/表单/各面板。
+    //   （原来只排除表单，导致点菜单按钮被当"转视角"并 preventDefault，click 被吞 → 点了没反应 / ✕关不掉 / 滑动被吃）
+    if (e.target && e.target.closest && e.target.closest(
+      'button,a,input,select,textarea,#treePanel,#qrPanel,#histPanel,#board,#mapWrap,#chatWrap,#visitPanel,.hrbtns,#distBox,.thead,.chip')) return;
     var t = hit(e.clientX, e.clientY);
     if (t === 'joy') { joyId = e.pointerId; joySet(e.clientX, e.clientY); }
     else if (t === 'btnFire') { fireId = e.pointerId; Input.fire = true; Input.fireOnce = true; $('btnFire').classList.add('on'); }
@@ -3014,12 +3025,12 @@ function bindUI() {
     b.addEventListener('mouseup', up);
     b.addEventListener('mouseleave', function () { if (Voice.rec && Voice.rec.state === 'recording') Voice.stop(); });
   })();
-  _on('bBuild', 'click', function () { var p = $('treePanel'); if (p) p.style.display = 'none'; Build.toggle(); });
-  _on('bCine', 'click', function () { var p = $('treePanel'); if (p) p.style.display = 'none'; Cine.toggle(); });
+  _on('bBuild', 'click', function () { openTree(false); Build.toggle(); });
+  _on('bCine', 'click', function () { openTree(false); Cine.toggle(); });
   /* ★ 赛道：传送到城市旁的「公路 + 车」区（复用刹车材质，在同一套 PBR 光照下） */
   function gotoRace() {
     var R = window.__RACE_STRIP; if (!R) { HUD.center('赛道未就绪', 'racestrip.js 未加载', 1500); return; }
-    var p = $('treePanel'); if (p) p.style.display = 'none';
+    openTree(false);
     var sx = R.spawn.x, sz = R.spawn.z;
     var O = window.__OCTO; if (O && O.hero) { O.hero.x = sx; O.hero.y = sz; }
     try { P.x = sx; P.z = sz; P.y = 0; P.vy = 0; } catch (e) {}
@@ -3036,7 +3047,7 @@ function bindUI() {
     }
     _on('bRace', 'click', function () { gotoRace(); });
     _on('bRace2', 'click', function () { gotoRace(); });
-    _on('bRace3', 'click', function () { var p = $('treePanel'); if (p) p.style.display = 'none'; openRace(true); });
+    _on('bRace3', 'click', function () { openTree(false); openRace(true); });
     _on('raceClose', 'click', function () { openRace(false); });
     window.__openRace = openRace; window.__gotoRace = gotoRace;
   })();
@@ -3080,10 +3091,16 @@ function bindUI() {
   _on('b3D', 'click', toggle3D);
   // ★ 关键修复：面板必须开在 ☰ 按钮"下方"，而不是写死 top:52px。
   //   顶栏按钮一多就会换行，☰ 掉到第二行时，写死的面板正好盖住它 → 展开后关不掉。
+  // ★ 统一关闭所有「右上浮层」（菜单 + 子面板），避免"菜单关了子面板还留着"
+  function hideSubPanels() {
+    ['qrPanel', 'histPanel', 'board'].forEach(function (id) { var e = $(id); if (e) e.style.display = 'none'; });
+    var vp = document.getElementById('visitPanel'); if (vp) vp.style.display = 'none';
+  }
   function openTree(on) {
     var p = $('treePanel'), b = $('bRoot');
     if (!p) return;
-    if (!on) { p.style.display = 'none'; return; }
+    if (!on) { p.style.display = 'none'; hideSubPanels(); return; }   // ★ 关菜单顺手清干净子面板
+    hideSubPanels();                                                  // ★ 开菜单先收掉子面板，不叠在一起
     p.style.display = 'block';
     if (b) {
       var r = b.getBoundingClientRect();
@@ -3101,12 +3118,20 @@ function bindUI() {
   // 点面板外面 → 关掉（点里面不关）
   document.addEventListener('pointerdown', function (e) {
     var p = $('treePanel'); if (!p || p.style.display !== 'block') return;
-    if (p.contains(e.target)) return;
-    var b = $('bRoot'); if (b && b.contains(e.target)) return;
+    var t = e.target;
+    if (p.contains(t)) return;                                   // 菜单内部不关
+    var b = $('bRoot'); if (b && b.contains(t)) return;          // ☰ 自己处理开关
+    if (t && t.closest && t.closest('button,a,input,.chip,.hrbtns')) return;   // 其它 UI 也不关
     openTree(false);
   }, true);
   window.addEventListener('resize', function () {
     var p = $('treePanel'); if (p && p.style.display === 'block') openTree(true);
+  });
+  _on('bVol', 'click', function () {
+    Sfx.volIdx = (Sfx.volIdx + 1) % Sfx.VOL_STEPS.length;
+    Sfx.applyVol(); save('tl_vol', String(Sfx.volIdx));
+    HUD.center('音量 · ' + Sfx.VOL_NAMES[Sfx.volIdx], Sfx.volIdx >= 2 ? '再往上可能破音，觉得吵就往下调' : '', 1400);
+    Sfx.ui();
   });
   _on('bMusic', 'click', function () { Sfx.resume(); var on = Music.toggle(); this.textContent = '音乐' + (on ? ':开' : ':关'); this.className = on ? 'on' : ''; save('tl_music', on ? '1' : '0'); });
   _on('bSfx', 'click', function () { Sfx.on = !Sfx.on; this.textContent = '音效' + (Sfx.on ? ':开' : ':关'); this.className = Sfx.on ? 'on' : ''; save('tl_sfx', Sfx.on ? '1' : '0'); if (Sfx.on) Sfx.ui(); });
@@ -3127,13 +3152,14 @@ function bindUI() {
     Sfx.ui();
   });
   _on('bMap', 'click', function () { var m = $('mapWrap'); if (!m) return; var on = m.style.display !== 'block'; m.style.display = on ? 'block' : 'none'; this.className = on ? 'on' : ''; });
-  _on('bVisitors', 'click', function () { var p = $('treePanel'); if (p) p.style.display = 'none'; Stats.show(); });   // ★ 访客名单
+  _on('bVisitors', 'click', function () { openTree(false); Stats.show(); });   // ★ 访客名单
   _on('bChat', 'click', function () { var c = $('chatWrap'); if (!c) return; var on = !c.classList.contains('on'); c.classList.toggle('on', on); this.className = on ? 'on' : ''; if (on) { var ci = $('chatInput'); if (ci) try { ci.focus(); } catch (e) {} } });
-  _on('bBoard', 'click', function () { var b = $('board'); var show = b.style.display !== 'block'; HUD.board(); b.style.display = show ? 'block' : 'none'; });
-  _on('bHist', 'click', function () { var p = $('histPanel'); if (!p) return; var show = p.style.display !== 'block'; HUD.hist(); p.style.display = show ? 'block' : 'none'; });
+  _on('bBoard', 'click', function () { openTree(false); var b = $('board'); HUD.board(); b.style.display = 'block'; });
+  _on('bHist', 'click', function () { openTree(false); var p = $('histPanel'); if (!p) return; HUD.hist(); p.style.display = 'block'; });
   _on('histClose', 'click', function () { var p = $('histPanel'); if (p) p.style.display = 'none'; });
-  _on('bInv', 'click', function () { HUD.invite(); });
+  _on('bInv', 'click', function () { openTree(false); HUD.invite(); });
   _on('bShare', 'click', function () {
+    openTree(false);
     var n = Ref.count();
     HUD.qr(Net.inviteLink());
     HUD.center('分享领神器 · ' + n + '/' + Ref.need,
@@ -3215,6 +3241,8 @@ function restorePrefs() {
   if ($('bFight')) $('bFight').className = SANDBOX ? '' : 'on';
   if ($('modeChip')) { $('modeChip').textContent = SANDBOX ? '🧱 沙盒' : '⚔ 战斗'; $('modeChip').className = 'chip' + (SANDBOX ? '' : ' on'); }
   Sfx.on = load('tl_sfx', '1') !== '0';
+  Sfx.volIdx = Math.max(0, Math.min(3, parseInt(load('tl_vol', '1'), 10) || 0));
+  Sfx.applyVol();
   Voice.muted = load('tl_mic', '1') === '0';
   if ($('bMic')) { $('bMic').textContent = '麦克风:' + (Voice.muted ? '关' : '开'); $('bMic').className = Voice.muted ? '' : 'on'; }
   Voice.muted = load('tl_mic', '1') === '0';
