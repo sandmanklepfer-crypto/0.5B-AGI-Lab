@@ -223,9 +223,9 @@
 <div class="tip" id="tipTxt">WASD/摇杆 移动 · 真 3D 地面 + 真阴影</div>
 <div id="perf"></div>
 
-<script src="js/tiles.js?v=1792073275"></script>
-<script src="js/vendor/three.min.js?v=1792073275"></script>
-<script src="js/vendor/GLTFLoader.js?v=1792073275"></script>
+<script src="js/tiles.js?v=1792073419"></script>
+<script src="js/vendor/three.min.js?v=1792073419"></script>
+<script src="js/vendor/GLTFLoader.js?v=1792073419"></script>
 
 
 <script src="assets3d/tree_green.js"></script>
@@ -1025,11 +1025,12 @@ var SMOKES = [], FLAGS = [];
       for (var k3 = -1; k3 <= 1; k3++) for (var q = 0; q < 3; q++) { var dg = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), FSH); dg.position.set(k3 * 0.5, 1.08 + q * 0.17, 0.2); g.add(dg); }
       var bw = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.2, 0.24, 12), FSH); bw.position.set(0.95, 1.08, 0.25); g.add(bw);
     }
-    // ★ 老板 NPC：和玩家**同尺寸 + 同 billboard 朝向**（否则纸片穿帮）
-    const nm = new THREE.MeshStandardMaterial({ map: NPC_T[i % NPC_T.length], transparent: true, alphaTest: 0.4, depthWrite: true, side: THREE.DoubleSide, emissive: 0x3a2a1c, emissiveIntensity: 0.8 });
-    const nn = new THREE.Mesh(new THREE.PlaneGeometry(HERO_W, HERO_H), nm);
-    nn.geometry.translate(0, HERO_H / 2, 0);                      // 原点=脚底（和玩家一致）
-    nn.position.set(-0.6, 0, -0.62); g.add(nn);
+    // ★★ 老板 NPC：直接用玩家的 heroMat（同一个 GI 着色器）→ 与玩家**完全同一渲染**，不再是纸片
+    const nm = heroMat;
+    const nnGeo = new THREE.PlaneGeometry(HERO_W, HERO_H); nnGeo.translate(0, HERO_H / 2, 0);
+    const nn = new THREE.Mesh(nnGeo, nm);
+    nn.position.set(x - 0.6, 0, z - 0.62);      // ★ 放世界层（不在会旋转的 group 里，billboard 才不被污染）
+    scene.add(nn);
     (window.__NPCS = window.__NPCS || []).push(nn);
     (window.__CHEFS = window.__CHEFS || []).push({ x: x - 0.6, z: z - 0.62, kind: i % 3, name: ['鱼板烧屋', '关东煮屋', '团子屋'][i % 3] });
     // 幌子旗（飘动）
@@ -1433,13 +1434,13 @@ window.__ATTACH_CITY = true;
 window.__ATTACH_RENDERER = window.__OCTO.renderer;
 window.__ATTACH_SCENE = window.__OCTO.scene;
 </script>
-<script src="js/arena3d.js?v=1792073275"></script>
+<script src="js/arena3d.js?v=1792073419"></script>
 <script>window.__HD2D_HOST = true;</script>
-<script src="js/vendor/qrcode.js?v=1792073275"></script>
-<script src="js/mqtt.js?v=1792073275"></script>
-<script src="js/fp.js?v=1792073275"></script>
-<script src="js/hd2d_arena.js?v=1792073275"></script>
-<script src="js/shooter.js?v=1792073275"></script>
-<script src="js/racestrip.js?v=1792073275"></script>
-<script src="js/kernel.js?v=1792073275"></script>
+<script src="js/vendor/qrcode.js?v=1792073419"></script>
+<script src="js/mqtt.js?v=1792073419"></script>
+<script src="js/fp.js?v=1792073419"></script>
+<script src="js/hd2d_arena.js?v=1792073419"></script>
+<script src="js/shooter.js?v=1792073419"></script>
+<script src="js/racestrip.js?v=1792073419"></script>
+<script src="js/kernel.js?v=1792073419"></script>
 </body></html>
