@@ -163,6 +163,49 @@ var Sfx = {
 };
 
 /* ============================== ★ 背景音乐（程序化合成 · 免外部文件） ============================== */
+/* ★★ 钢琴（FL Studio Steinway 采样 → 走近可弹）★★
+   4 个采样(C1~C4) + playbackRate 变调 → 整台钢琴音域；纯本地，0 流量。 */
+var Piano = {
+  NOTES: { C1: 32.70, C2: 65.41, C3: 130.81, C4: 261.63 },
+  bufs: {}, ready: false, _load: false, playing: false, near: false,
+  load: function () {
+    if (this._load) return; this._load = true;
+    var self = this;
+    Object.keys(this.NOTES).forEach(function (k) {
+      try {
+        fetch('assets/audio/piano/piano_' + k + '.wav').then(function (r) { return r.arrayBuffer(); })
+          .then(function (ab) { return Sfx.ctx.decodeAudioData(ab); })
+          .then(function (b) { self.bufs[k] = b; self.ready = true; }).catch(function () {});
+      } catch (e) {}
+    });
+  },
+  note: function (midi, when, vol) {
+    if (!Sfx.ctx || !this.ready) return;
+    var f = 440 * Math.pow(2, (midi - 69) / 12), best = 'C4', bd = 1e9;
+    for (var k in this.NOTES) { var d = Math.abs(Math.log2(f / this.NOTES[k])); if (d < bd) { bd = d; best = k; } }
+    var buf = this.bufs[best]; if (!buf) return;
+    var src = Sfx.ctx.createBufferSource(); src.buffer = buf;
+    src.playbackRate.value = f / this.NOTES[best];
+    var g = Sfx.ctx.createGain(); g.gain.value = vol || 0.55;
+    src.connect(g); g.connect(Sfx.musicBus || Sfx.master);
+    src.start(when || Sfx.ctx.currentTime);
+  },
+  // 一小段"雨夜圆舞曲"（自己写的，无版权）
+  MEL: [[64,.0],[67,.5],[71,1.0],[72,1.5],[71,2.0],[67,2.5],[64,3.0],
+        [62,3.5],[65,4.0],[69,4.5],[71,5.0],[69,5.5],[65,6.0],[62,6.5],
+        [60,7.0],[64,7.5],[67,8.0],[72,8.5],[71,9.0],[67,9.5],[64,10.0]],
+  play: function () {
+    if (!Sfx.ctx) return;
+    Sfx.resume(); this.load();
+    var self = this, t0 = Sfx.ctx.currentTime + 0.06;
+    this.MEL.forEach(function (n) { self.note(n[0], t0 + n[1], 0.5); });
+    // 低音铺底
+    [[48,0],[45,3.5],[43,7.0],[41,10.0]].forEach(function (n) { self.note(n[0], t0 + n[1], 0.3); });
+    this.playing = true;
+    HUD.center('🎹 琴声在雨夜里荡开', '靠近再来一曲 · 服务端零流量', 2600);
+  },
+};
+
 /* ★ 音量档位：中 / 大 / 超大 / 爆表（整体增益，音乐+音效一起） */
 Sfx.VOL_STEPS = [1.0, 1.4, 2.0, 2.6];
 Sfx.VOL_NAMES = ['中', '大', '超大', '爆表'];
@@ -3172,6 +3215,22 @@ function bindUI() {
     this.textContent = '✅ 已复制';
   });
   _on('qrClose', 'click', function () { HUD.qrHide(); });
+  /* ★ 钢琴交互：走近提示，按 E / 点按钮弹奏 */
+  setInterval(function () {
+    var pi = window.__PIANO; if (!pi) return;
+    var d = Math.hypot(P.x - pi.x, P.z - pi.z);
+    var near = d < 4.2; Piano.near = near;
+    var el = $('interactTip');
+    if (el) { el.style.display = near ? 'block' : 'none'; if (near) el.textContent = '🎹 按 E 弹奏钢琴'; }
+  }, 300);
+  window.addEventListener('keydown', function (e) {
+    var k = (e.key || '').toLowerCase();
+    if (k === 'e' && Piano.near) {
+      if (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+      e.preventDefault(); Piano.play();
+    }
+  });
+  _on('interactTip', 'click', function () { if (Piano.near) Piano.play(); });
   _on('bGround', 'click', cycleGround);
   _on('bCam', 'click', cycleCam);
   if ($('bAim')) _on('bAim', 'click', toggleAssist);

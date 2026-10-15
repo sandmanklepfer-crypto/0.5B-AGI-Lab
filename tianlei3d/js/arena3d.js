@@ -165,7 +165,7 @@ var _matCache = {};
 function matTex(name, opts) {
   opts = opts || {};
   var rep = opts.rep || 1;
-  var key = [name, rep, opts.color || '', opts.rough, opts.metal, opts.ns || ''].join('|');
+  var key = [name, rep, opts.color || '', opts.rough, opts.metal, opts.ns || '', opts.emissive || '', opts.emInt || ''].join('|');
   if (_matCache[key]) return _matCache[key];
   var m = new THREE.MeshStandardMaterial({
     map: tex('assets/tex/' + name + '.jpg', true, rep),
@@ -176,6 +176,7 @@ function matTex(name, opts) {
   });
   if (opts.color) m.color.setHex(opts.color);
   if (opts.ns) m.normalScale = new THREE.Vector2(opts.ns, opts.ns);
+  if (opts.emissive) { m.emissive.setHex(opts.emissive); m.emissiveIntensity = (opts.emInt != null ? opts.emInt : 0.4); }
   if (opts.env != null) { m.envMap = cubeRT.texture; m.envMapIntensity = opts.env; }
   _matCache[key] = m;
   return m;
@@ -293,15 +294,49 @@ var TEX_STEEL = makeSteel(), TEX_GLASS = makeGlassEmis();
   lims.forEach(function (g2) { g2.im.count = g2.n; g2.im.castShadow = true; scene.add(g2.im); });
   tim.castShadow = true; scene.add(tim);
   // 木屋（方块体块 + 屋顶）
-  var wallM = matTex('planks', { rep: 2, rough: 0.9 });
-  var roofM = matTex('roof', { rep: 2, rough: 0.85 });
+  // ★ 木屋：墙用砖(亮) + 屋顶用瓦，并加自发光窗 + 真实暖光（夜景不再死黑）
+  var wallM = matTex('planks', { rep: 2, rough: 0.85, emissive: 0x2a1a0c, emInt: 0.45 });
+  var roofM = matTex('roof',   { rep: 2, rough: 0.8,  emissive: 0x1c0e08, emInt: 0.35 });
+  var winM  = new THREE.MeshBasicMaterial({ color: 0xffd28a });
   var houses = [[7, 10], [14, 38], [4, 30], [17, 16], [10, 44]];
   for (var h = 0; h < houses.length; h++) {
     var hx = houses[h][0] * TILE, hz = houses[h][1] * TILE;
     var b = new THREE.Mesh(new THREE.BoxGeometry(3.4, 2.6, 3.0), wallM); b.position.set(hx, 1.3, hz); b.castShadow = b.receiveShadow = true; scene.add(b);
     var r = new THREE.Mesh(new THREE.ConeGeometry(3.0, 1.8, 4), roofM); r.position.set(hx, 3.5, hz); r.rotation.y = Math.PI / 4; r.castShadow = true; scene.add(r);
-    emAdd(hx, hz, 2.4, 0xffc07a, 0.7, 22, true);             // 屋里暖光（进 GI）
+    // 发光窗（4 面各一扇）—— 夜里"屋里亮着灯"的关键
+    [[0, 1.51, 0.28, 0], [0.28, 0.28, 1.51, 0], [0, -0.28, 1.51, 0], [-1.51, 0.28, 0, 0]].forEach(function (w, wi) {
+      var wm = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.66), winM);
+      wm.position.set(hx + w[0] * (w[0] === 0 ? 1 : 1), 1.45 + (wi % 2) * 0.15, hz + w[2]);
+      if (w[0] !== 0) { wm.position.x = hx + (w[0] > 0 ? 1.72 : -1.72); wm.position.z = hz + (wi === 1 ? 0.6 : -0.6); wm.rotation.y = w[0] > 0 ? Math.PI / 2 : -Math.PI / 2; }
+      else { wm.position.z = hz + (w[2] > 0 ? 1.52 : -1.52); wm.rotation.y = w[2] > 0 ? 0 : Math.PI; }
+      scene.add(wm);
+    });
+    var pl = new THREE.PointLight(0xffb060, 0.9, 16, 2); pl.position.set(hx, 1.9, hz); scene.add(pl);
+    emAdd(hx, hz, 2.4, 0xffc07a, 1.2, 26, true);             // 屋里暖光（进 GI）
   }
+
+  /* ★★ 立式钢琴（FL Studio Steinway 采样 → 可走近弹奏）★★ */
+  (function buildPiano() {
+    var g = new THREE.Group();
+    var body  = new THREE.MeshStandardMaterial({ color: 0x0b0b0e, roughness: 0.2, metalness: 0.4, envMap: cubeRT.texture, envMapIntensity: 1.0, emissive: 0x0a0a10, emissiveIntensity: 0.25 });
+    var white = new THREE.MeshStandardMaterial({ color: 0xf6f3ea, roughness: 0.32, metalness: 0.02 });
+    var black = new THREE.MeshStandardMaterial({ color: 0x121216, roughness: 0.3, metalness: 0.2 });
+    var b1 = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.0, 0.62), body); b1.position.set(0, 0.62, -0.2); b1.castShadow = true; g.add(b1);
+    var b2 = new THREE.Mesh(new THREE.BoxGeometry(1.54, 0.12, 0.36), body); b2.position.set(0, 0.72, 0.28); g.add(b2);
+    for (var i = 0; i < 14; i++) { var wk = new THREE.Mesh(new THREE.BoxGeometry(0.082, 0.03, 0.26), white); wk.position.set(-0.62 + i * 0.095, 0.795, 0.29); g.add(wk); }
+    [0,1,3,4,5,7,8,10,11,12].forEach(function (k) { var bk = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.036, 0.16), black); bk.position.set(-0.62 + k * 0.095 + 0.0475, 0.813, 0.255); g.add(bk); });
+    [[-0.66,-0.34],[0.66,-0.34],[-0.66,0.32],[0.66,0.32]].forEach(function (p) { var l = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.62, 0.09), body); l.position.set(p[0], 0.31, p[1]); l.castShadow = true; g.add(l); });
+    var lid = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.045, 0.62), body); lid.position.set(0, 1.14, -0.2); lid.rotation.x = -0.55; g.add(lid);
+    // 琴凳
+    var seat = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.08, 0.32), matTex('wood', { rep: 1, rough: 0.8 }));
+    seat.position.set(0, 0.5, 0.72); seat.castShadow = true; g.add(seat);
+    [[-0.26,0.58],[0.26,0.58],[-0.26,0.86],[0.26,0.86]].forEach(function (p) { var l = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.5, 0.06), body); l.position.set(p[0], 0.25, p[1]); g.add(l); });
+    // 放在第一个木屋门口（可交互）
+    var px = houses[0][0] * TILE + 2.6, pz = houses[0][1] * TILE + 0.2;
+    g.position.set(px, 0, pz); g.rotation.y = -0.5; scene.add(g);
+    var pl2 = new THREE.PointLight(0xffd090, 0.7, 9, 2); pl2.position.set(px + 0.6, 1.6, pz + 0.8); scene.add(pl2);
+    window.__PIANO = { x: px, z: pz, group: g };
+  })();
   // 营地入口 · 告示牌（指引箭头）
   var sx = (campW - 1) * TILE, sz = GH * TILE * 0.5;
   var post = new THREE.Mesh(new THREE.BoxGeometry(0.22, 2.4, 0.22), matTex('wood', { rep: 1, rough: 1 }));
@@ -337,7 +372,7 @@ var terrain = (function buildTerrain() {
     var o = side.b, c = shade(Math.max(ay, cy));
     side.pos.push(ax, ay, az, bx, by, bz, cx, cy, cz, dx2, dy2, dz2);
     var w = Math.hypot(bx - ax, bz - az), hh = Math.hypot(dx2 - ax, dy2 - ay, dz2 - az);
-    side.uv.push(w / 5, 0, 0, 0, 0, hh / 5, w / 5, hh / 5);
+    side.uv.push(w / 2.6, 0, 0, 0, 0, hh / 2.6, w / 2.6, hh / 2.6);   // ★ 加密：墙面纹理更细腻
     for (var i = 0; i < 4; i++) side.col.push(c[0] * 0.95, c[1] * 0.97, c[2] * 1.0);
     side.idx.push(o, o + 1, o + 2, o, o + 2, o + 3); side.b += 4;
     // 幕墙玻璃（楼体上部 62% 挂深色玻璃，强反射霓虹）
@@ -371,7 +406,8 @@ var terrain = (function buildTerrain() {
     color: new THREE.Color(0xe6ebf5), envMap: cubeRT.texture, envMapIntensity: 0.85 });
   // ★ 真实石材/混凝土墙（写实 PBR：albedo + normal + roughness）
   matSide = new THREE.MeshStandardMaterial({ map: tex('assets/tex/concrete.jpg', true), normalMap: tex('assets/tex/concrete_n.jpg'),
-    roughnessMap: tex('assets/tex/concrete_r.jpg'), color: 0x9aa0a8, vertexColors: true,
+    roughnessMap: tex('assets/tex/concrete_r.jpg'), normalScale: new THREE.Vector2(1.7, 1.7),
+    color: 0xa8adb6, vertexColors: true,
     roughness: 0.93, metalness: 0.12, envMap: cubeRT.texture, envMapIntensity: 0.7, side: THREE.DoubleSide });
   // ★ 玻璃幕墙（深色高反射 + 稀疏亮窗）
   matGlass = new THREE.MeshStandardMaterial({ color: 0x243d5e, metalness: 1.0, roughness: 0.05,
@@ -570,7 +606,7 @@ function injectGI(mat, amt) {
 }
 
 /* ---------------- 光照（★ 移植《极限刹车》夜城氛围） ---------------- */
-var hemi = new THREE.HemisphereLight(0x4a3a5a, 0x1a1418, 0.22); scene.add(hemi);
+var hemi = new THREE.HemisphereLight(0x554566, 0x201a20, 0.34); scene.add(hemi);
 var moon = new THREE.DirectionalLight(0xffb27a, 0.70);
 moon.position.set(70, 96, 34); moon.castShadow = true;
 moon.shadow.mapSize.set(512, 512);
