@@ -2734,9 +2734,19 @@ var Ref = {
 /* ★★ 建筑块材质工厂：全部走 assets/tex 的扫描 PBR（albedo+法线+粗糙）★★ */
 var BM = (function () {
   var tc = {}, ldr = new THREE.TextureLoader();
-  function tex(n) { var k = 't' + n; if (tc[k]) return tc[k]; var t = ldr.load('assets/tex/' + n + '.jpg'); t.wrapS = t.wrapT = THREE.RepeatWrapping; tc[k] = t; return t; }
+  function tex(n) {
+    var k = 't' + n; if (tc[k]) return tc[k];
+    var t = ldr.load('assets/tex/' + n + '.jpg'); t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    if (THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding;         // ★ 修：颜色空间
+    try { t.anisotropy = 4; } catch (e) {}
+    tc[k] = t; return t;
+  }
   function mat(name, o) {
-    o = o || {}; var rep = o.rep || 1, key = ['m', name, rep, o.color || '', o.rough, o.metal, o.emissive || '', o.emInt || ''].join('|');
+    o = o || {}; var rep = o.rep || 1;
+    // ★ 建筑块默认带一点自发光（夜景里绝不发黑）；显式传 emissive 则用它
+    var em = (o.emissive != null) ? o.emissive : 0x241a10;
+    var emI = (o.emInt != null) ? o.emInt : 0.55;
+    var key = ['m', name, rep, o.color || '', o.rough, o.metal, em, emI].join('|');
     if (tc[key]) return tc[key];
     var map = tex(name).clone(); map.needsUpdate = true; map.repeat.set(rep, rep);
     var m = new THREE.MeshStandardMaterial({ map: map, roughness: o.rough != null ? o.rough : 0.9, metalness: o.metal != null ? o.metal : 0.06 });
@@ -2745,7 +2755,9 @@ var BM = (function () {
       var rt = ldr.load('assets/tex/' + name + '_r.jpg'); rt.wrapS = rt.wrapT = THREE.RepeatWrapping; rt.repeat.set(rep, rep); m.roughnessMap = rt;
     } catch (e) {}
     if (o.color) m.color.setHex(o.color);
-    if (o.emissive) { m.emissive.setHex(o.emissive); m.emissiveIntensity = o.emInt != null ? o.emInt : 0.4; }
+    m.emissive.setHex(em); m.emissiveIntensity = emI;              // ★ 自发光
+    try { var envT = (window.ARENA && ARENA.cubeRT) ? ARENA.cubeRT.texture : (window.__CITY3D && __CITY3D.cubeRT ? __CITY3D.cubeRT.texture : null);
+      if (envT) { m.envMap = envT; m.envMapIntensity = 0.6; } } catch (e) {}   // ★ 环境反射（反出城市霓虹）
     m.side = THREE.DoubleSide; tc[key] = m; return m;
   }
   function bx(grp, mm, w, h, d, x, y, z, rz) {

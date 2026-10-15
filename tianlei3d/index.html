@@ -223,9 +223,9 @@
 <div class="tip" id="tipTxt">WASD/摇杆 移动 · 真 3D 地面 + 真阴影</div>
 <div id="perf"></div>
 
-<script src="js/tiles.js?v=1792069564"></script>
-<script src="js/vendor/three.min.js?v=1792069564"></script>
-<script src="js/vendor/GLTFLoader.js?v=1792069564"></script>
+<script src="js/tiles.js?v=1792069998"></script>
+<script src="js/vendor/three.min.js?v=1792069998"></script>
+<script src="js/vendor/GLTFLoader.js?v=1792069998"></script>
 
 
 <script src="assets3d/tree_green.js"></script>
@@ -600,9 +600,9 @@ function buildBuildings() {
     scene.add(roof);
     // ★ 真正的门：门框(石) + 内凹暗部 + 里面暖光（能"看到里面"）
     const dx = b.door.x + 0.5, dz = b.y + b.h + 0.015, DH = 2.5, DW = 1.7;
-    const frameMat = new THREE.MeshStandardMaterial({ color: 0x6a6458, roughness: 0.85 });
+    const frameMat = pbrMat('stone'); frameMat.roughness = 0.85;   // ★ 扫描石材门框
     // 内凹暗部（退后一点，制造纵深）
-    const inner = new THREE.Mesh(new THREE.PlaneGeometry(DW, DH), new THREE.MeshStandardMaterial({ color: 0x0d0a08, roughness: 1 }));
+    const inner = new THREE.Mesh(new THREE.PlaneGeometry(DW, DH), new THREE.MeshStandardMaterial({ color: 0x2c1e12, roughness: 0.9, emissive: 0x1a0f06, emissiveIntensity: 0.7 }));   // ★ 不再是纯黑
     inner.position.set(dx, DH/2, dz - 0.12); scene.add(inner);
     // 里面暖光（门厅灯）
     const glow = new THREE.Mesh(new THREE.PlaneGeometry(DW*0.7, DH*0.5),
@@ -1117,13 +1117,13 @@ window.__ATTACH_CITY = true;
 window.__ATTACH_RENDERER = window.__OCTO.renderer;
 window.__ATTACH_SCENE = window.__OCTO.scene;
 </script>
-<script src="js/arena3d.js?v=1792069564"></script>
+<script src="js/arena3d.js?v=1792069998"></script>
 <script>window.__HD2D_HOST = true;</script>
-<script src="js/vendor/qrcode.js?v=1792069564"></script>
-<script src="js/mqtt.js?v=1792069564"></script>
-<script src="js/fp.js?v=1792069564"></script>
-<script src="js/hd2d_arena.js?v=1792069564"></script>
-<script src="js/shooter.js?v=1792069564"></script>
-<script src="js/racestrip.js?v=1792069564"></script>
-<script src="js/kernel.js?v=1792069564"></script>
+<script src="js/vendor/qrcode.js?v=1792069998"></script>
+<script src="js/mqtt.js?v=1792069998"></script>
+<script src="js/fp.js?v=1792069998"></script>
+<script src="js/hd2d_arena.js?v=1792069998"></script>
+<script src="js/shooter.js?v=1792069998"></script>
+<script src="js/racestrip.js?v=1792069998"></script>
+<script src="js/kernel.js?v=1792069998"></script>
 </body></html>
