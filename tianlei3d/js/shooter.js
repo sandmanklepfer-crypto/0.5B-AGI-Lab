@@ -2731,19 +2731,112 @@ var Ref = {
         · 拆 = 向同主题发空载荷 + retain → broker 清掉（和 luhuo 的历史清理同一套）
    → 不需要服务器、不需要账号，所有人的建筑天然共享、天然持久、离线也在。
    ============================================================================ */
+/* ★★ 建筑块材质工厂：全部走 assets/tex 的扫描 PBR（albedo+法线+粗糙）★★ */
+var BM = (function () {
+  var tc = {}, ldr = new THREE.TextureLoader();
+  function tex(n) { var k = 't' + n; if (tc[k]) return tc[k]; var t = ldr.load('assets/tex/' + n + '.jpg'); t.wrapS = t.wrapT = THREE.RepeatWrapping; tc[k] = t; return t; }
+  function mat(name, o) {
+    o = o || {}; var rep = o.rep || 1, key = ['m', name, rep, o.color || '', o.rough, o.metal, o.emissive || '', o.emInt || ''].join('|');
+    if (tc[key]) return tc[key];
+    var map = tex(name).clone(); map.needsUpdate = true; map.repeat.set(rep, rep);
+    var m = new THREE.MeshStandardMaterial({ map: map, roughness: o.rough != null ? o.rough : 0.9, metalness: o.metal != null ? o.metal : 0.06 });
+    try {
+      var nt = ldr.load('assets/tex/' + name + '_n.jpg'); nt.wrapS = nt.wrapT = THREE.RepeatWrapping; nt.repeat.set(rep, rep); m.normalMap = nt;
+      var rt = ldr.load('assets/tex/' + name + '_r.jpg'); rt.wrapS = rt.wrapT = THREE.RepeatWrapping; rt.repeat.set(rep, rep); m.roughnessMap = rt;
+    } catch (e) {}
+    if (o.color) m.color.setHex(o.color);
+    if (o.emissive) { m.emissive.setHex(o.emissive); m.emissiveIntensity = o.emInt != null ? o.emInt : 0.4; }
+    m.side = THREE.DoubleSide; tc[key] = m; return m;
+  }
+  function bx(grp, mm, w, h, d, x, y, z, rz) {
+    var e = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mm); e.position.set(x || 0, y || 0, z || 0);
+    if (rz) e.rotation.z = rz; e.castShadow = e.receiveShadow = true; grp.add(e); return e;
+  }
+  return { tex: tex, mat: mat, box: bx };
+})();
+
 var Build = {
-  on: false, kind: 'crate', ghost: null,
-  list: new Map(), meshes: {},
-  cols: { crate: 0xb98a52, wall: 0x8f95a3, lamp: 0xffd166, crystal: 0x9b5de5 },
-  KINDS: ['crate', 'wall', 'lamp', 'crystal'],
-  names: { crate: '木箱', wall: '石墙', lamp: '路灯', crystal: '晶石' },
+  on: false, kind: 'wall_stone', mode: 'place', ghost: null, list: new Map(), meshes: {},
+  /* ★ 20 种建筑块：材质全部扫描 PBR；形状 7 类（方块/薄板/台阶/斜坡/圆柱/拱/组合） */
+  BLOCKS: [
+    { id: 'wall_stone', n: '石墙',   g: 'box',       m: 'stone',     rep: 1, cat: '墙 体' },
+    { id: 'wall_brick', n: '砖墙',   g: 'box',       m: 'brick',     rep: 1, cat: '墙 体' },
+    { id: 'wall_conc',  n: '混凝土', g: 'box',       m: 'concrete',  rep: 1, cat: '墙 体' },
+    { id: 'wall_wood',  n: '木墙板', g: 'box',       m: 'planks',    rep: 1, cat: '墙 体' },
+    { id: 'wall_metal', n: '金属板', g: 'box',       m: 'metal',     rep: 1, metal: 0.85, rough: 0.35, cat: '墙 体' },
+    { id: 'glass',      n: '玻璃幕', g: 'box_glass', cat: '墙 体' },
+    { id: 'floor',  n: '地板',   g: 'floor',  m: 'planks',   rep: 1, rough: 0.8, cat: '结 构' },
+    { id: 'slab',   n: '平台板', g: 'slab',   m: 'concrete', rep: 1, cat: '结 构' },
+    { id: 'step',   n: '台阶',   g: 'step',   m: 'stone',    rep: 1, cat: '结 构' },
+    { id: 'ramp',   n: '斜坡',   g: 'ramp',   m: 'concrete', rep: 1, cat: '结 构' },
+    { id: 'pillar', n: '圆柱',   g: 'pillar', m: 'marble',   rep: 1, cat: '结 构' },
+    { id: 'column', n: '方柱',   g: 'column', m: 'concrete', rep: 1, cat: '结 构' },
+    { id: 'arch',   n: '拱门',   g: 'arch',   m: 'stone',    rep: 1, cat: '结 构' },
+    { id: 'fence',  n: '栏杆',   g: 'fence',  m: 'metal',    rep: 1, metal: 0.85, rough: 0.4, cat: '结 构' },
+    { id: 'roof',   n: '坡屋顶', g: 'roof',   m: 'roof',     rep: 1, cat: '结 构' },
+    { id: 'crate',  n: '木箱',   g: 'crate',  m: 'planks',   rep: 1, rough: 0.85, cat: '道 具' },
+    { id: 'barrel', n: '油桶',   g: 'barrel', m: 'rustmetal',rep: 1, metal: 0.6, rough: 0.5, cat: '道 具' },
+    { id: 'lamp',   n: '路灯',   g: 'lamp',   cat: '道 具' },
+    { id: 'crystal',n: '晶石',   g: 'crystal',cat: '道 具' },
+    { id: 'planter',n: '花坛',   g: 'planter',m: 'stone',    rep: 1, cat: '道 具' },
+  ],
+  def: function (id) { for (var i = 0; i < this.BLOCKS.length; i++) if (this.BLOCKS[i].id === id) return this.BLOCKS[i]; return this.BLOCKS[0]; },
+  name: function (id) { return this.def(id).n; },
+  /* ★ 按定义造出几何（底部对齐 y=0，占 1 格） */
+  build: function (id) {
+    var d = this.def(id), grp = new THREE.Group(), M = d.m ? BM.mat(d.m, d) : null, g = d.g;
+    if (g === 'box') BM.box(grp, M, 0.96, 1.55, 0.96, 0, 0.775, 0);
+    else if (g === 'box_glass') {
+      var gm = new THREE.MeshStandardMaterial({ color: 0x2b4a6e, metalness: 1, roughness: 0.06, transparent: true, opacity: 0.58, side: THREE.DoubleSide });
+      var envT = (window.ARENA && ARENA.cubeRT) ? ARENA.cubeRT.texture : null; if (envT) { gm.envMap = envT; gm.envMapIntensity = 2.4; }
+      BM.box(grp, gm, 0.96, 1.55, 0.96, 0, 0.775, 0);
+    }
+    else if (g === 'floor') BM.box(grp, M, 0.98, 0.14, 0.98, 0, 0.07, 0);
+    else if (g === 'slab') BM.box(grp, M, 0.98, 0.2, 0.98, 0, 0.62, 0);
+    else if (g === 'step') { BM.box(grp, M, 0.96, 0.78, 0.96, 0, 0.39, 0); BM.box(grp, M, 0.96, 0.77, 0.46, 0, 1.165, -0.25); }
+    else if (g === 'ramp') {
+      var sh = new THREE.Shape(); sh.moveTo(-0.48, 0); sh.lineTo(0.48, 0); sh.lineTo(0.48, 1.55); sh.lineTo(-0.48, 0);
+      var rg = new THREE.ExtrudeGeometry(sh, { depth: 0.96, bevelEnabled: false }); rg.translate(0, 0, -0.48);
+      var rmp = new THREE.Mesh(rg, M); rmp.castShadow = rmp.receiveShadow = true; grp.add(rmp);
+    }
+    else if (g === 'pillar') { var cy = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.30, 1.55, 16), M); cy.position.y = 0.775; cy.castShadow = cy.receiveShadow = true; grp.add(cy); }
+    else if (g === 'column') BM.box(grp, M, 0.52, 1.55, 0.52, 0, 0.775, 0);
+    else if (g === 'arch') { BM.box(grp, M, 0.28, 1.0, 0.5, -0.34, 0.5, 0); BM.box(grp, M, 0.28, 1.0, 0.5, 0.34, 0.5, 0); var tq = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.14, 8, 16, Math.PI), M); tq.position.y = 1.0; tq.castShadow = true; grp.add(tq); }
+    else if (g === 'fence') { BM.box(grp, M, 0.06, 1.0, 0.06, -0.44, 0.5, 0); BM.box(grp, M, 0.06, 1.0, 0.06, 0.44, 0.5, 0); BM.box(grp, M, 0.94, 0.05, 0.05, 0, 0.92, 0); BM.box(grp, M, 0.94, 0.05, 0.05, 0, 0.55, 0); }
+    else if (g === 'roof') { BM.box(grp, M, 0.76, 0.1, 1.06, -0.26, 0.9, 0, 0.72); BM.box(grp, M, 0.76, 0.1, 1.06, 0.26, 0.9, 0, -0.72); }
+    else if (g === 'crate') {
+      BM.box(grp, M, 0.84, 0.84, 0.84, 0, 0.42, 0);
+      var fm = BM.mat('planks', { rep: 1, rough: 0.72, color: 0x7a5535 });
+      BM.box(grp, fm, 0.9, 0.09, 0.9, 0, 0.06, 0); BM.box(grp, fm, 0.9, 0.09, 0.9, 0, 0.79, 0);
+      [[-0.43, 0], [0.43, 0], [0, -0.43], [0, 0.43]].forEach(function (p) { BM.box(grp, fm, p[0] ? 0.07 : 0.9, 0.84, p[0] ? 0.9 : 0.07, p[0], 0.42, p[1]); });
+    }
+    else if (g === 'barrel') { var by = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.9, 16), M); by.position.y = 0.45; by.castShadow = by.receiveShadow = true; grp.add(by); }
+    else if (g === 'lamp') {
+      var pM = BM.mat('metal', { rep: 1, metal: 0.85, rough: 0.4 });
+      BM.box(grp, pM, 0.1, 2.7, 0.1, 0, 1.35, 0);
+      var hd = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.24, 0.36), new THREE.MeshBasicMaterial({ color: 0xffd9a0 })); hd.position.y = 2.78; grp.add(hd);
+      var pl = new THREE.PointLight(0xffc07a, 0.85, 13, 2); pl.position.y = 2.6; grp.add(pl);
+    }
+    else if (g === 'crystal') {
+      var cm = new THREE.MeshStandardMaterial({ color: 0x9b5de5, emissive: 0x7c3aed, emissiveIntensity: 1.7, transparent: true, opacity: 0.78, roughness: 0.1, metalness: 0.2 });
+      var oc = new THREE.Mesh(new THREE.OctahedronGeometry(0.48, 0), cm); oc.position.y = 0.85; oc.scale.y = 1.7; grp.add(oc);
+      var pl2 = new THREE.PointLight(0xa855f7, 0.7, 9, 2); pl2.position.y = 1.2; grp.add(pl2);
+    }
+    else if (g === 'planter') {
+      BM.box(grp, M, 0.96, 0.46, 0.96, 0, 0.23, 0);
+      BM.box(grp, BM.mat('dirt', { rep: 1 }), 0.8, 0.1, 0.8, 0, 0.48, 0);
+      var lf = BM.mat('foliage', { rep: 1 }); var lc = new THREE.MeshStandardMaterial({ map: BM.tex('foliage'), roughness: 0.9, metalness: 0, side: THREE.DoubleSide });
+      [[-0.2, 0], [0.2, 0], [0, -0.2]].forEach(function (p, i) { var bush = new THREE.Mesh(new THREE.SphereGeometry(0.26, 8, 6), lc); bush.position.set(p[0], 0.68 + i * 0.06, p[1]); bush.castShadow = true; grp.add(bush); });
+    }
+    return grp;
+  },
   key: function (x, z) { return Math.floor(x) + ',' + Math.floor(z); },
   solidAt: function (x, z) { return this.list.has(this.key(x, z)); },
 
   init: function () {
-    var geo = new THREE.BoxGeometry(0.98, 1.55, 0.98);
-    var mat = new THREE.MeshStandardMaterial({ color: 0x9b5de5, transparent: true, opacity: 0.4, depthWrite: false });
-    this.ghost = new THREE.Mesh(geo, mat); this.ghost.visible = false; actionScene.add(this.ghost);
+    this._ghostMat = new THREE.MeshStandardMaterial({ color: 0x9b5de5, transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide });
+    this._mkGhost();
+    this._buildBar();
     // 建造出来的方块要能挡路：接进地形碰撞
     var g = G, _cs = g.canStand;
     g.canStand = function (nx, nz, y, step) {
@@ -2751,14 +2844,34 @@ var Build = {
       return _cs.call(g, nx, nz, y, step);
     };
   },
+  _mkGhost: function () {
+    if (this.ghost) { actionScene.remove(this.ghost); }
+    var g = this.build(this.kind);
+    g.traverse(function (o) { if (o.isMesh) { o.material = Build._ghostMat; o.castShadow = false; o.receiveShadow = false; } });
+    this.ghost = g; g.visible = false; actionScene.add(g);
+    this._ghostBad = false;
+  },
+  _buildBar: function () {
+    var bar = $('buildBar'); if (!bar) return;
+    var h = '', last = '';
+    this.BLOCKS.forEach(function (b) {
+      if (b.cat !== last) { last = b.cat; if (b.cat) h += '<span class="catlabel">' + b.cat + '</span>'; }
+      h += '<button class="bk" data-bk="' + b.id + '">' + b.n + '</button>';
+    });
+    h += '<span class="sep"></span><button class="bk del" id="bk_del">拆除</button><button class="bk" id="bk_close">✕</button>';
+    bar.innerHTML = h;
+    var self = this;
+    Array.prototype.forEach.call(bar.querySelectorAll('[data-bk]'), function (b) {
+      b.addEventListener('click', function () { self.setKind(b.getAttribute('data-bk')); });
+    });
+    var dl = $('bk_del'); if (dl) dl.addEventListener('click', function () { self.setMode(self.mode === 'del' ? 'place' : 'del'); });
+    var cl = $('bk_close'); if (cl) cl.addEventListener('click', function () { if (self.on) self.toggle(); });
+  },
   mkMesh: function (k, o) {
     if (this.meshes[k]) return;
     var p = k.split(','), x = +p[0], z = +p[1];
-    var geo = new THREE.BoxGeometry(0.94, 1.55, 0.94);
-    var mat = new THREE.MeshStandardMaterial({ color: this.cols[o.t] || 0xb98a52, roughness: 0.82, metalness: 0.06 });
-    var m = new THREE.Mesh(geo, mat);
-    m.position.set(x + 0.5, G.h(x + 0.5, z + 0.5) + 0.78, z + 0.5);
-    m.castShadow = true; m.receiveShadow = true;
+    var m = this.build(o.t);                       // ★ 按种类造真实形状 + 扫描 PBR 材质
+    m.position.set(x + 0.5, G.h(x + 0.5, z + 0.5), z + 0.5);
     actionScene.add(m); this.meshes[k] = m;
   },
   rmMesh: function (k) {
@@ -2784,7 +2897,7 @@ var Build = {
     var k = this.key(x, z), o = { t: this.kind, by: Net.name, at: Date.now() };
     Net.pub(Net.base() + 'blk/' + k, JSON.stringify(o), true);   // 先广播（retain 当存储）
     this.apply(k, o);                                            // 本地立刻可见
-    Sfx.pickup(); HUD.center('已放置 · ' + (this.names[this.kind] || '方块'), '', 900);
+    Sfx.pickup(); HUD.center('已放置 · ' + this.name(this.kind), '', 900);
   },
   remove: function (x, z) {
     var k = this.key(x, z);
@@ -2841,15 +2954,14 @@ var Build = {
       if (!rc.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hit)) { this.ghost.visible = false; return; }
       var gx = Math.floor(hit.x) + 0.5, gz = Math.floor(hit.z) + 0.5;
       var bad = (Math.hypot(gx - P.x, gz - P.z) > 16) || (G.h(hit.x, hit.z) > 0.35);
-      this.ghost.position.set(gx, G.h(gx, gz) + 0.78, gz);
+      this.ghost.position.set(gx, G.h(gx, gz), gz);
       this.ghost.visible = true;
-      this.ghost.material.color.setHex(bad ? 0xff5f6d : (this.solidAt(gx, gz) ? 0xffd166 : 0x9b5de5));
+      this._ghostMat.color.setHex(bad ? 0xff5f6d : (this.solidAt(gx, gz) ? 0xffd166 : 0x9b5de5));
     } catch (e) { this.ghost.visible = false; }
   },
   cycleKind: function () {
-    var i = this.KINDS.indexOf(this.kind);
-    this.kind = this.KINDS[(i + 1) % this.KINDS.length];
-    HUD.center('建造 · ' + this.names[this.kind], '', 1100); Sfx.ui();
+    var i = 0; for (var j = 0; j < this.BLOCKS.length; j++) if (this.BLOCKS[j].id === this.kind) i = j;
+    this.setKind(this.BLOCKS[(i + 1) % this.BLOCKS.length].id);
   },
   mode: 'place',                                  // place=放置 / del=拆除
   toggle: function () {
@@ -2860,16 +2972,14 @@ var Build = {
       this.on ? '点地面放置 · 点已有方块即拆除' : '', 2200);
     Sfx.ui();
   },
-  setKind: function (k) { this.kind = k; this.mode = 'place'; this.bar(); Sfx.ui(); HUD.center('方块 · ' + (this.names[k] || k), '', 900); },
+  setKind: function (k) { this.kind = k; this.mode = 'place'; this._mkGhost(); this.bar(); Sfx.ui(); HUD.center('方块 · ' + this.name(k), '', 900); },
   setMode: function (m) { this.mode = m; this.bar(); Sfx.ui(); HUD.center(m === 'del' ? '拆除模式' : '放置模式', '', 900); },
   bar: function () {
     var el = $('buildBar'); if (!el) return;
     el.style.display = this.on ? 'flex' : 'none';
     var b = $('bBuild'); if (b) b.className = this.on ? 'on' : '';
     var self = this;
-    ['crate', 'wall', 'lamp', 'crystal'].forEach(function (k) {
-      var e = $('bk_' + k); if (e) e.className = (self.kind === k) ? 'on' : '';
-    });
+    Array.prototype.forEach.call(el.querySelectorAll('[data-bk]'), function (x) { x.className = (self.kind === x.getAttribute('data-bk')) ? 'on' : ''; });
     var pd = $('bk_del'); if (pd) pd.className = (this.mode === 'del') ? 'on' : '';
   },
 };
@@ -3102,12 +3212,6 @@ function bindUI() {
     }
   });
   _on('bKind', 'click', function () { Build.cycleKind(); });
-  _on('bk_crate', 'click', function () { Build.setKind('crate'); });
-  _on('bk_wall', 'click', function () { Build.setKind('wall'); });
-  _on('bk_lamp', 'click', function () { Build.setKind('lamp'); });
-  _on('bk_crystal', 'click', function () { Build.setKind('crystal'); });
-  _on('bk_del', 'click', function () { Build.setMode(Build.mode === 'del' ? 'place' : 'del'); });
-  _on('bk_close', 'click', function () { if (Build.on) Build.toggle(); });
   _on('bSandbox', 'click', function () { setMode(true); });
   _on('bFight', 'click', function () { setMode(false); });
   _on('modeChip', 'click', function () { setMode(!SANDBOX); });
