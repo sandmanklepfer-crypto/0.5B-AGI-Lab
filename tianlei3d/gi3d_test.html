@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GI 可行性验证 · 天泪纪元</title>
+<style>
+  body{margin:0;background:#0b0c12;color:#e8eaf0;font:14px/1.6 system-ui,-apple-system,"PingFang SC",sans-serif;padding:16px}
+  h1{font-size:18px;margin:0 0 4px}
+  .sub{color:#8b93a8;font-size:12.5px;margin-bottom:14px}
+  .big{border-radius:14px;padding:18px;text-align:center;font-size:22px;font-weight:700;margin-bottom:16px}
+  .big.pass{background:rgba(34,197,94,.15);color:#6ee7a0;border:1px solid rgba(34,197,94,.4)}
+  .big.fail{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.4)}
+  .big.wait{background:rgba(245,158,11,.12);color:#f5c26b;border:1px solid rgba(245,158,11,.35)}
+  .row{background:#161822;border:1px solid #262b38;border-left-width:4px;border-radius:11px;
+       padding:12px 14px;margin-bottom:9px}
+  .row.pass{border-left-color:#22c55e} .row.fail{border-left-color:#ef4444} .row.warn{border-left-color:#f59e0b}
+  .n{font-weight:600;font-size:14.5px}
+  .v{color:#8b93a8;font-size:12.5px;margin-top:4px;white-space:pre-wrap;word-break:break-word}
+  .tag{font-size:11.5px;padding:2px 8px;border-radius:99px;margin-left:8px}
+  .t-p{background:rgba(34,197,94,.18);color:#6ee7a0} .t-f{background:rgba(239,68,68,.18);color:#fca5a5}
+  .t-w{background:rgba(245,158,11,.18);color:#f5c26b}
+  canvas{display:none}
+  .note{color:#8b93a8;font-size:12px;margin-top:14px;line-height:1.8}
+  code{background:#1b1f2b;padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<h1>GI 可行性验证</h1>
+<div class="sub">在你手机上实测：3D 贴图到底跑不跑得通 · 无需任何设置</div>
+<div class="big wait" id="sum">检测中…</div>
+<div id="list"></div>
+<div class="note" id="note"></div>
+<canvas id="c"></canvas>
+<script src="js/vendor/three.min.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const rows = [];
+function add(name, state, detail){
+  rows.push({name,state,detail});
+  const d = document.createElement('div');
+  d.className = 'row ' + (state==='pass'?'pass':state==='fail'?'fail':'warn');
+  const tag = state==='pass'?'<span class="tag t-p">通过</span>':
+              state==='fail'?'<span class="tag t-f">失败</span>':'<span class="tag t-w">警告</span>';
+  d.innerHTML = '<div class="n">'+name+tag+'</div><div class="v">'+(detail||'')+'</div>';
+  $('#list').appendChild(d);
+}
+
+/* ---------- T1: 设备 & WebGL2 ---------- */
+let gl2 = null, GPU = '未知';
+try{
+  const c = document.getElementById('c');
+  gl2 = c.getContext('webgl2');
+  const dbg = gl2 && gl2.getExtension('WEBGL_debug_renderer_info');
+  GPU = dbg ? gl2.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : (gl2 ? '（拿不到，浏览器已隐藏）' : '无');
+  let extra = '';
+  if (gl2){
+    extra = '\nMAX_TEXTURE_SIZE=' + gl2.getParameter(gl2.MAX_TEXTURE_SIZE)
+          + ' · 3D贴图上限=' + gl2.getParameter(gl2.MAX_3D_TEXTURE_SIZE);
+  }
+  add('① WebGL2 支持', gl2?'pass':'fail', 'GPU: ' + GPU + extra);
+}catch(e){ add('① WebGL2 支持','fail','异常: '+e.message); }
+
+/* ---------- 通用小工具：编译着色器 → 画满屏 → 读像素 ---------- */
+function drawRaw(gl, vsSrc, fsSrc, onSetup, w, h){
+  w=w||4; h=h||4;
+  const vs = gl.createShader(gl.VERTEX_SHADER); gl.shaderSource(vs,vsSrc); gl.compileShader(vs);
+  if(!gl.getShaderParameter(vs,gl.COMPILE_STATUS)) return {err:'VS: '+gl.getShaderInfoLog(vs)};
+  const fs = gl.createShader(gl.FRAGMENT_SHADER); gl.shaderSource(fs,fsSrc); gl.compileShader(fs);
+  if(!gl.getShaderParameter(fs,gl.COMPILE_STATUS)) return {err:'FS: '+gl.getShaderInfoLog(fs)};
+  const pr = gl.createProgram(); gl.attachShader(pr,vs); gl.attachShader(pr,fs); gl.linkProgram(pr);
+  if(!gl.getProgramParameter(pr,gl.LINK_STATUS)) return {err:'LINK: '+gl.getProgramInfoLog(pr)};
+  gl.useProgram(pr);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(pr,'p');
+  gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+  if(onSetup) onSetup(gl, pr);
+  gl.viewport(0,0,w,h);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+  const px = new Uint8Array(w*h*4);
+  gl.readPixels(0,0,w,h,gl.RGBA,gl.UNSIGNED_BYTE,px);
+  return {px, err:null};
+}
+
+/* ---------- T2: 裸 3D 贴图（真·体素 GI 的基础）---------- */
+try{
+  if(!gl2){ add('② 裸 3D 贴图采样','fail','无 WebGL2，跳过'); }
+  else{
+    const d = new Uint8Array(2*2*2*4);
+    d[0]=255; d[3]=255;            // 体素(0,0,0)=红
+    d[4]=0; d[5]=255; d[7]=255;    // 体素(1,0,0)=绿
+    const tex = gl2.createTexture();
+    gl2.bindTexture(gl2.TEXTURE_3D, tex);
+    gl2.texImage3D(gl2.TEXTURE_3D,0,gl2.RGBA8,2,2,2,0,gl2.RGBA,gl2.UNSIGNED_BYTE,d);
+    gl2.texParameteri(gl2.TEXTURE_3D,gl2.TEXTURE_MIN_FILTER,gl2.NEAREST);
+    gl2.texParameteri(gl2.TEXTURE_3D,gl2.TEXTURE_MAG_FILTER,gl2.NEAREST);
+    gl2.texParameteri(gl2.TEXTURE_3D,gl2.TEXTURE_WRAP_S,gl2.CLAMP_TO_EDGE);
+    gl2.texParameteri(gl2.TEXTURE_3D,gl2.TEXTURE_WRAP_T,gl2.CLAMP_TO_EDGE);
+    gl2.texParameteri(gl2.TEXTURE_3D,gl2.TEXTURE_WRAP_R,gl2.CLAMP_TO_EDGE);
+    const vs = '#version 300 es\nin vec2 p; void main(){ gl_Position=vec4(p,0.,1.); }';
+    const fs = '#version 300 es\nprecision highp float; precision highp sampler3D;\n'
+             + 'uniform sampler3D T; out vec4 o;\n'
+             + 'void main(){ o = texture(T, vec3(0.25,0.25,0.25)); }';
+    const r = drawRaw(gl2, vs, fs, (gl,pr)=>{ gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_3D,tex); gl.uniform1i(gl.getUniformLocation(pr,'T'),0); });
+    if(r.err){ add('② 裸 3D 贴图采样','fail', r.err.slice(0,220)); }
+    else{
+      const ok = r.px[0]>200 && r.px[1]<60;
+      add('② 裸 3D 贴图采样', ok?'pass':'fail',
+          '采样(0.25,0.25,0.25) 得到 rgb('+r.px[0]+','+r.px[1]+','+r.px[2]+')  期望≈(255,0,0)');
+    }
+  }
+}catch(e){ add('② 裸 3D 贴图采样','fail','异常: '+e.message); }
+
+/* ---------- T3: 2D 切面图集（连续高度的后备方案，只需普通 2D 贴图）---------- */
+try{
+  const gl = gl2 || document.getElementById('c').getContext('webgl');
+  if(!gl){ add('③ 2D切面图集(后备方案)','fail','无 WebGL'); }
+  else{
+    // 图集：宽=2，高=1 …… 切面0=红(左)，切面1=绿(右)
+    const d = new Uint8Array([255,0,0,255,  0,255,0,255]);
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,2,1,0,gl.RGBA,gl.UNSIGNED_BYTE,d);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    const is3 = !!gl2;
+    const vs = is3 ? '#version 300 es\nin vec2 p; void main(){ gl_Position=vec4(p,0.,1.); }'
+                   : 'attribute vec2 p; void main(){ gl_Position=vec4(p,0.,1.); }';
+    const body = [
+      'precision highp float;',
+      (is3?'uniform sampler2D T; out vec4 o;':'uniform sampler2D T;'),
+      'void main(){',
+      // 两次采样 + 手写插值 = 连续高度
+      '  float t = 0.5;',
+      '  vec3 s0 = texture'+(is3?'':'2D')+'(T, vec2(0.25,0.5)).rgb;',
+      '  vec3 s1 = texture'+(is3?'':'2D')+'(T, vec2(0.75,0.5)).rgb;',
+      '  vec3 c = mix(s0, s1, t);',
+      (is3?'  o = vec4(c,1.0);':'  gl_FragColor = vec4(c,1.0);'),
+      '}'
+    ].join('\n');
+    const fs = (is3?'#version 300 es\n':'') + body;
+    const r = drawRaw(gl, vs, fs, (g,pr)=>{ g.activeTexture(g.TEXTURE0);
+      g.bindTexture(g.TEXTURE_2D,tex); g.uniform1i(g.getUniformLocation(pr,'T'),0); });
+    if(r.err){ add('③ 2D切面图集(后备方案)','fail', r.err.slice(0,220)); }
+    else{
+      const ok = Math.abs(r.px[0]-128)<40 && Math.abs(r.px[1]-128)<40;
+      add('③ 2D切面图集(后备方案)', ok?'pass':'fail',
+          '两切面(红/绿)按 t=0.5 插值 → rgb('+r.px[0]+','+r.px[1]+','+r.px[2]+')  期望≈(128,128,0)');
+    }
+  }
+}catch(e){ add('③ 2D切面图集(后备方案)','fail','异常: '+e.message); }
+
+/* ---------- T4: three r128 内置材质 + GLSL3 + 3D贴图（决定性）---------- */
+try{
+  if(typeof THREE === 'undefined'){ add('④ three内置材质+3D贴图','warn','three 未加载，跳过'); }
+  else if(!gl2){ add('④ three内置材质+3D贴图','fail','无 WebGL2'); }
+  else{
+    const errs = [];
+    const oldErr = console.error;
+    console.error = function(){ errs.push(Array.prototype.slice.call(arguments).join(' ')); };
+    let px = null;
+    try{
+      const canvas = document.createElement('canvas'); canvas.width=canvas.height=8;
+      const rend = new THREE.WebGLRenderer({canvas, antialias:false});
+      const sc = new THREE.Scene();
+      const cam = new THREE.OrthographicCamera(-1,1,1,-1,0,10); cam.position.z=1;
+      const d = new Uint8Array(8); d[0]=255; d[3]=255;
+      const t3 = new THREE.DataTexture3D(d,2,2,2);
+      t3.format = THREE.RGBAFormat; t3.type = THREE.UnsignedByteType;
+      t3.minFilter = t3.magFilter = THREE.NearestFilter; t3.needsUpdate = true;
+      const mat = new THREE.MeshStandardMaterial({ color:0xffffff });
+      mat.glslVersion = THREE.GLSL3;                       // ★ 关键：切 GLSL3
+      mat.onBeforeCompile = function(sh){
+        sh.uniforms.uT3 = { value: t3 };
+        sh.fragmentShader = sh.fragmentShader
+          .replace('#include <common>', '#include <common>\nuniform sampler3D uT3;')
+          .replace('#include <dithering_fragment>',
+                   '#include <dithering_fragment>\n  vec3 g3=texture(uT3, vec3(0.25));');
+      };
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2,2), mat);
+      sc.add(mesh);
+      rend.render(sc, cam);
+      const g = rend.getContext();
+      px = new Uint8Array(4);
+      g.readPixels(4,4,1,1,g.RGBA,g.UNSIGNED_BYTE,px);
+    }catch(e){ errs.push('异常: '+e.message); }
+    console.error = oldErr;
+    if(errs.length){
+      add('④ three内置材质+3D贴图','fail',
+          '着色器编译失败（内置材质是 GLSL1，无法用 sampler3D）:\n' + errs.join('\n').slice(0,300));
+    }else{
+      add('④ three内置材质+3D贴图','pass','渲染成功，像素 rgb('+px[0]+','+px[1]+','+px[2]+')');
+    }
+  }
+}catch(e){ add('④ three内置材质+3D贴图','fail','异常: '+e.message); }
+
+/* ---------- 汇总 ---------- */
+const p = rows.filter(r=>r.state==='pass').length;
+const f = rows.filter(r=>r.state==='fail').length;
+const t3ok = rows[1] && rows[1].state==='pass' && rows[2] && rows[2].state==='pass';
+const sum = $('#sum');
+if(rows[3] && rows[3].state==='pass'){
+  sum.className='big pass'; sum.textContent='✅ 真 3D 贴图可行 → 连续高度 GI';
+}else if(rows[2] && rows[2].state==='pass'){
+  sum.className='big pass'; sum.textContent='✅ 用「2D切面图集」→ 同样连续高度，无需分层';
+}else{
+  sum.className='big fail'; sum.textContent='❌ 两条路都不通';
+}
+$('#note').innerHTML = '通过 '+p+' / 失败 '+f+'。<br>'
+  + '<b>②</b> 说明你的 GPU 支不支持真 3D 贴图；<b>③</b> 是"连续高度 GI"的后备方案（只需普通 2D 贴图，<b>几乎必定通过</b>）；'
+  + '<b>④</b> 才是决定性的——three 内置材质能不能吃 3D 贴图。<br>'
+  + '把这一页的截图发我，我据此决定用哪条路。';
+</script>
+</body>
+</html>
