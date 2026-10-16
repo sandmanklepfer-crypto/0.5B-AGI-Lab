@@ -223,9 +223,10 @@
 <div class="tip" id="tipTxt">WASD/摇杆 移动 · 真 3D 地面 + 真阴影</div>
 <div id="perf"></div>
 
-<script src="js/tiles.js?v=1792074656"></script>
-<script src="js/vendor/three.min.js?v=1792074656"></script>
-<script src="js/vendor/GLTFLoader.js?v=1792074656"></script>
+<script src="js/tiles.js?v=1792144158"></script>
+<script src="js/vendor/three.min.js?v=1792144158"></script>
+<script src="js/vendor/GLTFLoader.js?v=1792144158"></script>
+<script src="js/bake.js?v=1792144158"></script>   <!-- ★ 几何合并：把~470个Mesh固化压成~30个Draw Call -->
 
 
 <script src="assets3d/tree_green.js"></script>
@@ -264,6 +265,11 @@ if (THREE.ACESFilmicToneMapping) renderer.toneMapping = THREE.ACESFilmicToneMapp
 renderer.toneMappingExposure = 1.05;
 
 const scene = new THREE.Scene();   // 不用距离雾（正交下会整片变黑）
+
+/* ★ 灯光池：场景里只保留 3 个真点光源，~18 盏灯全部改"登记"
+   → 光对象数恒定 ⇒ 不触发着色器重编译 ⇒ 手机帧率大增 */
+window.__LPOOL = new LightPool(3);
+window.__LPOOL.attach(scene);
 /* ★ 反射探针 CubeCamera（正交下正确：湿地面按法线取环境霓虹，不重影） */
 const cubeRT = new THREE.WebGLCubeRenderTarget(128);
 const cubeCam = new THREE.CubeCamera(0.5, 400, cubeRT);
@@ -352,24 +358,33 @@ function bakeGI(){
   }
   const NEO=[[1.0,0.28,0.62],[0.24,0.86,1.0],[1.0,0.72,0.24],[0.52,1.0,0.46]];
   BUILDINGS.forEach((b,i)=>{ const c=NEO[i%NEO.length]; em.push([b.x-0.6, b.y+b.h/2, c[0],c[1],c[2], 1.2]); });
-  const data=new Uint8Array(MW*MH*4);
-  for(let v=0;v<MH;v++)for(let u=0;u<MW;u++){
+  /* ★ 屋台灯笼 + 沿街暖光也烘进去（运行时零开销的"顶级暖色池"） */
+  const _YZ = (window.__STREET && window.__STREET.z) || 62;
+  for (let _i = 0; _i < 6; _i++) em.push([8 + _i * 6, _YZ + (_i % 2 ? 2.4 : -2.0), 1.0, 0.70, 0.38, 1.1]);
+  /* ★ 主路两侧暖光带（让街道"有灯"而非死黑） */
+  for (let _k = 0; _k <= 6; _k += 2) em.push([4 + _k * 6, _YZ + 2.2, 1.0, 0.78, 0.48, 0.75]);
+  /* ★ 2× 分辨率（144×144）：光晕过渡更细腻。采样仍按"世界跨度 MW×MH"归一，
+     所以提高分辨率不会打乱贴图坐标（着色器里除的仍是 MW/MH）。 */
+  const GIW = MW * 2, GIH = MH * 2, RANGE = 34;
+  const data=new Uint8Array(GIW*GIH*4);
+  for(let v=0;v<GIH;v++)for(let u=0;u<GIW;u++){
+    const wx=(u+0.5)*MW/GIW, wy=(v+0.5)*MH/GIH;      // 世界坐标（连续）
     let r=0,g=0,b=0;
     for(const e of em){
-      const du=e[0]-(u+0.5), dv=e[1]-(v+0.5), d=Math.hypot(du,dv);
-      if(d>26) continue;
-      let vis=1; const K=9;                       // 遮挡步进
+      const du=e[0]-wx, dv=e[1]-wy, d=Math.hypot(du,dv);
+      if(d>RANGE) continue;
+      let vis=1; const K=11;                          // 遮挡步进（射线采样）
       for(let k=1;k<=K;k++){ const f=k/(K+1);
-        const su=u+0.5+du*f, sv=v+0.5+dv*f;
+        const su=wx+du*f, sv=wy+dv*f;
         const tx=Math.max(0,Math.min(MW-1,Math.floor(su))), ty=Math.max(0,Math.min(MH-1,Math.floor(sv)));
         if((HEIGHT[at(tx,ty)]||0)>14){ vis=0; break; } }
       const att=vis*e[5]/(1+d*d*0.09);
       r+=e[2]*att; g+=e[3]*att; b+=e[4]*att;
     }
-    const i=(v*MW+u)*4;
+    const i=(v*GIW+u)*4;
     data[i]=Math.min(255, r*120); data[i+1]=Math.min(255, g*120); data[i+2]=Math.min(255, b*120); data[i+3]=255;
   }
-  const tex=new THREE.DataTexture(data, MW, MH, THREE.RGBAFormat);
+  const tex=new THREE.DataTexture(data, GIW, GIH, THREE.RGBAFormat);
   tex.needsUpdate=true; tex.minFilter=THREE.LinearFilter; tex.magFilter=THREE.LinearFilter;
   tex.wrapS=tex.wrapT=THREE.ClampToEdgeWrapping;
   return tex;
@@ -400,6 +415,34 @@ function injectGround(mat){
       ].join('\n'));
   };
   mat.needsUpdate=true;
+}
+
+/* ---------------- ★ 通用烘焙 GI 注入 ----------------
+   把"烘好的光"贴到任意 MeshStandardMaterial 上（世界坐标采样）。
+   烘焙 = 加载时算一次；运行时 = 一次 texture2D 采样 → 开销≈0。
+   这就是"顶级光照固化"的正解：光源数量不再影响帧率。 */
+function injectGI(mat, k) {
+  if (!mat || mat.userData._gi) return mat;
+  mat.userData._gi = 1;
+  var mul = (k == null ? 1.0 : k);
+  mat.onBeforeCompile = (function (prev) {
+    return function (sh) {
+      if (prev) prev(sh);
+      sh.uniforms.uGI = { value: GI_TEX };
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec2 vWGI;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWGI=(modelMatrix*vec4(transformed,1.0)).xz;');
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform sampler2D uGI;varying vec2 vWGI;')
+        .replace('#include <dithering_fragment>', [
+          '#include <dithering_fragment>',
+          '  vec3 gi=texture2D(uGI, vWGI/vec2(' + MW + '.0,' + MH + '.0)).rgb;',
+          '  gl_FragColor.rgb += gi*' + mul.toFixed(2) + ';'
+        ].join('\n'));
+    };
+  })(mat.onBeforeCompile);
+  mat.needsUpdate = true;
+  return mat;
 }
 
 /* ---------------- 地面：真 3D 网格（世界空间 UV → 无缝） ---------------- */
@@ -594,12 +637,15 @@ function buildBuildings() {
   const wood  = warm(pbrMat('planks'), 0x3d2614, 0.8, 0xd9ba8d); wood.roughness = 0.80;
   const beam  = warm(pbrMat('wood'),   0x50300f, 1.0, 0xe6c79a); beam.roughness = 0.82;
   const tile  = warm(pbrMat('roof'),   0x3f3760, 1.0, 0xb3a9d2); tile.roughness = 0.62;   // ★ 屋顶提亮（深蓝紫，不是黑）
+  /* ★ 楼也吃烘焙 GI（霓虹染色），运行时零开销 */
+  injectGI(stone, 1.0); injectGI(wood, 1.15); injectGI(beam, 1.2); injectGI(tile, 1.35);
   const dark  = new THREE.MeshStandardMaterial({ color: 0x2a2233, roughness: 0.85, metalness: 0.05, emissive: 0x231b33, emissiveIntensity: 0.8 });
+  injectGI(dark, 1.1);
   const win   = new THREE.MeshBasicMaterial({ color: 0xffcf8c });
   const lant  = new THREE.MeshStandardMaterial({ color: 0xffd39a, emissive: 0xff8f2e, emissiveIntensity: 3.2, roughness: 0.5 });
   const lantP = new THREE.MeshStandardMaterial({ color: 0xffe0b0, emissive: 0xffb45a, emissiveIntensity: 3.8, roughness: 0.5 });
   const cloth = new THREE.MeshStandardMaterial({ color: 0x5b3b8f, roughness: 0.92, side: THREE.DoubleSide, emissive: 0x2a1a48, emissiveIntensity: 0.7 });
-  const doorM = warm(pbrMat('planks'), 0x3a2410, 0.9, 0xbf9a6c); doorM.roughness = 0.8;
+  const doorM = warm(pbrMat('planks'), 0x3a2410, 0.9, 0xbf9a6c); doorM.roughness = 0.8; injectGI(doorM, 1.0);
   const signTex = (function () {
     var c = document.createElement('canvas'); c.width = 64; c.height = 256; var g = c.getContext('2d');
     g.fillStyle = '#c9433a'; g.fillRect(0, 0, 64, 256);
@@ -630,9 +676,9 @@ function buildBuildings() {
     };
     /* ★ 可淡出的「屋顶+二层」组（进入建筑时淡出 → HD-2D 也能看见室内；非半透明，避免穿帮） */
     const rg = new THREE.Group(); g.add(rg);
-    const RT = tile.clone(); RT.transparent = true; RT.opacity = 1;
-    const RDK = dark.clone(); RDK.transparent = true; RDK.opacity = 1;
-    const RWD = wood.clone(); RWD.transparent = true; RWD.opacity = 1;
+    const RT = tile.clone(); RT.transparent = true; RT.opacity = 1; injectGI(RT, 1.35);
+    const RDK = dark.clone(); RDK.transparent = true; RDK.opacity = 1; injectGI(RDK, 1.1);
+    const RWD = wood.clone(); RWD.transparent = true; RWD.opacity = 1; injectGI(RWD, 1.15);
     const boxR = (w, h, d, y, mat, x, z, rz) => {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
       m.position.set(x || 0, y, z || 0); if (rz) m.rotation.z = rz;
@@ -720,6 +766,7 @@ function buildBuildings() {
     });
     /* ⑨ 可开的门板（两扇，靠近自动开） */
     const gd = new THREE.Group(); gd.position.set(dx, 0, D / 2 - 0.05); g.add(gd);
+    gd.userData.noBake = true;                              // ★ 门要开合，别合并
     [-1, 1].forEach(function (sg) {
       const hg = new THREE.Group(); hg.position.x = sg * DHW / 2; gd.add(hg);
       const dm = new THREE.Mesh(new THREE.BoxGeometry(DHW / 2 - 0.04, 2.3, 0.09), doorM);
@@ -728,9 +775,11 @@ function buildBuildings() {
       DOORS.push({ hinge: hg, wx: cx + dx, wz: cz + D / 2 - 0.05 });
     });
     b._rg = rg; b._mats = [RT, RDK, RWD]; b._ra = 1;
-    if (li < 4) { const pl = new THREE.PointLight(0xffb060, 0.9, 13, 2); pl.position.set(0, 2.3, D / 2 + 0.8); g.add(pl); }
-    const il = new THREE.PointLight(0xffd8a0, 0.55, 8, 2); il.position.set(0, 2.0, 0); g.add(il);   // 室内灯
+    if (li < 4 && window.__LPOOL) { window.__LPOOL.add(cx + 0, cz + D / 2 + 0.8, 0xffb060, 0.9, 13); }
+    if (window.__LPOOL) { window.__LPOOL.add(cx, cz, 0xffd8a0, 0.55, 8); }   // 室内灯（登记，不进场景）
     li++;
+    /* ★ 固化：把这一栋 ~87 个 Mesh 按材质合并（rg 单独合并，仍能淡出） */
+    if (window.Bake) { Bake.bakeGroup(rg); Bake.bakeGroup(g); }
   }
   window.__DOORS = DOORS;
   return BUILDINGS.length;
@@ -961,7 +1010,7 @@ const nBld = buildBuildings();
     pole.position.set(lx, 2.3, zz + 2.2); pole.castShadow = true; scene.add(pole);
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.3, 0.42), lampM);
     head.position.set(lx, 4.62, zz + 2.2); scene.add(head);
-    if (k % 2 === 0) { const pl = new THREE.PointLight(0xffc07a, 0.7, 12, 2); pl.position.set(lx, 4.5, zz + 2.2); scene.add(pl); }
+    if (k % 2 === 0 && window.__LPOOL) { window.__LPOOL.add(lx, zz + 2.2, 0xffc07a, 0.7, 12); }
     // 栏杆（木栅栏：立柱 + 横杆）
     const fx = lx + (maxx - minx + 6) / 12;
     for (let q = 0; q < 3; q++) { const po = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.0, 0.1), beamM); po.position.set(fx, 0.5, zz - 1.9 - q * 1.1); scene.add(po); }
@@ -1228,7 +1277,7 @@ var SMOKES = [], FLAGS = [];
     bx(3.1, 0.86, 0.1, 0.48, W2, 0, 0.7);
     // 灯笼 ×2 + 灯
     [-1.05, 1.05].forEach(function (lx) { var ln = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.38, 10), LMP); ln.position.set(lx, 2.06, 0.78); g.add(ln); });
-    var pl = new THREE.PointLight(0xffb060, 0.9, 9.5, 2); pl.position.set(0, 1.95, 0.65); g.add(pl);
+    if (window.__LPOOL) { window.__LPOOL.add(x, z + 0.65, 0xffb060, 0.9, 9.5); }   // 登记屋台灯，不进场景
     // 商品（3 种轮换）
     if (i % 3 === 0) {                                   // 鱼板烧 / 竹轮
       for (var k = -1; k <= 1; k++) { var f = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.58, 8), FSH); f.rotation.z = Math.PI / 2; f.position.set(k * 0.55, 1.12, 0.2); g.add(f); }
@@ -1253,9 +1302,11 @@ var SMOKES = [], FLAGS = [];
     // 烟（3 片，循环上升）
     for (var sm = 0; sm < 3; sm++) {
       var m2 = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.5), new THREE.MeshBasicMaterial({ map: SMK, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
-      m2.position.set(0, 1.4, 0.2); g.add(m2);
+      m2.position.set(0, 1.4, 0.2); g.add(m2); m2.userData.noBake = true;   // ★ 烟要飘，别合并
       SMOKES.push({ m: m2, base: g.position.clone(), t: sm / 3, ph: i });
     }
+    /* ★ 固化：把这一家屋台 ~20 个 Mesh 合并（旗子是 ShaderMaterial，自动跳过） */
+    if (window.Bake) Bake.bakeGroup(g);
   }
   window.__YATAI = N;
   say('🏮 昭和横丁：' + N + ' 家屋台 + ' + (N) + ' 位老板已开张');
@@ -1441,6 +1492,8 @@ function loop(now) {
   }
   if (window.Shooter && window.Shooter.tick) { try { window.Shooter.tick(dt); } catch (e) { window.__stErr = String((e && e.message) || e); } }
   if (window.__CITY3D && window.__CITY3D.update) { try { window.__CITY3D.update(dt, cam.position); } catch (e) { window.__cityUpdErr = String((e && e.message) || e); } }
+  /* ★ 灯光池：只点亮离玩家最近的 3 盏（把 ~18 光压成恒定 3 光） */
+  if (window.__LPOOL) { try { window.__LPOOL.update(hero.x, hero.y); } catch (e) { window.__lpErr = String((e && e.message) || e); } }
   requestAnimationFrame(loop);
 }
 addEventListener('resize', resize); resize();
@@ -1650,13 +1703,13 @@ window.__ATTACH_CITY = true;
 window.__ATTACH_RENDERER = window.__OCTO.renderer;
 window.__ATTACH_SCENE = window.__OCTO.scene;
 </script>
-<script src="js/arena3d.js?v=1792074656"></script>
+<script src="js/arena3d.js?v=1792144158"></script>
 <script>window.__HD2D_HOST = true;</script>
-<script src="js/vendor/qrcode.js?v=1792074656"></script>
-<script src="js/mqtt.js?v=1792074656"></script>
-<script src="js/fp.js?v=1792074656"></script>
-<script src="js/hd2d_arena.js?v=1792074656"></script>
-<script src="js/shooter.js?v=1792074656"></script>
-<script src="js/racestrip.js?v=1792074656"></script>
-<script src="js/kernel.js?v=1792074656"></script>
+<script src="js/vendor/qrcode.js?v=1792144158"></script>
+<script src="js/mqtt.js?v=1792144158"></script>
+<script src="js/fp.js?v=1792144158"></script>
+<script src="js/hd2d_arena.js?v=1792144158"></script>
+<script src="js/shooter.js?v=1792144158"></script>
+<script src="js/racestrip.js?v=1792144158"></script>
+<script src="js/kernel.js?v=1792144158"></script>
 </body></html>
