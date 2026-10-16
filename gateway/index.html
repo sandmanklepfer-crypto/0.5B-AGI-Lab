@@ -12,15 +12,12 @@
   html,body{height:100%}
   body{margin:0;background:var(--bg);color:var(--tx);overflow:hidden;
        font:15px/1.6 system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
-  /* 背景光晕 */
   body::before{content:"";position:fixed;inset:-30%;background:
      radial-gradient(circle at 50% 30%,rgba(124,108,255,.16),transparent 55%),
      radial-gradient(circle at 80% 80%,rgba(34,211,238,.09),transparent 50%);
      animation:float 14s ease-in-out infinite;z-index:0}
   @keyframes float{0%,100%{transform:translate(0,0)}50%{transform:translate(-3%,3%)}}
-
   .app{position:relative;z-index:1;height:100%;display:flex;flex-direction:column}
-  /* 舞台：大AI球 */
   .stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
          padding:20px;text-align:center;min-height:0}
   .orb{width:118px;height:118px;border-radius:50%;position:relative;cursor:pointer;
@@ -31,26 +28,21 @@
        border:1px solid rgba(124,108,255,.35);animation:ring 3s ease-out infinite}
   @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
   @keyframes ring{0%{transform:scale(.85);opacity:.9}100%{transform:scale(1.25);opacity:0}}
-  .orb span{font-size:15px;font-weight:600;letter-spacing:3px;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.4)}
-  .h1{margin:24px 0 6px;font-size:24px;font-weight:600;letter-spacing:.5px}
-  .sub{color:var(--tx2);font-size:14px;max-width:330px}
-  .chips{display:flex;gap:9px;flex-wrap:wrap;justify-content:center;margin-top:22px;max-width:420px}
+  .orb span{font-size:15px;font-weight:600;letter-spacing:3px;color:#fff}
+  .h1{margin:24px 0 6px;font-size:24px;font-weight:600}
+  .sub{color:var(--tx2);font-size:14px;max-width:340px}
+  .chips{display:flex;gap:9px;flex-wrap:wrap;justify-content:center;margin-top:22px;max-width:430px}
   .chip{padding:9px 16px;border-radius:99px;border:1px solid var(--line);background:rgba(18,19,28,.8);
         font-size:13.5px;color:var(--tx);cursor:pointer;transition:.16s}
-  .chip:active{transform:scale(.96)}
-  .chip:hover{border-color:var(--acc);color:#cfc8ff}
-
-  /* 对话区 */
-  .talk{display:none;flex-direction:column;height:100%}
-  .talk.on{display:flex}
-  .head{padding:14px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}
+  .chip:active{transform:scale(.96)} .chip:hover{border-color:var(--acc);color:#cfc8ff}
+  .talk{display:none;flex-direction:column;height:100%} .talk.on{display:flex}
+  .head{padding:13px 18px;display:flex;align-items:center;gap:9px;border-bottom:1px solid var(--line)}
   .head .dot{width:9px;height:9px;border-radius:50%;background:#4ade80;box-shadow:0 0 8px #4ade80}
   .head b{font-size:15px}
   .head .sp{flex:1}
-  .head button{background:none;border:0;color:var(--tx2);font-size:20px;cursor:pointer;padding:4px 8px}
+  .head button{background:none;border:0;color:var(--tx2);font-size:19px;cursor:pointer;padding:4px 8px}
   .msgs{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:14px}
-  .row{display:flex;gap:10px;max-width:88%}
-  .row.me{align-self:flex-end;flex-direction:row-reverse}
+  .row{display:flex;gap:10px;max-width:90%} .row.me{align-self:flex-end;flex-direction:row-reverse}
   .av{width:30px;height:30px;border-radius:50%;flex:none;display:flex;align-items:center;
       justify-content:center;font-size:13px;background:#2a2360;color:#c9bfff}
   .row.me .av{background:#2b3550;color:#bcd4ff}
@@ -77,15 +69,29 @@
   .typing i{width:6px;height:6px;border-radius:50%;background:var(--tx2);animation:bl 1s infinite}
   .typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
   @keyframes bl{0%,100%{opacity:.3}50%{opacity:1}}
+  .keybar{position:fixed;right:12px;bottom:12px;z-index:5}
+  .keybar button{background:rgba(18,19,28,.9);border:1px solid var(--line);color:var(--tx2);
+     border-radius:99px;padding:7px 14px;font-size:12.5px;cursor:pointer}
+  .modal{position:fixed;inset:0;background:rgba(3,3,8,.8);display:none;align-items:center;
+         justify-content:center;z-index:20;padding:20px}
+  .modal.on{display:flex}
+  .modal .box{background:#14151f;border:1px solid var(--line);border-radius:16px;padding:22px;
+              max-width:400px;width:100%}
+  .modal h3{margin:0 0 8px;font-size:16px}
+  .modal p{color:var(--tx2);font-size:13px;line-height:1.7;margin:0 0 14px}
+  .modal input{width:100%;background:#0c0e13;border:1px solid var(--line);border-radius:10px;
+     color:var(--tx);padding:11px 13px;font-size:14px;font-family:inherit;outline:none;margin-bottom:12px}
+  .modal .row2{display:flex;gap:10px}
+  .modal button{flex:1;border:0;border-radius:10px;padding:11px;font-size:14px;cursor:pointer;font-family:inherit}
+  .modal .ok{background:var(--acc);color:#fff} .modal .no{background:#232833;color:var(--tx)}
 </style>
 </head>
 <body>
 <div class="app">
-  <!-- 封面：一个大 AI -->
   <div class="stage" id="stage">
     <div class="orb" id="orb"><span>渡口</span></div>
     <div class="h1">说一句，我带你去</div>
-    <div class="sub">想吃什么、想玩什么、想开店——直接告诉我，我送你到该去的地方。</div>
+    <div class="sub">想吃什么、想玩什么、想开店——告诉我，我送你到该去的地方。</div>
     <div class="chips">
       <div class="chip" data-q="我想喝奶茶">🥤 想喝奶茶</div>
       <div class="chip" data-q="来点水果">🍉 买点水果</div>
@@ -95,15 +101,14 @@
     </div>
   </div>
 
-  <!-- 对话 -->
   <div class="talk" id="talk">
     <div class="head">
-      <span class="dot"></span><b>渡口</b><span style="color:var(--tx2);font-size:12.5px">· 你的 AI 向导</span>
-      <span class="sp"></span>
-      <button onclick="reset()">✕</button>
+      <span class="dot"></span><b>渡口</b>
+      <span style="color:var(--tx2);font-size:12.5px" id="mode">· 规则模式（离线可用）</span>
+      <span class="sp"></span><button onclick="reset()">✕</button>
     </div>
     <div class="msgs" id="msgs"></div>
-    <div class="hint">我会把你送到对应的店铺/页面 · 拿不准我会问你</div>
+    <div class="hint">拿不准我会反问你 · 点「AI增强」填 key 可更聪明</div>
     <div class="inputbar">
       <textarea id="inp" rows="1" placeholder="你要去哪儿？"></textarea>
       <button id="send" onclick="send()">↑</button>
@@ -111,73 +116,136 @@
   </div>
 </div>
 
+<div class="keybar"><button onclick="openKey()">⚙️ AI增强</button></div>
+
+<div class="modal" id="keyModal">
+  <div class="box">
+    <h3>开启 AI 增强（可选）</h3>
+    <p>填一个 DeepSeek API Key，出站直接从浏览器调，<b>不经过任何第三方服务器</b>。
+       Key 只存在你本机 localStorage，不会上传。<br>不填也能用——那就走本地规则匹配。</p>
+    <input id="keyInput" type="password" placeholder="sk-... （留空 = 关闭AI增强）">
+    <div class="row2">
+      <button class="no" onclick="closeKey()">取消</button>
+      <button class="ok" onclick="saveKey()">保存</button>
+    </div>
+  </div>
+</div>
+
 <script>
-const API = window.GATEWAY_API || (location.hostname === '127.0.0.1' || location.hostname === 'localhost'
-            ? 'http://127.0.0.1:8100' : 'http://127.0.0.1:8100');
+/* ============================ 目的地白名单 ============================
+   只有这里列出的地方能被跳转 —— AI 不许自己编 URL（防开放重定向） */
+const DESTS = [
+  {slug:'yikoucha', name:'一口茶（奶茶）', url:'../s/yikoucha/index.html', icon:'🥤',
+   kw:['奶茶','喝的','茶','珍珠','饮品','饮料','下午茶','冰的','解渴','渴','波波','果茶']},
+  {slug:'fruit3', name:'宿舍楼下水果', url:'../s/fruit3/index.html', icon:'🍉',
+   kw:['水果','切果','果盒','苹果','西瓜','香蕉','葡萄','削','果盘']},
+  {slug:'game', name:'天泪纪元（游戏）', url:'../tianlei3d/index.html', icon:'🎮',
+   kw:['游戏','玩','打游戏','娱乐','天泪','上线','无聊','乐子','打发','摸鱼']},
+  {slug:'join', name:'免费开店（商家入驻）', url:'../join.html', icon:'🏪',
+   kw:['开店','入驻','卖东西','做个店','下单页','商家','我要卖','副业','创业','生意']},
+  {slug:'orders', name:'我的订单', url:'../orders.html', icon:'📦',
+   kw:['订单','我买的','查订单','买的东西','发货','到哪了','物流','进度']},
+  {slug:'chat', name:'联系商家 / 客服', url:'../index.html', icon:'💬',
+   kw:['客服','联系','咨询','投诉','售后','退款','找人']},
+];
+
 const $ = s => document.querySelector(s);
-const ICON = {yikoucha:'🥤', fruit3:'🍉', game:'🎮', join:'🏪', orders:'📦', chat:'💬'};
-
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+const getKey = () => { try{return localStorage.getItem('gateway_key')||''}catch(e){return ''} };
+const setKey = k => { try{ k?localStorage.setItem('gateway_key',k):localStorage.removeItem('gateway_key') }catch(e){} };
+const HISTORY = [];
 
+/* ---------------- 规则匹配（永远可用，0 成本） ---------------- */
+function ruleRoute(text){
+  const hits = DESTS.map(d=>{
+    let s = 0;
+    for(const k of d.kw) if(text.includes(k)) s += (k.length>=2?2:1);
+    return {s, d};
+  }).filter(x=>x.s>0).sort((a,b)=>b.s-a.s);
+  const picked = hits.slice(0,3).map(x=>x.d);
+  if(!picked.length){
+    return {reply:'我这边能帮你：点奶茶 / 买水果 / 逛游戏 / 免费开店 / 查订单。你想干哪个？',
+            destinations:[]};
+  }
+  return {reply:`给你找到 ${picked.length} 个去处，点下面进去～`, destinations:picked, source:'rule'};
+}
+
+/* ---------------- AI 增强（浏览器直连 LLM，无服务器） ---------------- */
+async function llmRoute(text){
+  const key = getKey(); if(!key) return null;
+  const menu = DESTS.map(d=>`- ${d.slug}｜${d.name}｜能帮你：${d.kw.slice(0,6).join(',')}`).join('\n');
+  const SYS = `你是「渡口」——把用户一句话送到该去的地方。只能从菜单里选(用slug)，最多3个，按相关度排序。
+若说不清或不在菜单，route为空数组并在reply里礼貌反问。reply口语、简短(≤40字)。只输出JSON：{"reply":"...","route":["slug1"]}
+菜单：
+${menu}`;
+  try{
+    const r = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body: JSON.stringify({model:'deepseek-chat', temperature:0.3,
+        messages:[{role:'system',content:SYS},{role:'user',content:text}]})
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const raw = (await r.json()).choices[0].message.content;
+    const m = raw.match(/\{[\s\S]*\}/); if(!m) return null;
+    const j = JSON.parse(m[0]);
+    const bySlug = Object.fromEntries(DESTS.map(d=>[d.slug,d]));
+    const picked = (j.route||[]).map(s=>bySlug[s]).filter(Boolean).slice(0,3);
+    return {reply: j.reply || '给你找到这些：', destinations: picked, source:'llm'};
+  }catch(e){ console.warn('LLM失败，退回规则', e); return null; }
+}
+
+/* ---------------- 主分诊 ---------------- */
+async function route(text){
+  const ai = await llmRoute(text);
+  if(ai && ai.destinations.length) return ai;
+  if(ai && !ai.destinations.length && ai.reply) return ai;   // AI 礼貌反问也保留
+  return ruleRoute(text);
+}
+
+/* ---------------- UI ---------------- */
 function openTalk(){ $('#stage').style.display='none'; $('#talk').classList.add('on'); }
-
 function bubble(text, me, dests){
-  const row = document.createElement('div');
-  row.className = 'row' + (me?' me':'');
+  const row = document.createElement('div'); row.className='row'+(me?' me':'');
   let inner = `<div class="av">${me?'你':'渡'}</div><div class="bub">${esc(text)}`;
   if(dests && dests.length){
     inner += '<div class="dest">' + dests.map(d=>
       `<a class="d" href="${esc(d.url)}" target="_blank" rel="noopener">
-         <span class="ic">${ICON[d.slug]||'➡'}</span>
-         <b>${esc(d.name)}</b><span class="go">去 →</span></a>`).join('') + '</div>';
+        <span class="ic">${d.icon||'➡'}</span><b>${esc(d.name)}</b><span class="go">去 →</span></a>`).join('') + '</div>';
   }
-  inner += '</div>';
-  row.innerHTML = inner;
-  $('#msgs').appendChild(row);
-  $('#msgs').scrollTop = $('#msgs').scrollHeight;
-  return row;
+  inner += '</div>'; row.innerHTML = inner;
+  $('#msgs').appendChild(row); $('#msgs').scrollTop = $('#msgs').scrollHeight;
 }
-
-function typing(){
-  const row = document.createElement('div');
-  row.className='row'; row.id='typing';
-  row.innerHTML = `<div class="av">渡</div><div class="bub"><span class="typing"><i></i><i></i><i></i></span></div>`;
-  $('#msgs').appendChild(row); $('#msgs').scrollTop=$('#msgs').scrollHeight;
-}
-function stopTyping(){ const t=$('#typing'); if(t) t.remove(); }
+function typing(){ const r=document.createElement('div'); r.className='row'; r.id='typing';
+  r.innerHTML='<div class="av">渡</div><div class="bub"><span class="typing"><i></i><i></i><i></i></span></div>';
+  $('#msgs').appendChild(r); $('#msgs').scrollTop=$('#msgs').scrollHeight; }
+function stopTyping(){ const t=$('#typing'); if(t)t.remove(); }
 
 async function ask(text){
-  openTalk();
-  bubble(text, true);
-  typing();
+  openTalk(); bubble(text, true); typing();
   $('#send').disabled = true;
-  try{
-    const r = await fetch(API + '/api/route', {method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({text})});
-    const d = await r.json();
-    stopTyping();
-    bubble(d.reply || '……', false, d.destinations || []);
-  }catch(e){
-    stopTyping();
-    bubble('AI 有点走神了，再试一次？（入口服务没起来的话，先运行 router.py --serve）', false);
-  }finally{ $('#send').disabled=false; $('#inp').focus(); }
+  const t0 = Date.now();
+  const res = await route(text);
+  if(Date.now()-t0 < 300) await new Promise(r=>setTimeout(r,300));
+  stopTyping();
+  bubble(res.reply||'……', false, res.destinations||[]);
+  $('#send').disabled = false; $('#inp').focus();
 }
+function send(){ const v=$('#inp').value.trim(); if(!v)return; $('#inp').value=''; $('#inp').style.height='auto'; ask(v); }
+function reset(){ $('#talk').classList.remove('on'); $('#stage').style.display='flex'; $('#msgs').innerHTML=''; }
 
-function send(){
-  const v = $('#inp').value.trim(); if(!v) return;
-  $('#inp').value=''; $('#inp').style.height='auto';
-  ask(v);
+function openKey(){ $('#keyInput').value = getKey(); $('#keyModal').classList.add('on'); }
+function closeKey(){ $('#keyModal').classList.remove('on'); }
+function saveKey(){ setKey($('#keyInput').value.trim()); closeKey(); refreshMode(); }
+function refreshMode(){
+  $('#mode').textContent = getKey() ? '· AI增强已开启' : '· 规则模式（离线可用）';
 }
-function reset(){ $('#talk').classList.remove('on'); $('#stage').style.display='flex';
-  $('#msgs').innerHTML=''; }
 
 $('#orb').onclick = ()=>{ openTalk(); $('#inp').focus(); };
 document.querySelectorAll('.chip').forEach(c=> c.onclick = ()=> ask(c.dataset.q));
-$('#inp').addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); }});
+$('#inp').addEventListener('keydown', e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();} });
 $('#inp').addEventListener('input', e=>{ e.target.style.height='auto'; e.target.style.height=Math.min(e.target.scrollHeight,120)+'px'; });
-
-// 开场白
-setTimeout(()=>{ if(!$('#msgs').children.length) { openTalk(); bubble('你好，我是渡口～想去哪，跟我说一句就行。', false); } }, 400);
+refreshMode();
+setTimeout(()=>{ if(!$('#msgs').children.length){ openTalk(); bubble('你好，我是渡口～想去哪，跟我说一句就行。', false); } }, 400);
 </script>
 </body>
 </html>
