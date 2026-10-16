@@ -1,0 +1,21 @@
+{
+  "shopName": "奶茶店",
+  "slogan": "",
+  "notice": "可在备注写糖度/冰量：少糖/半糖/无糖，去冰/少冰/多冰。",
+  "phone": "",
+  "wechat": "",
+  "hours": "10:00 - 22:00",
+  "minOrder": 15,
+  "deliveryFee": 3,
+  "freeDeliveryOver": 30,
+  "deliveryArea": "3公里内",
+  "deliveryTimeOptions": [
+    "尽快送到",
+    "30分钟内",
+    "指定时间"
+  ],
+  "payNote": "扫码付款后请留几位数字方便核对",
+  "acceptCash": true,
+  "onlinePay": false,
+  "adminPin": "1234"
+}

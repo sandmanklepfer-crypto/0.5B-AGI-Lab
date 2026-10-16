@@ -1,0 +1,33 @@
+{
+  "shopName": "一口茶",
+  "slogan": "现制茶饮，可调糖度",
+  "notice": "现制茶饮，可调糖度；高峰期可能延迟，请耐心等待。",
+  "phone": "13900139002",
+  "wechat": "",
+  "hours": "10:00-22:00",
+  "minOrder": 15,
+  "deliveryFee": 3,
+  "freeDeliveryOver": 30,
+  "deliveryArea": "门店3公里范围内",
+  "deliveryTimeOptions": [
+    "立即送达",
+    "11:30-12:00",
+    "14:00-14:30",
+    "17:30-18:00"
+  ],
+  "payQrWechat": "",
+  "payQrAlipay": "",
+  "payNote": "扫码付款后请留几位数字方便核对",
+  "acceptCash": true,
+  "onlinePay": false,
+  "payApiBase": "",
+  "recognizeBy": "note",
+  "payExpireMin": 30,
+  "payQrUnionpay": "",
+  "orderForm": {
+    "provider": "none",
+    "email": "",
+    "accessKey": ""
+  },
+  "adminPin": "1234"
+}

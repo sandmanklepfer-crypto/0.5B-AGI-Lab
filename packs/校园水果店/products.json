@@ -1,0 +1,185 @@
+{
+  "categories": [
+    "切果盒",
+    "整果",
+    "代削服务"
+  ],
+  "items": [
+    {
+      "id": "v0",
+      "name": "西瓜切盒",
+      "cat": "切果盒",
+      "price": 8.8,
+      "unit": "盒",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v1",
+      "name": "哈密瓜切盒",
+      "cat": "切果盒",
+      "price": 9.9,
+      "unit": "盒",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v2",
+      "name": "火龙果切盒",
+      "cat": "切果盒",
+      "price": 12.9,
+      "unit": "盒",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v3",
+      "name": "混合水果切盒",
+      "cat": "切果盒",
+      "price": 15.9,
+      "unit": "盒",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v4",
+      "name": "芒果切盒",
+      "cat": "切果盒",
+      "price": 13.9,
+      "unit": "盒",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v5",
+      "name": "菠萝切盒",
+      "cat": "切果盒",
+      "price": 7.9,
+      "unit": "盒",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v6",
+      "name": "苹果",
+      "cat": "整果",
+      "price": 3.5,
+      "unit": "个",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v7",
+      "name": "香蕉",
+      "cat": "整果",
+      "price": 2.5,
+      "unit": "根",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v8",
+      "name": "橙子",
+      "cat": "整果",
+      "price": 4.0,
+      "unit": "个",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v9",
+      "name": "梨",
+      "cat": "整果",
+      "price": 4.5,
+      "unit": "个",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v10",
+      "name": "西瓜（整）",
+      "cat": "整果",
+      "price": 25.0,
+      "unit": "个",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v11",
+      "name": "哈密瓜（整）",
+      "cat": "整果",
+      "price": 18.0,
+      "unit": "个",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v12",
+      "name": "代削苹果",
+      "cat": "代削服务",
+      "price": 1.0,
+      "unit": "次",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v13",
+      "name": "代削梨",
+      "cat": "代削服务",
+      "price": 1.0,
+      "unit": "次",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v14",
+      "name": "代切西瓜",
+      "cat": "代削服务",
+      "price": 2.0,
+      "unit": "次",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v15",
+      "name": "代切哈密瓜",
+      "cat": "代削服务",
+      "price": 2.0,
+      "unit": "次",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    }
+  ]
+}

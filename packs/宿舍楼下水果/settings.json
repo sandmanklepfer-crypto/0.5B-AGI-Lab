@@ -1,0 +1,19 @@
+{
+  "shopName": "宿舍楼下水果",
+  "slogan": "切果盒、整果、代削",
+  "notice": "",
+  "phone": "13800138001",
+  "wechat": "",
+  "hours": "09:00-22:00",
+  "minOrder": 20,
+  "deliveryFee": 5,
+  "freeDeliveryOver": 50,
+  "deliveryArea": "XX大学3号楼",
+  "deliveryTimeOptions": [
+    "尽快送到"
+  ],
+  "payNote": "扫码付款后请留几位数字方便核对",
+  "acceptCash": true,
+  "onlinePay": false,
+  "adminPin": "1234"
+}

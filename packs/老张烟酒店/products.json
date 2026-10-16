@@ -1,0 +1,18 @@
+{
+  "categories": [
+    "烟酒"
+  ],
+  "items": [
+    {
+      "id": "v0",
+      "name": "老张烟酒店·主推",
+      "cat": "烟酒",
+      "price": 20,
+      "unit": "份",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    }
+  ]
+}

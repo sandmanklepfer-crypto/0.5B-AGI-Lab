@@ -1,0 +1,65 @@
+{
+  "categories": [
+    "代取快递",
+    "代买饭",
+    "代排队",
+    "跑腿其他"
+  ],
+  "items": [
+    {
+      "id": "v0",
+      "name": "代取快递",
+      "cat": "代取快递",
+      "price": 2,
+      "unit": "件",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v1",
+      "name": "代买饭(食堂)",
+      "cat": "代买饭",
+      "price": 3,
+      "unit": "单",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v2",
+      "name": "代买饭(校外)",
+      "cat": "代买饭",
+      "price": 5,
+      "unit": "单",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v3",
+      "name": "代排队",
+      "cat": "代排队",
+      "price": 5,
+      "unit": "次",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v4",
+      "name": "加急代取",
+      "cat": "跑腿其他",
+      "price": 5,
+      "unit": "件",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    }
+  ]
+}

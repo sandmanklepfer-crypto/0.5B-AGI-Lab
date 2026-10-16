@@ -1,0 +1,152 @@
+{
+  "categories": [
+    "切果盒",
+    "整果",
+    "代削服务"
+  ],
+  "items": [
+    {
+      "id": "v0",
+      "name": "西瓜切盒",
+      "cat": "切果盒",
+      "price": 6.5,
+      "unit": "盒",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v1",
+      "name": "哈密瓜切盒",
+      "cat": "切果盒",
+      "price": 7.5,
+      "unit": "盒",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v2",
+      "name": "火龙果切盒",
+      "cat": "切果盒",
+      "price": 8.0,
+      "unit": "盒",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v3",
+      "name": "混合水果切盒",
+      "cat": "切果盒",
+      "price": 9.9,
+      "unit": "盒",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v4",
+      "name": "菠萝切盒",
+      "cat": "切果盒",
+      "price": 5.5,
+      "unit": "盒",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v5",
+      "name": "苹果",
+      "cat": "整果",
+      "price": 3.5,
+      "unit": "个",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v6",
+      "name": "香蕉",
+      "cat": "整果",
+      "price": 2.0,
+      "unit": "根",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v7",
+      "name": "橙子",
+      "cat": "整果",
+      "price": 4.0,
+      "unit": "个",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v8",
+      "name": "猕猴桃",
+      "cat": "整果",
+      "price": 3.5,
+      "unit": "个",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v9",
+      "name": "葡萄",
+      "cat": "整果",
+      "price": 8.8,
+      "unit": "串",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v10",
+      "name": "代削菠萝",
+      "cat": "代削服务",
+      "price": 2.0,
+      "unit": "次",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v11",
+      "name": "代削甘蔗",
+      "cat": "代削服务",
+      "price": 3.0,
+      "unit": "次",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v12",
+      "name": "代切果盘",
+      "cat": "代削服务",
+      "price": 4.0,
+      "unit": "次",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "shopName": "校园水果店",
+  "slogan": "",
+  "notice": "水果现切现卖，请尽快食用。代削服务需备注水果种类。",
+  "phone": "",
+  "wechat": "",
+  "hours": "09:00-22:00",
+  "minOrder": 5,
+  "deliveryFee": 1.5,
+  "freeDeliveryOver": 15,
+  "deliveryArea": "本校宿舍楼（1-20栋）",
+  "deliveryTimeOptions": [
+    "10:00-11:00",
+    "12:00-13:00",
+    "16:00-17:00",
+    "20:00-21:00"
+  ],
+  "payNote": "扫码付款后请留几位数字方便核对",
+  "acceptCash": true,
+  "onlinePay": false,
+  "adminPin": "1234"
+}

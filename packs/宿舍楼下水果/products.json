@@ -1,0 +1,18 @@
+{
+  "categories": [
+    "水果生鲜"
+  ],
+  "items": [
+    {
+      "id": "v0",
+      "name": "宿舍楼下水果·主推",
+      "cat": "水果生鲜",
+      "price": 20,
+      "unit": "份",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    }
+  ]
+}

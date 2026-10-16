@@ -1,0 +1,242 @@
+{
+  "categories": [
+    "招牌奶茶",
+    "鲜果茶",
+    "纯茶",
+    "小料",
+    "甜点"
+  ],
+  "items": [
+    {
+      "id": "v0",
+      "name": "一口招牌奶茶",
+      "cat": "招牌奶茶",
+      "price": 16,
+      "unit": "杯",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v1",
+      "name": "珍珠奶茶",
+      "cat": "招牌奶茶",
+      "price": 15,
+      "unit": "杯",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v2",
+      "name": "芋泥波波奶茶",
+      "cat": "招牌奶茶",
+      "price": 19,
+      "unit": "杯",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v3",
+      "name": "黑糖珍珠鲜奶",
+      "cat": "招牌奶茶",
+      "price": 18,
+      "unit": "杯",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v4",
+      "name": "茉莉奶绿",
+      "cat": "招牌奶茶",
+      "price": 15,
+      "unit": "杯",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v5",
+      "name": "芝士葡萄",
+      "cat": "鲜果茶",
+      "price": 22,
+      "unit": "杯",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v6",
+      "name": "满杯百香果",
+      "cat": "鲜果茶",
+      "price": 18,
+      "unit": "杯",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v7",
+      "name": "杨枝甘露",
+      "cat": "鲜果茶",
+      "price": 21,
+      "unit": "杯",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v8",
+      "name": "柠檬绿茶",
+      "cat": "鲜果茶",
+      "price": 14,
+      "unit": "杯",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v9",
+      "name": "草莓啵啵",
+      "cat": "鲜果茶",
+      "price": 20,
+      "unit": "杯",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v10",
+      "name": "茉莉花茶",
+      "cat": "纯茶",
+      "price": 10,
+      "unit": "杯",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v11",
+      "name": "四季春茶",
+      "cat": "纯茶",
+      "price": 10,
+      "unit": "杯",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v12",
+      "name": "鸭屎香柠檬茶",
+      "cat": "纯茶",
+      "price": 15,
+      "unit": "杯",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v13",
+      "name": "珍珠",
+      "cat": "小料",
+      "price": 2,
+      "unit": "份",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v14",
+      "name": "椰果",
+      "cat": "小料",
+      "price": 2,
+      "unit": "份",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v15",
+      "name": "芋泥",
+      "cat": "小料",
+      "price": 4,
+      "unit": "份",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v16",
+      "name": "奶盖",
+      "cat": "小料",
+      "price": 5,
+      "unit": "份",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v17",
+      "name": "布丁",
+      "cat": "小料",
+      "price": 3,
+      "unit": "份",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v18",
+      "name": "提拉米苏",
+      "cat": "甜点",
+      "price": 22,
+      "unit": "份",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v19",
+      "name": "巴斯克芝士蛋糕",
+      "cat": "甜点",
+      "price": 26,
+      "unit": "份",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v20",
+      "name": "蛋挞",
+      "cat": "甜点",
+      "price": 8,
+      "unit": "个",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    }
+  ]
+}

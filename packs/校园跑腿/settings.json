@@ -1,0 +1,21 @@
+{
+  "shopName": "校园跑腿",
+  "slogan": "",
+  "notice": "下单后请备注宿舍楼+门牌+联系方式，跑腿小哥会先联系你。",
+  "phone": "",
+  "wechat": "",
+  "hours": "07:00 - 23:00",
+  "minOrder": 5,
+  "deliveryFee": 1,
+  "freeDeliveryOver": 15,
+  "deliveryArea": "本校校区内，宿舍楼下交接",
+  "deliveryTimeOptions": [
+    "30分钟内",
+    "1小时内",
+    "指定时间"
+  ],
+  "payNote": "扫码付款后请留几位数字方便核对",
+  "acceptCash": true,
+  "onlinePay": false,
+  "adminPin": "1234"
+}

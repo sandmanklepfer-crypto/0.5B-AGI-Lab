@@ -1,0 +1,32 @@
+{
+  "shopName": "宿舍楼下水果",
+  "slogan": "切果盒、整果、代削",
+  "notice": "新鲜现切，请尽快食用。代削服务需备注要求。",
+  "phone": "13800138001",
+  "wechat": "",
+  "hours": "10:00-22:00",
+  "minOrder": 5,
+  "deliveryFee": 1.0,
+  "freeDeliveryOver": 15,
+  "deliveryArea": "宿舍楼下及周边500米",
+  "deliveryTimeOptions": [
+    "立即配送",
+    "30分钟后",
+    "1小时后"
+  ],
+  "payQrWechat": "",
+  "payQrAlipay": "",
+  "payNote": "扫码付款后请留几位数字方便核对",
+  "acceptCash": true,
+  "onlinePay": false,
+  "payApiBase": "",
+  "recognizeBy": "note",
+  "payExpireMin": 30,
+  "payQrUnionpay": "",
+  "orderForm": {
+    "provider": "none",
+    "email": "",
+    "accessKey": ""
+  },
+  "adminPin": "1234"
+}

@@ -1,0 +1,18 @@
+{
+  "categories": [
+    "奶茶饮品"
+  ],
+  "items": [
+    {
+      "id": "v0",
+      "name": "一口茶·主推",
+      "cat": "奶茶饮品",
+      "price": 20,
+      "unit": "份",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    }
+  ]
+}

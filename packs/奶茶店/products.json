@@ -1,0 +1,54 @@
+{
+  "categories": [
+    "招牌奶茶",
+    "水果茶",
+    "小料加料",
+    "套餐"
+  ],
+  "items": [
+    {
+      "id": "v0",
+      "name": "珍珠奶茶",
+      "cat": "招牌奶茶",
+      "price": 12,
+      "unit": "杯",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v1",
+      "name": "多肉葡萄",
+      "cat": "水果茶",
+      "price": 18,
+      "unit": "杯",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v2",
+      "name": "四季春",
+      "cat": "招牌奶茶",
+      "price": 10,
+      "unit": "杯",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    },
+    {
+      "id": "v3",
+      "name": "双人下午茶",
+      "cat": "套餐",
+      "price": 26,
+      "unit": "套",
+      "stock": 99,
+      "on": true,
+      "desc": "",
+      "img": ""
+    }
+  ]
+}
