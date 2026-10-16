@@ -85,14 +85,31 @@
     </div>
   </div>
 
+  <div class="blank-modal" id="keyModal" style="position:fixed;inset:0;background:rgba(3,3,8,.82);display:none;align-items:center;justify-content:center;z-index:30;padding:20px">
+    <div style="background:#14151f;border:1px solid var(--line);border-radius:16px;padding:22px;max-width:400px;width:100%">
+      <h3 style="margin:0 0 8px;font-size:16px">填入你自己的 AI Key（可选）</h3>
+      <p style="color:var(--tx2);font-size:13px;line-height:1.7;margin:0 0 14px">
+        不填也能用（走免费公共 AI，较慢）。填了更稳更快。<br>
+        <b>Key 只存在你自己手机浏览器里</b>，不上传任何服务器。<br>
+        用的是 <code>api.deepseek.com</code> 的 key。</p>
+      <input id="keyInput" type="password" placeholder="sk-..." style="width:100%;background:#0c0e13;border:1px solid var(--line);border-radius:10px;color:var(--tx);padding:11px 13px;font-size:14px;font-family:inherit;outline:none;margin-bottom:12px">
+      <div style="display:flex;gap:10px">
+        <button onclick="closeKey()" style="flex:1;border:0;border-radius:10px;padding:11px;background:#232833;color:var(--tx);cursor:pointer;font-family:inherit">取消</button>
+        <button onclick="saveKey()" style="flex:1;border:0;border-radius:10px;padding:11px;background:var(--acc);color:#fff;cursor:pointer;font-family:inherit">保存</button>
+      </div>
+    </div>
+  </div>
+
   <div class="talk" id="talk">
     <div class="head">
       <span class="dot"></span><b>渡口</b>
       <span style="color:var(--tx2);font-size:12.5px" id="mode">· AI 在线</span>
-      <span class="sp"></span><button onclick="reset()">✕</button>
+      <span class="sp"></span>
+      <button onclick="openKey()" style="font-size:13px;color:var(--tx2)">⚙️</button>
+      <button onclick="reset()">✕</button>
     </div>
     <div class="msgs" id="msgs"></div>
-    <div class="hint">说人话就行 · 拿不准我会反问你</div>
+    <div class="hint">说人话就行 · 点 ⚙️ 可填自己的 key 让 AI 更稳</div>
     <div class="inputbar">
       <textarea id="inp" rows="1" placeholder="你要去哪儿？"></textarea>
       <button id="send" onclick="send()">↑</button>
@@ -120,14 +137,30 @@ const DESTS = [
 ];
 
 /* ============ AI 接入方式（按顺序尝试，哪个通就用哪个） ============
-   ★ 这里没有、也永远不该有任何 API Key。
-     浏览器里的 key = 公开的 key。要安全，就把 key 放服务器（见 worker.js）。 */
+   ★ 页面里没有、也永远不该有"你的共享 Key"（公开页里的 key = 公开的 key）。
+     · 默认走免费免 key 的公共 AI
+     · 想更稳：点右下角填「你自己的 key」（只存本机浏览器，非公开）
+     · 想彻底安全：把 key 放服务端（见 worker.js） */
 const AI_ENDPOINTS = [
-  // 免费免 key 的公共 AI（无需任何密钥，无从被盗）
   {name:'free', build:(prompt)=>'https://text.pollinations.ai/'+encodeURIComponent(prompt)},
 ];
-// 如果你自己部署了 Cloudflare Worker 代理（key 在服务端），把地址填这里：
-const MY_PROXY = '';   // 例：'https://tianlei-ai.你的名字.workers.dev/route'
+const MY_PROXY = '';   // 自建 Worker 代理地址（key 在服务端），例：'https://xxx.workers.dev/'
+const getKey = () => { try{return localStorage.getItem('gw_key')||''}catch(e){return ''} };
+const setKey = k => { try{ k?localStorage.setItem('gw_key',k):localStorage.removeItem('gw_key') }catch(e){} };
+
+async function ownKeyRoute(prompt){
+  const key = getKey(); if(!key) return null;
+  try{
+    const r = await fetchWithTimeout('https://api.deepseek.com/v1/chat/completions', 20000, {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body: JSON.stringify({model:'deepseek-chat', temperature:0.3,
+        messages:[{role:'user',content:prompt}]})
+    });
+    if(!r.ok) return null;
+    const raw = (await r.json()).choices[0].message.content;
+    return parseAI(raw);
+  }catch(e){ return null; }
+}
 
 const $ = s => document.querySelector(s);
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
@@ -165,15 +198,18 @@ function parseAI(raw){
   }catch(e){ return null; }
 }
 
-async function fetchWithTimeout(url, ms){
+async function fetchWithTimeout(url, ms, opts){
   const ctl = new AbortController();
   const t = setTimeout(()=>ctl.abort(), ms);
-  try{ const r = await fetch(url, {signal:ctl.signal}); return r; }
+  try{ const r = await fetch(url, Object.assign({signal:ctl.signal}, opts||{})); return r; }
   finally{ clearTimeout(t); }
 }
 
 async function aiRoute(text){
   const prompt = buildPrompt(text);
+  // ⓪ 你自己填的 key（最快最稳）
+  const own = await ownKeyRoute(prompt);
+  if(own) return own;
   // ① 优先用你自己的代理（key 在服务端，最稳最安全）
   if(MY_PROXY){
     try{
@@ -235,6 +271,10 @@ async function ask(text){
 }
 function send(){ const v=$('#inp').value.trim(); if(!v)return; $('#inp').value=''; $('#inp').style.height='auto'; ask(v); }
 function reset(){ $('#talk').classList.remove('on'); $('#stage').style.display='flex'; $('#msgs').innerHTML=''; }
+
+function openKey(){ $('#keyInput').value = getKey(); $('#keyModal').style.display='flex'; }
+function closeKey(){ $('#keyModal').style.display='none'; }
+function saveKey(){ setKey($('#keyInput').value.trim()); closeKey(); $('#mode').textContent = getKey()?'· AI 已加速':'· AI 在线'; }
 
 $('#orb').onclick = ()=>{ openTalk(); $('#inp').focus(); };
 document.querySelectorAll('.chip').forEach(c=> c.onclick = ()=> ask(c.dataset.q));
