@@ -109,7 +109,7 @@
       <button onclick="reset()">✕</button>
     </div>
     <div class="msgs" id="msgs"></div>
-    <div class="hint">说人话就行 · 点 ⚙️ 可填自己的 key 让 AI 更稳</div>
+    <div class="hint">本站没有的（如咖啡/超市）会自动带你去地图搜 · 点 ⚙️ 可填 key</div>
     <div class="inputbar">
       <textarea id="inp" rows="1" placeholder="你要去哪儿？"></textarea>
       <button id="send" onclick="send()">↑</button>
@@ -135,6 +135,42 @@ const DESTS = [
   {slug:'chat', name:'联系商家 / 客服', url:'../index.html', icon:'💬',
    kw:['客服','联系','咨询','投诉','售后','退款','找人']},
 ];
+
+/* ============ 外部世界（固定域名的"腿"）============
+   ★ 安全说明：域名字符串写死在这里，{q} 只做 URL 编码拼查询词。
+     这不构成"开放重定向"——因为域名不可被 AI 替换，AI 只能选"用哪条腿"。
+     于是"想喝咖啡"这种本站没有的，也能被送到真实世界的真实搜索结果。 */
+const EXTERNAL = [
+  {slug:'nearby', name:'附近找店（地图搜）', icon:'🗺️', domain:'uri.amap.com',
+   url:'https://uri.amap.com/search?keyword={q}&src=渡口',
+   kw:['咖啡','喝咖啡','吃','饭','餐厅','吃饭','外卖','附近','便利店','超市','药店','快递','理发','修','买花','蛋糕','面包','火锅','烧烤']},
+  {slug:'buy', name:'网上买（淘宝搜）', icon:'🛒', domain:'s.taobao.com',
+   url:'https://s.taobao.com/search?q={q}',
+   kw:['买','购物','淘宝','网购','下单买','要买']},
+  {slug:'web', name:'网上查（网页搜）', icon:'🔎', domain:'www.bing.com',
+   url:'https://www.bing.com/search?q={q}',
+   kw:['查','搜','怎么','什么是','为什么','多少钱']},
+];
+
+/* 把外部世界也纳入"可选菜单"（AI 能看见它们，才可能选） */
+const ALL = DESTS.concat(EXTERNAL);
+
+/* 把"我想喝咖啡呀"洗成"咖啡" —— 外部搜索要的是关键词, 不是整句 */
+function cleanQuery(text){
+  let s = String(text||'');
+  const junk = ['我想','我要','想要','想要点','来点','来杯','来份','来个','给我','帮我','麻烦',
+                '有没有','附近有','附近','哪里能','哪里','怎么','可以','能不能','一下','点儿',
+                '喝点','吃点','买点','想买','想吃','想喝','的','吗','呢','吧','啊','呀','吗？','?','？'];
+  for(const j of junk) s = s.split(j).join('');
+  s = s.replace(/[，。！、,!.]+/g,' ').trim();
+  return s.slice(0,24) || String(text||'').slice(0,16);
+}
+
+function resolveTarget(t, userText){
+  const q = encodeURIComponent(cleanQuery(userText));
+  return {slug:t.slug, name:t.name, icon:t.icon,
+          url:(t.url||'').replace('{q}', q)};
+}
 
 /* ============ AI 接入方式（按顺序尝试，哪个通就用哪个） ============
    ★ 页面里没有、也永远不该有"你的共享 Key"（公开页里的 key = 公开的 key）。
@@ -167,18 +203,25 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&lt;','>
 
 /* ---------------- 规则匹配（永远兜底，0 成本、0 延迟） ---------------- */
 function ruleRoute(text){
-  const hits = DESTS.map(d=>{let s=0;for(const k of d.kw) if(text.includes(k)) s+=(k.length>=2?2:1);return{s,d};})
-                    .filter(x=>x.s>0).sort((a,b)=>b.s-a.s);
+  const hits = ALL.map(d=>{let s=0;for(const k of d.kw) if(text.includes(k)) s+=(k.length>=2?2:1);return{s,d};})
+                  .filter(x=>x.s>0).sort((a,b)=>b.s-a.s);
   const picked = hits.slice(0,3).map(x=>x.d);
-  if(!picked.length) return {reply:'我这边能帮你：点奶茶 / 买水果 / 逛游戏 / 免费开店 / 查订单。你想干哪个？',destinations:[]};
-  return {reply:`给你找到 ${picked.length} 个去处，点下面进去～`,destinations:picked,source:'rule'};
+  if(!picked.length){
+    // 完全没匹配 → 至少给「网页搜」这条腿，别让用户撞墙
+    return {reply:'我没太听懂，先带你去搜一下～', destinations:[resolveTarget(EXTERNAL[2], text)], source:'rule'};
+  }
+  // 优先本站目的地，其次外部
+  return {reply:`给你找到 ${picked.length} 个去处，点下面进去～`,
+          destinations: picked.map(d=>resolveTarget(d, text)), source:'rule'};
 }
 
 /* ---------------- AI 分诊 ---------------- */
 function buildPrompt(text){
-  const menu = DESTS.map(d=>`- ${d.slug}｜${d.name}｜关键词:${d.kw.slice(0,5).join(',')}`).join('\n');
+  const menu = ALL.map(d=>`- ${d.slug}｜${d.name}｜关键词:${d.kw.slice(0,6).join(',')}`).join('\n');
   return `你是"渡口"，把用户一句话送到该去的地方。
-只能从下面菜单选(用slug)，最多3个，按相关度排序。若说不清或不在菜单，route给空数组并在reply里礼貌反问。
+从下面菜单里选(用slug)，最多3个，按相关度排序。
+- 本站没的（比如咖啡、超市、药店），用 nearby(地图搜)；想网购用 buy；纯查询用 web。
+- 只有当用户完全没说清时，才给空数组并在reply里反问。
 只输出JSON，不要别的话：{"reply":"口语简短≤30字","route":["slug"]}
 
 菜单:
@@ -192,9 +235,9 @@ function parseAI(raw){
   if(!m) return null;
   try{
     const j = JSON.parse(m[0]);
-    const bySlug = Object.fromEntries(DESTS.map(d=>[d.slug,d]));
+    const bySlug = Object.fromEntries(ALL.map(d=>[d.slug,d]));
     const picked = (j.route||[]).map(s=>bySlug[s]).filter(Boolean).slice(0,3);
-    return {reply: j.reply || '', destinations: picked, source:'ai'};
+    return {reply: j.reply || '', destinations: picked, source:'ai'};   // 原始对象, 出去时再 resolve
   }catch(e){ return null; }
 }
 
@@ -266,7 +309,9 @@ async function ask(text){
   $('#send').disabled = true;
   const res = await route(text);
   stopTyping();
-  bubble(res.reply||'给你找到这些：', false, res.destinations||[]);
+  // 出站前统一 resolve：把 {q} 换成用户原话（内部目的地保持原 URL）
+  const dests = (res.destinations||[]).map(d=>resolveTarget(d, text));
+  bubble(res.reply||'给你找到这些：', false, dests);
   $('#send').disabled = false; $('#inp').focus();
 }
 function send(){ const v=$('#inp').value.trim(); if(!v)return; $('#inp').value=''; $('#inp').style.height='auto'; ask(v); }
