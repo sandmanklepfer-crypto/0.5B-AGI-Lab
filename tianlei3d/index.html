@@ -223,10 +223,10 @@
 <div class="tip" id="tipTxt">WASD/摇杆 移动 · 真 3D 地面 + 真阴影</div>
 <div id="perf"></div>
 
-<script src="js/tiles.js?v=1792144319"></script>
-<script src="js/vendor/three.min.js?v=1792144319"></script>
-<script src="js/vendor/GLTFLoader.js?v=1792144319"></script>
-<script src="js/bake.js?v=1792144319"></script>   <!-- ★ 几何合并：把~470个Mesh固化压成~30个Draw Call -->
+<script src="js/tiles.js?v=1792145440"></script>
+<script src="js/vendor/three.min.js?v=1792145440"></script>
+<script src="js/vendor/GLTFLoader.js?v=1792145440"></script>
+<script src="js/bake.js?v=1792145440"></script>   <!-- ★ 几何合并：把~470个Mesh固化压成~30个Draw Call -->
 
 
 <script src="assets3d/tree_green.js"></script>
@@ -347,47 +347,89 @@ function pbrMat(name, opt) {
    对每个格子，从光源出发做遮挡步进，累加带颜色的辐照度。
    结果写进一张 MW×MH 的贴图，按世界坐标采样 → 永远钉在地上。
    ========================================================== */
+/* ★ 光场高度层（世界 Y，低→高）。着色器在这些层之间【线性插值】→ 连续高度光照，
+   不是台阶。只用普通 2D 贴图（已验证：three r128 不支持 sampler3D，这条路才稳）。 */
+const GI_SLAB_Y = [0.0, 2.5, 5.0, 8.0];
+const GI_SLABS = GI_SLAB_Y.length;
+const GI_YMAX = GI_SLAB_Y[GI_SLABS - 1];
 function bakeGI(){
-  const em=[];
+  const em=[];   // [格X, 格Z, 世界Y, r, g, b, 强度]
   for(let v=0;v<MH;v++)for(let u=0;u<MW;u++){
     const t=at(u,v);
-    if(t===T.LAMP) em.push([u+.5,v+.5, 1.00,0.60,0.26, 1.0]);
-    else if(t===T.FOUNTAIN) em.push([u+.5,v+.5, 0.30,0.55,0.95, 0.7]);
-    else if(t===T.ALTAR) em.push([u+.5,v+.5, 0.55,0.35,1.00, 0.8]);
-    else if(t===T.CAULDRON) em.push([u+.5,v+.5, 1.00,0.42,0.14, 0.8]);
+    if(t===T.LAMP) em.push([u+.5,v+.5, 4.5, 1.00,0.60,0.26, 1.0]);
+    else if(t===T.FOUNTAIN) em.push([u+.5,v+.5, 0.6, 0.30,0.55,0.95, 0.7]);
+    else if(t===T.ALTAR) em.push([u+.5,v+.5, 1.0, 0.55,0.35,1.00, 0.8]);
+    else if(t===T.CAULDRON) em.push([u+.5,v+.5, 1.0, 1.00,0.42,0.14, 0.8]);
   }
   const NEO=[[1.0,0.28,0.62],[0.24,0.86,1.0],[1.0,0.72,0.24],[0.52,1.0,0.46]];
-  BUILDINGS.forEach((b,i)=>{ const c=NEO[i%NEO.length]; em.push([b.x-0.6, b.y+b.h/2, c[0],c[1],c[2], 1.2]); });
+  BUILDINGS.forEach((b,i)=>{ const c=NEO[i%NEO.length]; em.push([b.x-0.6, b.y+b.h/2, 4.2, c[0],c[1],c[2], 1.2]); });
   /* ★ 屋台灯笼 + 沿街暖光也烘进去（运行时零开销的"顶级暖色池"） */
   const _YZ = (window.__STREET && window.__STREET.z) || 62;
-  for (let _i = 0; _i < 6; _i++) em.push([8 + _i * 6, _YZ + (_i % 2 ? 2.4 : -2.0), 1.0, 0.70, 0.38, 1.1]);
+  for (let _i = 0; _i < 6; _i++) em.push([8 + _i * 6, _YZ + (_i % 2 ? 2.4 : -2.0), 2.0, 1.0, 0.70, 0.38, 1.1]);
   /* ★ 主路两侧暖光带（让街道"有灯"而非死黑） */
-  for (let _k = 0; _k <= 6; _k += 2) em.push([4 + _k * 6, _YZ + 2.2, 1.0, 0.78, 0.48, 0.75]);
-  /* ★ 2× 分辨率（144×144）：光晕过渡更细腻。采样仍按"世界跨度 MW×MH"归一，
-     所以提高分辨率不会打乱贴图坐标（着色器里除的仍是 MW/MH）。 */
-  const GIW = MW * 2, GIH = MH * 2, RANGE = 34;
-  const data=new Uint8Array(GIW*GIH*4);
+  for (let _k = 0; _k <= 6; _k += 2) em.push([4 + _k * 6, _YZ + 2.2, 2.6, 1.0, 0.78, 0.48, 0.75]);
+
+  /* 2× 分辨率；4 个高度层竖排成一张图集 → 贴图尺寸 GIW × (GIH×GI_SLABS) */
+  /* ★ 优化：遮挡检测只与水平方向有关 → 每盏灯只算一次，4 层共用（省 4× 时间） */
+  const GIW = MW * 2, GIH = MH * 2, RANGE = 34, K = 6;
+  const data=new Uint8Array(GIW*GIH*GI_SLABS*4);
+  const NB = em.length;
+  const du=new Float32Array(NB), dv=new Float32Array(NB), vis=new Float32Array(NB);
+  const hl=new Float32Array(NB), LR=new Float32Array(NB), LG=new Float32Array(NB), LB=new Float32Array(NB), LI=new Float32Array(NB);
+  for(let ei=0;ei<NB;ei++){ hl[ei]=em[ei][2]; LR[ei]=em[ei][3]; LG[ei]=em[ei][4]; LB[ei]=em[ei][5]; LI[ei]=em[ei][6]; }
   for(let v=0;v<GIH;v++)for(let u=0;u<GIW;u++){
-    const wx=(u+0.5)*MW/GIW, wy=(v+0.5)*MH/GIH;      // 世界坐标（连续）
-    let r=0,g=0,b=0;
-    for(const e of em){
-      const du=e[0]-wx, dv=e[1]-wy, d=Math.hypot(du,dv);
-      if(d>RANGE) continue;
-      let vis=1; const K=11;                          // 遮挡步进（射线采样）
+    const wx=(u+0.5)*MW/GIW, wz=(v+0.5)*MH/GIH;
+    // ① 一次性算好每盏灯的：水平偏移、可见性
+    for(let ei=0;ei<NB;ei++){
+      const e=em[ei];
+      const ddx=e[0]-wx, ddz=e[1]-wz;
+      const d2D=Math.sqrt(ddx*ddx+ddz*ddz);
+      du[ei]=ddx; dv[ei]=ddz;
+      if(d2D>RANGE){ vis[ei]=0; continue; }
+      let V=1;
       for(let k=1;k<=K;k++){ const f=k/(K+1);
-        const su=wx+du*f, sv=wy+dv*f;
+        const su=wx+ddx*f, sv=wz+ddz*f;
         const tx=Math.max(0,Math.min(MW-1,Math.floor(su))), ty=Math.max(0,Math.min(MH-1,Math.floor(sv)));
-        if((HEIGHT[at(tx,ty)]||0)>14){ vis=0; break; } }
-      const att=vis*e[5]/(1+d*d*0.09);
-      r+=e[2]*att; g+=e[3]*att; b+=e[4]*att;
+        if((HEIGHT[at(tx,ty)]||0)>14){ V=0; break; } }
+      vis[ei]=V;
     }
-    const i=(v*GIW+u)*4;
-    data[i]=Math.min(255, r*120); data[i+1]=Math.min(255, g*120); data[i+2]=Math.min(255, b*120); data[i+3]=255;
+    // ② 4 层共用上面结果，只算高度差
+    for(let s=0;s<GI_SLABS;s++){
+      const hy=GI_SLAB_Y[s];
+      let r=0,g=0,b=0;
+      for(let ei=0;ei<NB;ei++){
+        if(!vis[ei]) continue;
+        const dw=(hl[ei]-hy)*0.5;                     // 高度差 ×0.5：保留高度感，又不至于把地面压太暗
+        const d2=du[ei]*du[ei]+dv[ei]*dv[ei]+dw*dw;
+        const att=LI[ei]/(1+d2*0.09);
+        r+=LR[ei]*att; g+=LG[ei]*att; b+=LB[ei]*att;
+      }
+      const i=(s*GIW*GIH)+(v*GIW+u)*4;
+      data[i]=Math.min(255, r*165); data[i+1]=Math.min(255, g*165); data[i+2]=Math.min(255, b*165); data[i+3]=255;
+    }
   }
-  const tex=new THREE.DataTexture(data, GIW, GIH, THREE.RGBAFormat);
+  const tex=new THREE.DataTexture(data, GIW, GIH*GI_SLABS, THREE.RGBAFormat);
   tex.needsUpdate=true; tex.minFilter=THREE.LinearFilter; tex.magFilter=THREE.LinearFilter;
   tex.wrapS=tex.wrapT=THREE.ClampToEdgeWrapping;
   return tex;
+}
+/* 生成"按高度采样光场"的 GLSL 片段（常量直接烘成字面量） */
+function giSampleGLSL(){
+  const GIH=MH*2, N=GIH*GI_SLABS;
+  return [
+    'vec3 giSample(vec2 wxz, float wy){',
+    '  float hN = clamp(wy/' + GI_YMAX.toFixed(1) + ', 0.0, 1.0) * ' + (GI_SLABS-1).toFixed(1) + ';',
+    '  float s0 = floor(hN), fr = hN - s0;',
+    '  float s1 = min(s0 + 1.0, ' + (GI_SLABS-1) + '.0);',
+    '  float gy = clamp(wxz.y/' + MH.toFixed(1) + ', 0.0, 1.0);',
+    // 半像素内缩 → 避免跨层渗色
+    '  float off = 0.5 + gy*' + (GIH-1).toFixed(1) + ';',
+    '  float u = clamp(wxz.x/' + MW.toFixed(1) + ', 0.0, 1.0);',
+    '  vec3 c0 = texture2D(uGI, vec2(u, (s0*' + GIH.toFixed(1) + '+off)/' + N.toFixed(1) + ')).rgb;',
+    '  vec3 c1 = texture2D(uGI, vec2(u, (s1*' + GIH.toFixed(1) + '+off)/' + N.toFixed(1) + ')).rgb;',
+    '  return mix(c0, c1, fr);',
+    '}'
+  ].join('\n');
 }
 const GI_TEX = bakeGI();
 function injectGround(mat){
@@ -396,14 +438,14 @@ function injectGround(mat){
     sh.uniforms.uRefl=GROUND_UNI.uRefl; sh.uniforms.uRes=GROUND_UNI.uRes; sh.uniforms.uReflAmt=GROUND_UNI.uReflAmt;
     sh.uniforms.uEnv={ value: cubeRT.texture };
     sh.vertexShader=sh.vertexShader
-      .replace('#include <common>','#include <common>\nvarying vec2 vWPx;')
-      .replace('#include <begin_vertex>','#include <begin_vertex>\nvWPx=(modelMatrix*vec4(transformed,1.0)).xz;');
+      .replace('#include <common>','#include <common>\nvarying vec2 vWPx;varying float vWY;')
+      .replace('#include <begin_vertex>','#include <begin_vertex>\n{vec4 _wp=modelMatrix*vec4(transformed,1.0);vWPx=_wp.xz;vWY=_wp.y;}');
     sh.fragmentShader=sh.fragmentShader
-      .replace('#include <common>','#include <common>\nuniform sampler2D uGI,uRefl;uniform samplerCube uEnv;uniform vec2 uRes;uniform float uReflAmt;varying vec2 vWPx;')
+      .replace('#include <common>','#include <common>\nuniform sampler2D uGI,uRefl;uniform samplerCube uEnv;uniform vec2 uRes;uniform float uReflAmt;varying vec2 vWPx;varying float vWY;\n'+giSampleGLSL())
       .replace('#include <dithering_fragment>',[
         '#include <dithering_fragment>',
-        // 烘焙 GI（世界坐标，移动不穿帮）
-        '  vec3 gi=texture2D(uGI, vWPx/vec2('+MW+'.0,'+MH+'.0)).rgb;',
+        // 烘焙 GI（世界坐标 + 高度，移动不穿帮）
+        '  vec3 gi=giSample(vWPx, vWY);',
         '  gl_FragColor.rgb += gi*1.15;',
         // ★ 湿地面真平面反射（水洼掩膜调制，避免整体塑料感）
         // ★ 反射探针：按法线扰动取环境色 → 湿地面霓虹反射（正交下正确）
@@ -430,13 +472,13 @@ function injectGI(mat, k) {
       if (prev) prev(sh);
       sh.uniforms.uGI = { value: GI_TEX };
       sh.vertexShader = sh.vertexShader
-        .replace('#include <common>', '#include <common>\nvarying vec2 vWGI;')
-        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWGI=(modelMatrix*vec4(transformed,1.0)).xz;');
+        .replace('#include <common>', '#include <common>\nvarying vec2 vWGI;varying float vWY;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\n{vec4 _wp=modelMatrix*vec4(transformed,1.0);vWGI=_wp.xz;vWY=_wp.y;}');
       sh.fragmentShader = sh.fragmentShader
-        .replace('#include <common>', '#include <common>\nuniform sampler2D uGI;varying vec2 vWGI;')
+        .replace('#include <common>', '#include <common>\nuniform sampler2D uGI;varying vec2 vWGI;varying float vWY;\n' + giSampleGLSL())
         .replace('#include <dithering_fragment>', [
           '#include <dithering_fragment>',
-          '  vec3 gi=texture2D(uGI, vWGI/vec2(' + MW + '.0,' + MH + '.0)).rgb;',
+          '  vec3 gi=giSample(vWGI, vWY);',
           '  gl_FragColor.rgb += gi*' + mul.toFixed(2) + ';'
         ].join('\n'));
     };
@@ -451,10 +493,10 @@ function injectCharGI(root){                 // ★ 让 3D 角色也吃烘焙 GI
     o.material.onBeforeCompile=(sh)=>{
       sh.uniforms.uGI={value:GI_TEX};
       sh.uniforms.uTime={value:0}; sh.uniforms.uSway={value:0};
-      sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec2 vWPx;\nuniform float uTime; uniform float uSway;')
-        .replace('#include <begin_vertex>','#include <begin_vertex>\n{ float low=max(0.0,(0.95-transformed.y)); float k=low*low*0.16*(0.5+uSway); transformed.x += sin(uTime*2.6 + position.y*3.0 + position.x*2.0)*k; transformed.z += cos(uTime*2.1 + position.y*2.6)*k*0.7; float sy=clamp(transformed.y/1.86,0.0,1.0); float sc=0.88+0.26*sy; transformed.x*=sc; transformed.z*=sc; }\nvWPx=(modelMatrix*vec4(transformed,1.0)).xz;')
-      sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform sampler2D uGI;varying vec2 vWPx;')
-        .replace('#include <dithering_fragment>','#include <dithering_fragment>\n  vec3 gi=texture2D(uGI, vWPx/vec2('+MW+'.0,'+MH+'.0)).rgb;\n  gl_FragColor.rgb += gi*1.7;');
+      sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec2 vWPx;\nvarying float vWY;\nuniform float uTime; uniform float uSway;')
+        .replace('#include <begin_vertex>','#include <begin_vertex>\n{ float low=max(0.0,(0.95-transformed.y)); float k=low*low*0.16*(0.5+uSway); transformed.x += sin(uTime*2.6 + position.y*3.0 + position.x*2.0)*k; transformed.z += cos(uTime*2.1 + position.y*2.6)*k*0.7; float sy=clamp(transformed.y/1.86,0.0,1.0); float sc=0.88+0.26*sy; transformed.x*=sc; transformed.z*=sc; }\n{vec4 _wp=modelMatrix*vec4(transformed,1.0);vWPx=_wp.xz;vWY=_wp.y;}')
+      sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform sampler2D uGI;varying vec2 vWPx;varying float vWY;\n'+giSampleGLSL())
+        .replace('#include <dithering_fragment>','#include <dithering_fragment>\n  vec3 gi=giSample(vWPx, vWY);\n  gl_FragColor.rgb += gi*1.7;');
       o.material.userData.sh=sh;
     };
     o.material.needsUpdate=true;
@@ -1703,13 +1745,13 @@ window.__ATTACH_CITY = true;
 window.__ATTACH_RENDERER = window.__OCTO.renderer;
 window.__ATTACH_SCENE = window.__OCTO.scene;
 </script>
-<script src="js/arena3d.js?v=1792144319"></script>
+<script src="js/arena3d.js?v=1792145440"></script>
 <script>window.__HD2D_HOST = true;</script>
-<script src="js/vendor/qrcode.js?v=1792144319"></script>
-<script src="js/mqtt.js?v=1792144319"></script>
-<script src="js/fp.js?v=1792144319"></script>
-<script src="js/hd2d_arena.js?v=1792144319"></script>
-<script src="js/shooter.js?v=1792144319"></script>
-<script src="js/racestrip.js?v=1792144319"></script>
-<script src="js/kernel.js?v=1792144319"></script>
+<script src="js/vendor/qrcode.js?v=1792145440"></script>
+<script src="js/mqtt.js?v=1792145440"></script>
+<script src="js/fp.js?v=1792145440"></script>
+<script src="js/hd2d_arena.js?v=1792145440"></script>
+<script src="js/shooter.js?v=1792145440"></script>
+<script src="js/racestrip.js?v=1792145440"></script>
+<script src="js/kernel.js?v=1792145440"></script>
 </body></html>
