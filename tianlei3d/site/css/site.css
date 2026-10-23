@@ -432,3 +432,53 @@ button{font-family:inherit}
   .st-chart{height:118px}
   .st-reg .name{width:104px;font-size:11.5px}
 }
+
+/* ==========================================================================
+   ★ 守夜灯板块（官网）：把"离线发育 + 灯会灭"讲清楚
+   ========================================================================== */
+.hp-hero{display:flex;gap:clamp(16px,2.6vw,30px);align-items:center;flex-wrap:wrap;
+  background:linear-gradient(120deg,rgba(255,160,60,.14),rgba(168,85,247,.10));
+  border:1px solid rgba(255,160,60,.40);border-radius:20px;
+  padding:clamp(16px,2.4vw,26px);margin-bottom:18px}
+.hp-fire{text-align:center;flex:0 0 auto;min-width:120px}
+.hp-flame{font-size:52px;line-height:1;animation:hpFlame 2.2s ease-in-out infinite;
+  filter:drop-shadow(0 0 22px rgba(255,140,40,.85))}
+@keyframes hpFlame{0%,100%{transform:scale(1) rotate(-1deg);opacity:1}
+  50%{transform:scale(1.1) rotate(1deg);opacity:.86}}
+.hp-fire-t{font-size:11.5px;color:#ffcf9a;margin-top:7px;letter-spacing:.06em}
+.hp-flow{display:flex;align-items:center;gap:10px;flex:1;flex-wrap:wrap;justify-content:center}
+.hp-step{display:flex;align-items:center;gap:9px;background:rgba(10,8,22,.55);
+  border:1px solid var(--line);border-radius:13px;padding:11px 15px;min-width:150px}
+.hp-step b{width:22px;height:22px;flex:0 0 auto;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:12px;
+  background:rgba(255,160,60,.25);border:1px solid rgba(255,160,60,.6);color:#ffd166}
+.hp-step span{font-size:12.5px;line-height:1.55;color:#e8e0ff}
+.hp-step i{font-style:normal;font-size:10.5px;color:var(--tx3)}
+.hp-arrow{color:#ffb060;font-size:17px;opacity:.6}
+
+.hp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.hp-card{border-radius:16px;padding:clamp(13px,1.8vw,19px);border:1px solid var(--line);
+  background:var(--panel)}
+.hp-card .hp-ic{font-size:26px;line-height:1;margin-bottom:9px}
+.hp-card h4{margin:0 0 9px;font-size:14px;letter-spacing:.02em}
+.hp-card ul{margin:0;padding-left:16px;font-size:11.5px;line-height:1.95;color:var(--tx2)}
+.hp-card ul b{color:#fff}
+.hp-card.good{border-color:rgba(74,222,128,.42);background:linear-gradient(165deg,rgba(74,222,128,.10),rgba(16,12,32,.86))}
+.hp-card.good h4{color:#a7f3c0}
+.hp-card.warn{border-color:rgba(255,200,90,.42);background:linear-gradient(165deg,rgba(255,200,90,.09),rgba(16,12,32,.86))}
+.hp-card.warn h4{color:#ffe9b8}
+.hp-card.bad{border-color:rgba(255,110,80,.45);background:linear-gradient(165deg,rgba(255,110,80,.10),rgba(16,12,32,.86))}
+.hp-card.bad h4{color:#ffb1a0}
+.hp-card.ruin{border-color:rgba(150,150,170,.45);background:linear-gradient(165deg,rgba(150,150,170,.10),rgba(16,12,32,.86))}
+.hp-card.ruin h4{color:#cfcfdd}
+
+.hp-note{background:rgba(10,8,22,.6);border:1px solid var(--line);border-radius:14px;
+  padding:14px 18px;font-size:12.5px;line-height:1.95;color:var(--tx2)}
+.hp-note b{color:var(--gold)}
+
+@media (max-width:899px){
+  .hp-grid{grid-template-columns:repeat(2,1fr)}
+  .hp-flow{flex-direction:column;align-items:stretch}
+  .hp-arrow{transform:rotate(90deg);text-align:center}
+  .hp-step{min-width:0}
+}
