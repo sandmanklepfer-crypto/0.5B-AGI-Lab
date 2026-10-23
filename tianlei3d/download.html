@@ -196,7 +196,12 @@
   /* 拼接：用 Blob 数组（浏览器内部按引用组合，不复制 46MB 数据 → 省内存） */
   function assemble() {
     parts.sort(function (a, b) { return a.start - b.start; });
-    var blobs = parts.filter(function (p) { return p.blob; }).map(function (p) { return p.blob; });
+    var missing = parts.filter(function (p) { return !p.blob; });
+    if (missing.length) {
+      // ★ 有分块没拿到 → 绝不能拼出半个包让用户去装
+      throw new Error('还有 ' + missing.length + ' 个分块未完成（共 ' + parts.length + '），请重新点下载');
+    }
+    var blobs = parts.map(function (p) { return p.blob; });
     return new Blob(blobs, { type: 'application/vnd.android.package-archive' });
   }
 
@@ -228,10 +233,15 @@
     var t0 = performance.now();
     runPool().then(function () {
       if (aborted) { running = false; $('#go').textContent = '继续下载（断点续传）'; return; }
-      var u8 = assemble();          // 现在是 Blob
+      var u8 = assemble();          // 现在是 Blob（缺块会抛错，不会生成坏包）
       var sec = (performance.now() - t0) / 1000;
+      if (u8.size !== size) {
+        log('❌ 校验失败：得到 ' + fmt(u8.size) + '，应为 ' + fmt(size) + '（未保存，请重试）');
+        running = false; $('#go').textContent = '重试下载';
+        return;
+      }
       log('完成 · ' + fmt(u8.size) + ' · 用时 ' + sec.toFixed(1) + ' 秒 · 平均 ' + fmt(u8.size / sec) + '/s');
-      log('校验长度: ' + (u8.size === size ? '✅ 与服务器一致' : '⚠️ 不一致，请重试'));
+      log('校验长度: ✅ 与服务器一致');
       save(u8);
       $('#go').textContent = '✅ 已开始保存，请到通知栏查看';
       $('#go').disabled = true;
