@@ -42,6 +42,7 @@ var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, f
 var SANDBOX = true;
 var VERSION = '1.4.0';                                   // ★ 语义化版本（与 APK versionName 同步）
 var BUILD = VERSION + ' · ' + Date.now().toString(36).slice(-5);   // 版本 + 构建号（界面可见）
+try { window.__BUILD = BUILD; } catch (e) {}                          // ★ 方便在控制台/排查时确认版本
 
 /* ============================== 音效（纯合成） ============================== */
 var Sfx = {
@@ -3492,7 +3493,8 @@ function bindUI() {
   })();
   _on('bVer', 'click', function () {
     var v = '构建 ' + BUILD + ' · 房间 ' + Net.room + ' · ' + (Net.connected ? '在线' : '离线') + ' · ' + Net.peers + ' 人';
-    HUD.center('版本', v, 4000);
+    // ★ 构建号带时间戳：如果和你刚看到的不一样，说明加载的是缓存旧版
+    HUD.center('版本 · ' + BUILD, v, 5200);
     try { if (navigator.clipboard) navigator.clipboard.writeText('天泪 ' + BUILD + ' ' + location.href); } catch (e) {}
     this.textContent = BUILD;
   });

@@ -37,7 +37,15 @@
   .hud .hrbtns button,.hud #chatBar button,.hud #chatInput,.hud #board button{pointer-events:auto}
   /* ★★ 必须显式放开：.hud 是 pointer-events:none，div 类控件（chip/面板）会继承 none 而点不动。
      之前漏掉了 .chip → 状态栏折叠后点不开、守夜灯面板点不开。★★ */
-  .hud .chip,.hud #htPanel,.hud #htPanel *,.hud #treePanel,.hud #treePanel *{pointer-events:auto}
+  /* ★ 所有需要交互的浮层必须显式放开：.hud 是 none，继承下来点不到 */
+  .hud .chip,.hud #htPanel,.hud #htPanel *,.hud #treePanel,.hud #treePanel *,
+  .hud #rotateHint,.hud #rotateHint *,
+  .hud #qrPanel,.hud #qrPanel *,
+  .hud #histPanel,.hud #histPanel *,
+  .hud #buildBar,.hud #buildBar *,
+  .hud #chatWrap,.hud #chatWrap *,
+  .hud #visitPanel,.hud #board,
+  .hud #raceWrap,.hud #raceWrap *{pointer-events:auto}
 
   #xhair{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;z-index:14;opacity:.95;transition:transform .06s}
   #xhair .l{position:absolute;background:var(--cy);box-shadow:0 0 6px rgba(34,211,238,.9)}
@@ -1947,11 +1955,11 @@ window.__ATTACH_SCENE = window.__OCTO.scene;
 <!-- ★ 积分（进游戏 +10、每分钟 +2，100 分解锁神器） -->
 <script src="site/js/rewards.js?v=1792763000"></script>
 <script src="js/hd2d_arena.js?v=1792145440"></script>
-<script src="js/shooter.js?v=1792765000"></script>
+<script src="js/shooter.js?v=1792766000"></script>
 <!-- ★ 守夜灯：离线发育 + 留存钩子 -->
 <script src="js/hearth.js?v=1792763000"></script>
 <!-- ★ 世界之外：无限远景地形 + 水域 + 昼夜（移植自 _frozen_3d/world3d.js） -->
-<script src="js/wildlands.js?v=1792765000"></script>
+<script src="js/wildlands.js?v=1792766000"></script>
 <script src="js/racestrip.js?v=1792763000"></script>
 <script src="js/kernel.js?v=1792145440"></script>
 </body></html>
