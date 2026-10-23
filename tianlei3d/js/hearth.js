@@ -479,7 +479,8 @@
 
   /* ---------- 面板开关 ---------- */
   function bindUI() {
-    var $ = function (s) { return document.querySelector(s); };
+    if (!root.document) return;        // ★ 无 DOM 环境（单测/worker）直接跳过
+    var $ = function (s) { return root.document.querySelector(s); };
     var chip = $('#htChip'), panel = $('#htPanel'), close = $('#htClose'), tend = $('#htTend');
     if (chip && panel) chip.onclick = function () {
       panel.classList.toggle('on');
