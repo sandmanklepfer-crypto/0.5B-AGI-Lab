@@ -148,6 +148,7 @@
   #coach3d .arw{position:absolute;right:22px;top:-7px;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:8px solid rgba(168,85,247,.92)}
   @keyframes coachPulse{0%,100%{transform:scale(1);box-shadow:0 6px 20px rgba(168,85,247,.45)}50%{transform:scale(1.06);box-shadow:0 8px 26px rgba(168,85,247,.8)}}
   #b3D.on{background:rgba(34,211,238,.55)!important;border-color:#22d3ee!important}
+  #bFP.on{background:rgba(34,211,238,.55)!important;border-color:#22d3ee!important}
   #treePanel .tgrp{font-size:11px;color:#8b7cb0;letter-spacing:2px;margin:7px 0 3px;padding-left:7px;border-left:2px solid rgba(168,85,247,.55)}
   #treePanel .tleaf{display:flex;gap:6px;flex-wrap:wrap;padding:3px 0 3px 13px}
   #treePanel .tleaf button{background:rgba(30,20,50,.82);color:#e8e0f0;border:1px solid rgba(168,85,247,.35);border-radius:8px;padding:5px 9px;font-size:12px;font-family:inherit}
@@ -232,6 +233,7 @@
     <div class="hrbtns">
       <button id="bBuild" title="建造 / 拆除（点地面放置）">🔨</button>
       <button id="b3D" title="切换 3D 透视视角">3D</button>
+      <button id="bFP" title="第一人称：点一下切进去，再点回来（键盘 F）">1P</button>
       <button id="btnVoice" title="按住说话">🎤</button>
       <button id="bChat" title="聊天">💬</button>
       <button id="bMap" title="小地图">🗺</button>
@@ -249,6 +251,7 @@
     <div class="tleaf"><button id="bRain" class="on">下雨</button><button id="bSL" class="on">探照灯</button></div>
     <div class="tleaf"><button id="bGround">地面</button><button id="bView">视角:HD-2D</button></div>
     <div class="tleaf"><button id="bCam">机位:居中</button><button id="bAim">辅助:关</button></div>
+    <div class="tleaf"><button id="bFP2">👁 第一人称</button></div>
     <div class="tleaf" id="distBox">高<input id="camDist" type="range" min="3" max="45" value="9">宽<input id="camHW" type="range" min="0" max="60" value="0"></div>
     <div class="tgrp">玩 法</div>
     <div class="tleaf"><button id="bSandbox" class="on">🧱 沙盒</button><button id="bFight">⚔ 战斗</button></div>

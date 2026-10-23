@@ -2621,13 +2621,23 @@ var Perf = {
   tips: ['最省电 · 老机型', '清晰与流畅平衡', '高画质', '很高画质 · 旗舰', '顶级3A · 拉满'],
   // 60 帧上限（显示刷新率 >60 时省电/省热；掉帧时不限，保证能跑到 60）
   limit: function (now) { if (!this.cap60) return false; this._acc += (now - (this._last || now)); this._last = now; return false; },
+  // ★ 帧率上限：hz=60 稳（省电省热）/ hz=120 跟手（高刷屏满帧）
+  hz: 60,
+  minGap: function () { return (this.hz >= 120 ? 7.4 : 15.2) - 0.1; },
+  setHz: function (h) {
+    this.hz = (h >= 120 ? 120 : 60);
+    this.cap60 = true;
+    try { localStorage.setItem('tl_hz', String(this.hz)); } catch (e) {}
+    return this.hz;
+  },
 };
 
 var running = false, lastT = performance.now(), frames = 0, lastF = lastT, fps = 0, elapsed = 0, mmT = 0;
 function loop(now) {
   requestAnimationFrame(loop);
   // ★ 60 帧上限：显示刷新率 >60 时主动跳帧（省一半 GPU 时间 → 更稳、更省电/热）
-  if (Perf.cap60 && now - (loop._t || 0) < 15.2) return;
+  var now = performance.now();
+  if (Perf.cap60 && now - (loop._t || 0) < Perf.minGap()) return;
   loop._t = now;
   var dt = Math.min((now - lastT) / 1000, 0.05); lastT = now;
   if (!running) return;
@@ -2696,7 +2706,9 @@ function loopBody(dt, now) {
   frames++; if (now - lastF > 1000) {
     fps = frames * 1000 / (now - lastF); frames = 0; lastF = now;
     Perf.tick(fps);
-    $('perf').textContent = window.innerWidth + 'x' + window.innerHeight + '  ' + fps.toFixed(0) + ' fps\n怪物 ' + Host.mobs.filter(function (m) { return m.alive; }).length + ' · 玩家 ' + Net.peers;
+    $('perf').textContent = window.innerWidth + 'x' + window.innerHeight + '  ' + fps.toFixed(0) + ' fps' +
+      (window.__houseDraws ? ' · 房子 ' + window.__houseDraws + ' dc' : '') +
+      '\n怪物 ' + Host.mobs.filter(function (m) { return m.alive; }).length + ' · 玩家 ' + Net.peers;
   }
 }
 
@@ -3457,6 +3469,14 @@ function bindUI() {
     }
   });
   _on('interactTip', 'click', function () { if (Piano.near) Piano.play(); });
+  _on('bHz', 'click', function () {
+    var h = Perf.setHz(Perf.hz >= 120 ? 60 : 120);
+    this.textContent = '帧率:' + h;
+    this.className = h >= 120 ? 'on' : '';
+    HUD.center('帧率上限 ' + h + ' fps',
+      h >= 120 ? '高刷屏满帧跟手（更费电、发热略高）' : '稳定 60，省电省热（推荐手机）', 2200);
+    Sfx.ui();
+  });
   _on('bHouse', 'click', function () {
     var on = !window.__houseFancy;
     try { if (window.setHouseFancy) window.setHouseFancy(on); } catch (e) {}
@@ -3598,6 +3618,9 @@ function restorePrefs() {
     // ★ 房子细节档（默认火柴盒）
     var bh = $('bHouse');
     if (bh) { bh.textContent = '房子:' + (window.__houseFancy ? '精' : '简'); bh.className = window.__houseFancy ? 'on' : ''; }
+    // ★ 帧率上限（60 稳 / 120 跟手）
+    Perf.setHz(parseInt(load('tl_hz', '60'), 10) || 60);
+    var bz = $('bHz'); if (bz) bz.textContent = '帧率:' + Perf.hz;
   })();
   Sfx.on = load('tl_sfx', '1') !== '0';
   Sfx.volIdx = Math.max(0, Math.min(3, parseInt(load('tl_vol', '1'), 10) || 0));

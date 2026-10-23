@@ -83,6 +83,192 @@ var Ground = {
   },
 };
 
+/* ============================================================================
+ * ★★★ Solid —— 全局「一个整体」碰撞体（把复杂形状烘焙成凸体）★★★
+ * ----------------------------------------------------------------------------
+ *  要解决什么：
+ *    · 以前只有地形高度图碰撞，房子是"贴图"，人直接从墙里穿过去
+ *    · 如果按传统做法给每面墙/每根柱子都建碰撞体 → 几百个包围盒，越加越卡
+ *
+ *  做法（就是你提的「烘焙成一个形状」）：
+ *    1) 每个部件（墙体长方体 / 四棱锥屋顶 / 门框 / 烟囱）在"建立时"就被烘焙成
+ *       【一组半空间平面】 n·p <= d —— 凸多面体的最小完备表示。
+ *       长方体 = 6 个平面，四棱锥 = 5 个平面，任意凸体都能这么烘焙。
+ *    2) 所有部件的平面打包进 **一个扁平的 Float32Array**，全部房子共用一个结构
+ *       → 对外就是"一个整体碰撞体"，不是几百个独立物体。
+ *    3) 外面再套一层 1 米粗筛网格（Map），只测离你最近那几个凸体。
+ *
+ *  为什么这样"细枝末节也保得住"：
+ *    平面表示是【解析精确】的，不是体素近似 —— 屋顶尖角、外挑的屋檐、
+ *    烟囱拐角这些尖锐部分，碰撞体积和肉眼看到的完全一致，一个像素都不差。
+ *    而查询成本只是几次点积，比体素查表还便宜，也几乎不占内存（几 KB）。
+ *
+ *  接口：
+ *    Solid.addBox(cx,cy,cz, sx,sy,sz)      加入长方体（自动并入总结构）
+ *    Solid.addPyramid(cx,baseY,cz, half,h) 加入四棱锥屋顶
+ *    Solid.blocked(x,y,z)                  这一点是否在实体内
+ *    Solid.columnBlocked(x,z,y0,y1)        这一段高度是否被挡
+ *    Solid.stats()                         面数/体数（自检用）
+ * ========================================================================== */
+var Solid = (function () {
+  'use strict';
+  var PLANES = [];          // 扁平：每 4 个数 = 一个平面 (nx,ny,nz,d)
+  var SHAPES = [];          // { off, cnt, minx,miny,minz,maxx,maxy,maxz }
+  var GRID = new Map();     // 粗筛：1m 格 → 该格覆盖的凸体下标数组
+  var CELL = 1.0;
+  var EPS = 1e-4;
+
+  function cellKey(ix, iz) { return ix * 100003 + iz; }
+
+  var BB = { minx: 1e9, miny: 1e9, minz: 1e9, maxx: -1e9, maxy: -1e9, maxz: -1e9 };
+
+  function addConvex(pl, minx, miny, minz, maxx, maxy, maxz) {
+    var off = PLANES.length, cnt = pl.length / 4;
+    for (var i = 0; i < pl.length; i++) PLANES.push(pl[i]);
+    var idx = SHAPES.length;
+    SHAPES.push({ off: off, cnt: cnt, minx: minx, miny: miny, minz: minz, maxx: maxx, maxy: maxy, maxz: maxz });
+    if (minx < BB.minx) BB.minx = minx; if (miny < BB.miny) BB.miny = miny; if (minz < BB.minz) BB.minz = minz;
+    if (maxx > BB.maxx) BB.maxx = maxx; if (maxy > BB.maxy) BB.maxy = maxy; if (maxz > BB.maxz) BB.maxz = maxz;
+    // 只登记"竖直投影"覆盖的格子（凸体的水平范围）→ 查询时一次查表
+    var x0 = Math.floor(minx / CELL), x1 = Math.floor(maxx / CELL);
+    var z0 = Math.floor(minz / CELL), z1 = Math.floor(maxz / CELL);
+    for (var gx = x0; gx <= x1; gx++) for (var gz = z0; gz <= z1; gz++) {
+      var k = cellKey(gx, gz), a = GRID.get(k);
+      if (a) { a.push(idx); } else { GRID.set(k, [idx]); }
+    }
+    return idx;
+  }
+
+  /* 长方体：中心 + 尺寸 → 6 个平面 */
+  function addBox(cx, cy, cz, sx, sy, sz) {
+    var hx = sx / 2, hy = sy / 2, hz = sz / 2;
+    var pl = [
+      1, 0, 0, cx + hx, -1, 0, 0, -(cx - hx),
+      0, 1, 0, cy + hy, 0, -1, 0, -(cy - hy),
+      0, 0, 1, cz + hz, 0, 0, -1, -(cz - hz)
+    ];
+    return addConvex(pl, cx - hx, cy - hy, cz - hz, cx + hx, cy + hy, cz + hz);
+  }
+
+  /* 四棱锥（4 面 + 底）：底面正方形半宽 a，底面高度 baseY，高 h，顶点正上方
+     → 平面由顶点/底面角点叉积算出，保证与渲染出来的形状严丝合缝 */
+  function addPyramid(cx, baseY, cz, a, h) {
+    var P = [[cx - a, baseY, cz - a], [cx + a, baseY, cz - a], [cx + a, baseY, cz + a], [cx - a, baseY, cz + a]];
+    var A = [cx, baseY + h, cz];
+    var pl = [];
+    var faces = [[1, 0], [2, 1], [3, 2], [0, 3]];   // 与渲染同样的绕序
+    for (var i = 0; i < 4; i++) {
+      var p1 = P[faces[i][0]], p0 = P[faces[i][1]];
+      var e1 = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]];
+      var e2 = [A[0] - p1[0], A[1] - p1[1], A[2] - p1[2]];
+      var n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
+      var L = Math.hypot(n[0], n[1], n[2]) || 1; n = [n[0] / L, n[1] / L, n[2] / L];
+      // 朝外检查：法线应背离轴心
+      var mx = (p1[0] + p0[0] + A[0]) / 3 - cx, mz = (p1[2] + p0[2] + A[2]) / 3 - cz;
+      if (n[0] * mx + n[2] * mz < 0) { n = [-n[0], -n[1], -n[2]]; }
+      pl.push(n[0], n[1], n[2], n[0] * p0[0] + n[1] * p0[1] + n[2] * p0[2]);
+    }
+    pl.push(0, -1, 0, -baseY);      // 底面
+    return addConvex(pl, cx - a, baseY, cz - a, cx + a, baseY + h, cz + a);
+  }
+
+  function inside(sh, x, y, z) {
+    if (x < sh.minx - EPS || x > sh.maxx + EPS || y < sh.miny - EPS || y > sh.maxy + EPS || z < sh.minz - EPS || z > sh.maxz + EPS) return false;
+    for (var i = 0, o = sh.off, n = sh.cnt; i < n; i++, o += 4) {
+      if (PLANES[o] * x + PLANES[o + 1] * y + PLANES[o + 2] * z > PLANES[o + 3] + EPS) return false;
+    }
+    return true;
+  }
+
+  function blocked(x, y, z) {
+    var a = GRID.get(cellKey(Math.floor(x / CELL), Math.floor(z / CELL)));
+    if (!a) return false;
+    for (var i = 0; i < a.length; i++) if (inside(SHAPES[a[i]], x, y, z)) return true;
+    return false;
+  }
+
+  // 竖直这一段（人身高范围）是否被挡
+  function columnBlocked(x, z, y0, y1) {
+    var a = GRID.get(cellKey(Math.floor(x / CELL), Math.floor(z / CELL)));
+    if (!a) return false;
+    var step = Math.max(0.18, (y1 - y0) / 4), y;
+    for (var i = 0; i < a.length; i++) {
+      var sh = SHAPES[a[i]];
+      if (sh.maxy < y0 || sh.miny > y1) continue;      // 竖直不重叠 → 直接跳过（便宜）
+      for (y = y0; y <= y1 + 0.001; y += step) if (inside(sh, x, y, z)) return true;
+    }
+    return false;
+  }
+
+  function clear() { PLANES.length = 0; SHAPES.length = 0; GRID.clear(); BB = { minx: 1e9, miny: 1e9, minz: 1e9, maxx: -1e9, maxy: -1e9, maxz: -1e9 }; }
+
+  /* 只保留前 n 个凸体（重建房子时用：一次调用就把上一批全摘掉，不留重复） */
+  function truncate(n) {
+    if (n >= SHAPES.length) return;
+    var keep = 0;
+    if (n > 0) keep = SHAPES[n - 1].off + SHAPES[n - 1].cnt * 4;
+    PLANES.length = keep;
+    SHAPES.length = n;
+    // 重建粗筛网格（只保留仍然有效的下标）
+    GRID.clear();
+    BB = { minx: 1e9, miny: 1e9, minz: 1e9, maxx: -1e9, maxy: -1e9, maxz: -1e9 };
+    for (var i = 0; i < n; i++) {
+      var sh = SHAPES[i];
+      if (sh.minx < BB.minx) BB.minx = sh.minx; if (sh.miny < BB.miny) BB.miny = sh.miny; if (sh.minz < BB.minz) BB.minz = sh.minz;
+      if (sh.maxx > BB.maxx) BB.maxx = sh.maxx; if (sh.maxy > BB.maxy) BB.maxy = sh.maxy; if (sh.maxz > BB.maxz) BB.maxz = sh.maxz;
+      var x0 = Math.floor(sh.minx / CELL), x1 = Math.floor(sh.maxx / CELL);
+      var z0 = Math.floor(sh.minz / CELL), z1 = Math.floor(sh.maxz / CELL);
+      for (var gx = x0; gx <= x1; gx++) for (var gz = z0; gz <= z1; gz++) {
+        var k = cellKey(gx, gz), a = GRID.get(k);
+        if (a) a.push(i); else GRID.set(k, [i]);
+      }
+    }
+  }
+
+  /* 线段是否可能碰到任何实体（O(1) 粗筛）—— 射线绝大多数时候在这里就被否掉 */
+  function nearSeg(ox, oy, oz, dx, dy, dz, maxD) {
+    if (SHAPES.length === 0) return false;
+    var ex = ox + dx * maxD, ey = oy + dy * maxD, ez = oz + dz * maxD;
+    if (Math.max(ox, ex) < BB.minx || Math.min(ox, ex) > BB.maxx) return false;
+    if (Math.max(oy, ey) < BB.miny || Math.min(oy, ey) > BB.maxy) return false;
+    if (Math.max(oz, ez) < BB.minz || Math.min(oz, ez) > BB.maxz) return false;
+    return true;
+  }
+
+  return {
+    addBox: addBox, addPyramid: addPyramid, addConvex: addConvex,
+    blocked: blocked, columnBlocked: columnBlocked, clear: clear,
+    truncate: truncate, nearSeg: nearSeg,
+    bounds: function () { return BB; },
+    stats: function () { return { shapes: SHAPES.length, planes: PLANES.length / 4, cells: GRID.size, kb: (PLANES.length * 4 / 1024).toFixed(1) }; },
+    _shapes: function () { return SHAPES; }
+  };
+})();
+
+/* ---- 把 Solid 接进地形碰撞 / 射线（一处挂钩，全场生效） ---- */
+try {
+  (function () {
+    var _cs = Ground.canStand;
+    Ground.canStand = function (nx, nz, y, step) {
+      // 身体范围（y+step 以上才算挡；低于台阶高度的直接踩上去）
+      if (Solid.columnBlocked(nx, nz, y + Math.max(0.12, step), y + 1.72)) return false;
+      return _cs.call(this, nx, nz, y, step);
+    };
+    var _ray = Ground.ray;
+    Ground.ray = function (ox, oy, oz, dx, dy, dz, maxD) {
+      var r = _ray.call(this, ox, oy, oz, dx, dy, dz, maxD);
+      // ★ 只在这条线确实靠近实体时才补测（O(1) 粗筛，绝大多数射线直接跳过）
+      var lim = Math.min(r.dist, maxD);
+      if (!Solid.nearSeg(ox, oy, oz, dx, dy, dz, lim)) return r;
+      for (var t = 0.15; t < lim; t += 0.12) {
+        if (Solid.blocked(ox + dx * t, oy + dy * t, oz + dz * t))
+          return { dist: t, x: ox + dx * t, y: oy + dy * t, z: oz + dz * t };
+      }
+      return r;
+    };
+  })();
+} catch (e) {}
+
 /* ---------------- 渲染器 / 场景 / 相机 ---------------- */
 var cv = ATTACH ? null : document.getElementById('cv');
 var renderer = ATTACH ? window.__ATTACH_RENDERER : new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: false, preserveDrawingBuffer: true });
@@ -169,7 +355,7 @@ var _matCache = {};
 function matTex(name, opts) {
   opts = opts || {};
   var rep = opts.rep || 1;
-  var key = [name, rep, opts.color || '', opts.rough, opts.metal, opts.ns || '', opts.emissive || '', opts.emInt || ''].join('|');
+  var key = [name, rep, opts.color || '', opts.rough, opts.metal, opts.ns || '', opts.emissive || '', opts.emInt || '', opts.vcol ? 'vc' : ''].join('|');
   if (_matCache[key]) return _matCache[key];
   var m = new THREE.MeshStandardMaterial({
     map: tex('assets/tex/' + name + '.jpg', true, rep),
@@ -182,6 +368,7 @@ function matTex(name, opts) {
   if (opts.ns) m.normalScale = new THREE.Vector2(opts.ns, opts.ns);
   if (opts.emissive) { m.emissive.setHex(opts.emissive); m.emissiveIntensity = (opts.emInt != null ? opts.emInt : 0.4); }
   if (opts.env != null) { m.envMap = cubeRT.texture; m.envMapIntensity = opts.env; }
+  if (opts.vcol) m.vertexColors = true;      // ★ 合并几何用：顶点色 × 贴图
   _matCache[key] = m;
   return m;
 }
@@ -253,15 +440,23 @@ function makeGlassEmis() {
 var TEX_STEEL = makeSteel(), TEX_GLASS = makeGlassEmis();
 
 /* ============================================================================
- * ★★ 房屋细节档 ★★  默认「火柴盒」（便宜、不卡），精致版由用户自己开
+ * ★★★ 房屋：合并成「一个整体」★★★
  * ----------------------------------------------------------------------------
- *   simple（默认）：纯色 box + 四棱锥屋顶，无窗面片、无点光源、不投影
- *                   → 5 栋房子只有 10 个 draw call，手机上几乎不花钱
- *   fancy（可选）  ：扫描 PBR 墙/瓦 + 每栋 4 扇自发光窗 + 1 盏真实暖光 + 投影
- *                   → 好看，但贵；老机型一开就掉帧
- *   切换：菜单 显示 →「房子:简 / 精」，记在 localStorage 'tl_house'
- *   为什么不再默认精致：一进游戏就 5 盏点光源 + 20 个透明面片 + 5 份动态阴影，
- *   中低端机直接 30 帧以下 —— 这是之前"太卡"的主因之一。
+ *  以前：5 栋房子 = 10~30 个独立 Mesh（墙/屋顶/窗/门框各一个）
+ *        → 每个都是一次 draw call，每增加一栋再涨一次；切精致还要 5 盏点光源
+ *
+ *  现在：所有房子（不管几栋、加多少细节）只占 **1~3 个 draw call**，且恒定不变：
+ *        · 顶点手动塞进同一个 Float32Array（position/normal/color/uv）
+ *        · 只按"材质种类"分桶：墙体 / 屋顶 / 发光件
+ *          - 火柴盒：一个顶点色材质吃下全部 → **1 次 draw call**
+ *          - 精致版：扫墙 + 扫瓦 + 发光 → 3 次（原来是 30+）
+ *        · 细节全部合并进同一个缓冲，等于"免费"：加窗口、门框、烟囱不再涨开销
+ *        · 不再用 5 盏 PointLight（这才是手机上真正的帧率杀手），
+ *          暖光靠 自发光材质 + 烘焙 GI 表现，观感几乎一样，开销为 0
+ *
+ *  碰撞同时烘焙：每个部件调 Solid.addBox / addPyramid，全部并进
+ *               一个全局平面结构（见文件上方 Solid 模块），
+ *               既能整栋当一个体积，又精确到屋顶尖角。
  * ========================================================================== */
 var HOUSES = [[7, 10], [14, 38], [4, 30], [17, 16], [10, 44]];
 var houseGroup = null;
@@ -269,41 +464,105 @@ window.__houseFancy = (function () {
   try { return localStorage.getItem('tl_house') === 'fancy'; } catch (e) { return false; }
 })();
 
+/* ---- 顶点缓冲累加器：把一大堆方块/屋顶/窗塞进一个几何体 ---- */
+function VB() { this.p = []; this.n = []; this.c = []; this.uv = []; this.i = []; this.v = 0; }
+VB.prototype.quad = function (p0, p1, p2, p3, nx, ny, nz, col, uvq) {
+  var i0 = this.v, k, pts = [p0, p1, p2, p3];
+  for (k = 0; k < 4; k++) {
+    this.p.push(pts[k][0], pts[k][1], pts[k][2]);
+    this.n.push(nx, ny, nz);
+    this.c.push(col[0], col[1], col[2]);
+  }
+  if (uvq) for (k = 0; k < 4; k++) this.uv.push(uvq[k][0], uvq[k][1]);
+  this.i.push(i0, i0 + 1, i0 + 2, i0, i0 + 2, i0 + 3);
+  this.v += 4;
+};
+VB.prototype.tri = function (p0, p1, p2, nx, ny, nz, col, uvq) {
+  var i0 = this.v, k, pts = [p0, p1, p2];
+  for (k = 0; k < 3; k++) {
+    this.p.push(pts[k][0], pts[k][1], pts[k][2]);
+    this.n.push(nx, ny, nz);
+    this.c.push(col[0], col[1], col[2]);
+  }
+  if (uvq) for (k = 0; k < 3; k++) this.uv.push(uvq[k][0], uvq[k][1]);
+  this.i.push(i0, i0 + 1, i0 + 2);
+  this.v += 3;
+};
+/* 长方体（法线/绕序已逐面验算过：法线一律朝外） */
+VB.prototype.box = function (cx, cy, cz, sx, sy, sz, col, uvs) {
+  var hx = sx / 2, hy = sy / 2, hz = sz / 2;
+  var x0 = cx - hx, x1 = cx + hx, y0 = cy - hy, y1 = cy + hy, z0 = cz - hz, z1 = cz + hz;
+  var u = uvs || [[0, 1], [1, 1], [1, 0], [0, 0]];
+  this.quad([x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], 1, 0, 0, col, u);
+  this.quad([x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], -1, 0, 0, col, u);
+  this.quad([x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], 0, 1, 0, col, u);
+  this.quad([x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], 0, -1, 0, col, u);
+  this.quad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], 0, 0, 1, col, u);
+  this.quad([x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], 0, 0, -1, col, u);
+};
+/* 四棱锥屋顶（底面半宽 a，底在高 baseY，高 h）—— 4 个三角面，与 Solid 的平面完全对应 */
+VB.prototype.pyramid = function (cx, baseY, cz, a, h, col) {
+  var P = [[cx - a, baseY, cz - a], [cx + a, baseY, cz - a], [cx + a, baseY, cz + a], [cx - a, baseY, cz + a]];
+  var A = [cx, baseY + h, cz];
+  var faces = [[1, 0], [2, 1], [3, 2], [0, 3]];   // 绕序已验算：从外面看是逆时针
+  var uvq = [[0, 0], [1, 0], [0.5, 1]];
+  for (var i = 0; i < 4; i++) {
+    var p1 = P[faces[i][0]], p0 = P[faces[i][1]];
+    // ★ 法线必须按"实际发出的顶点顺序" (p1→p0→A) 算，否则整片屋顶法线朝内 → 发黑
+    var a1 = [p0[0] - p1[0], p0[1] - p1[1], p0[2] - p1[2]];
+    var a2 = [A[0] - p0[0], A[1] - p0[1], A[2] - p0[2]];
+    var n = [a1[1] * a2[2] - a1[2] * a2[1], a1[2] * a2[0] - a1[0] * a2[2], a1[0] * a2[1] - a1[1] * a2[0]];
+    var L = Math.hypot(n[0], n[1], n[2]) || 1;
+    this.tri(p1, p0, A, n[0] / L, n[1] / L, n[2] / L, col, uvq);
+  }
+};
+VB.prototype.build = function (mat) {
+  var g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(this.p, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(this.n, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(this.c, 3));
+  if (this.uv.length) g.setAttribute('uv', new THREE.Float32BufferAttribute(this.uv, 2));
+  g.setIndex(this.v > 65535 ? new THREE.Uint32BufferAttribute(this.i, 1) : new THREE.Uint16BufferAttribute(this.i, 1));
+  g.computeBoundingSphere();
+  var m = new THREE.Mesh(g, mat);
+  m.matrixAutoUpdate = false;         // 静态合体：不参与每帧矩阵计算
+  m.frustumCulled = true;
+  return m;
+};
+VB.prototype.count = function () { return this.v; };
+
+var HOUSE_DIM = { w: 3.4, h: 2.6, d: 3.0, roofA: 2.121, roofH: 1.8 };   // 与历史火柴盒尺寸一致
+
 function buildHouses() {
-  // 重建前先拆干净（几何体/材质一起 dispose，不给 GPU 留垃圾）
+  /* ---- 1) 拆旧的（几何/材质 dispose，不给 GPU 留垃圾）---- */
   if (houseGroup) {
     scene.remove(houseGroup);
     houseGroup.traverse(function (o) {
       if (o.geometry) { try { o.geometry.dispose(); } catch (e) {} }
-      if (o.material) {
-        (Array.isArray(o.material) ? o.material : [o.material]).forEach(function (m) {
-          if (m && m._houseMat) { try { m.dispose(); } catch (e) {} }
-        });
-      }
+      if (o.material && o.material._houseOwn) { try { o.material.dispose(); } catch (e) {} }   // ★ 只销毁自建的，matTex 缓存是共享的
     });
   }
-  // 只清"房子自己的" GI 光斑，别人的不动
   for (var i = GI_EM.length - 1; i >= 0; i--) if (GI_EM[i] && GI_EM[i].house) GI_EM.splice(i, 1);
+  // 碰撞也重建：把上一次房子那批凸体整批摘掉（整场始终只有一个一致性快照）
+  if (window.__houseSolidN != null) Solid.truncate(window.__houseSolidN);
+  else window.__houseSolidN = Solid._shapes().length;
+  var oldN = Solid._shapes().length;
 
   var G = new THREE.Group(); G.name = 'houses'; houseGroup = G; scene.add(G);
   var fancy = !!window.__houseFancy;
-  var wallM, roofM, winM = null;
+  var D = HOUSE_DIM;
 
+  /* ---- 2) 三个桶：墙 / 瓦 / 发光 —— 桶数=draw call 数，与房子数量无关 ---- */
+  var bWall = new VB(), bRoof = new VB(), bGlow = fancy ? new VB() : null;
+
+  var CW = [0.541, 0.416, 0.282], CR = [0.490, 0.227, 0.165];       // 火柴盒配色（同历史版）
+  var CW2 = [0.470, 0.352, 0.235], CR2 = [0.400, 0.180, 0.130];      // 一点明暗变化，避免死板
+  var CGLOW = [1.0, 0.82, 0.54];
+  // ★ 精致版带贴图：顶点色是"乘"上去的 → 必须接近白，否则整栋发暗
   if (fancy) {
-    wallM = matTex('planks', { rep: 2, rough: 0.85, emissive: 0x2a1a0c, emInt: 0.45 });
-    roofM = matTex('roof',   { rep: 2, rough: 0.8,  emissive: 0x1c0e08, emInt: 0.35 });
-    winM  = new THREE.MeshBasicMaterial({ color: 0xffd28a });
-  } else {
-    // 火柴盒：纯色 + 一点点自发光 → 夜里不会黑成一团，但不花任何"灯"的钱
-    wallM = new THREE.MeshStandardMaterial({ color: 0x8a6a48, roughness: 0.92, emissive: 0x2a1a0c, emissiveIntensity: 0.38 });
-    roofM = new THREE.MeshStandardMaterial({ color: 0x7d3a2a, roughness: 0.90, emissive: 0x1c0e08, emissiveIntensity: 0.32 });
-    wallM._houseMat = roofM._houseMat = true;
+    CW = [0.98, 0.96, 0.93]; CW2 = [0.90, 0.86, 0.82];
+    CR = [0.98, 0.94, 0.90]; CR2 = [0.88, 0.82, 0.78];
   }
-
-  // 几何体共用一份：5 栋房子只占 2 份几何
-  var boxG  = new THREE.BoxGeometry(3.4, 2.6, 3.0);
-  var coneG = new THREE.ConeGeometry(3.0, 1.8, 4);
-  var winG  = fancy ? new THREE.PlaneGeometry(0.72, 0.66) : null;
 
   function emHouse(x, z, y, hex, p, rad) {
     var c = new THREE.Color(hex);
@@ -312,35 +571,69 @@ function buildHouses() {
 
   for (var h = 0; h < HOUSES.length; h++) {
     var hx = HOUSES[h][0] * TILE, hz = HOUSES[h][1] * TILE;
+    var wc = (h % 2 ? CW2 : CW), rc = (h % 2 ? CR2 : CR);
 
-    var b = new THREE.Mesh(boxG, wallM);
-    b.position.set(hx, 1.3, hz);
-    b.castShadow = fancy; b.receiveShadow = true;
-    G.add(b);
+    /* 墙体 —— 渲染一次、碰撞烘焙一次（同一个尺寸，永远对得上） */
+    bWall.box(hx, D.h / 2, hz, D.w, D.h, D.d, wc);
+    Solid.addBox(hx, D.h / 2, hz, D.w, D.h, D.d);
 
-    var r = new THREE.Mesh(coneG, roofM);
-    r.position.set(hx, 3.5, hz); r.rotation.y = Math.PI / 4;
-    r.castShadow = fancy;
-    G.add(r);
+    /* 屋顶（四棱锥，比墙宽 0.42 → 有屋檐外挑；尖角碰撞也精确） */
+    bRoof.pyramid(hx, D.h, hz, D.roofA, D.roofH, rc);
+    Solid.addPyramid(hx, D.h, hz, D.roofA, D.roofH);
 
     if (fancy) {
-      // 发光窗（4 面各一扇）—— 夜里"屋里亮着灯"的关键
-      [[0, 0.28], [1, 0], [0, -0.28], [-1, 0]].forEach(function (w, wi) {
-        var wm = new THREE.Mesh(winG, winM);
-        if (w[0] !== 0) {
-          wm.position.set(hx + (w[0] > 0 ? 1.72 : -1.72), 1.45 + (wi % 2) * 0.15, hz + (wi === 1 ? 0.6 : -0.6));
-          wm.rotation.y = w[0] > 0 ? Math.PI / 2 : -Math.PI / 2;
-        } else {
-          wm.position.set(hx, 1.45 + (wi % 2) * 0.15, hz + (w[1] > 0 ? 1.52 : -1.52));
-          wm.rotation.y = w[1] > 0 ? 0 : Math.PI;
-        }
-        G.add(wm);
+      /* 精致版细节：门（暗部 + 暖光）+ 四扇窗 + 烟囱 —— 全部并进同一批缓冲，0 额外开销 */
+      var dz = hz + D.d / 2;                      // 正面（+Z）
+      bGlow.box(hx, 1.05, dz + 0.012, 0.62, 1.5, 0.02, [1.0, 0.74, 0.42]);   // 门里透出的暖光
+      [[-1.05, 0], [1.05, 0]].forEach(function (o) {
+        bGlow.box(hx + o[0], 1.62, dz + 0.014, 0.62, 0.56, 0.02, CGLOW);     // 正面窗
+        bGlow.box(hx + o[0], 1.62, hz - D.d / 2 - 0.014, 0.62, 0.56, 0.02, CGLOW);  // 背面窗
       });
-      var pl = new THREE.PointLight(0xffb060, 0.9, 16, 2);
-      pl.position.set(hx, 1.9, hz); G.add(pl);
+      bGlow.box(hx + D.w / 2 + 0.014, 1.62, hz, 0.02, 0.56, 0.7, CGLOW);    // 侧窗
+      bGlow.box(hx - D.w / 2 - 0.014, 1.62, hz, 0.02, 0.56, 0.7, CGLOW);
+      /* 烟囱：既是细节也是碰撞体（尖角照样能挡住人/子弹） */
+      bWall.box(hx + 0.95, 2.9, hz - 0.6, 0.46, 1.5, 0.46, wc);
+      Solid.addBox(hx + 0.95, 2.9, hz - 0.6, 0.46, 1.5, 0.46);
     }
-    emHouse(hx, hz, 2.4, 0xffc07a, 1.2, 26);   // GI 暖光保持一致（切档不重烘焙，避免卡一下）
+
+    emHouse(hx, hz, 2.4, 0xffc07a, 1.2, 26);       // 暖光进烘焙 GI（切档不重烘，避免卡一下）
   }
+
+  /* ---- 3) 出模型：2 个材质（火柴盒）/ 3 个材质（精致），与房子数量无关 ---- */
+  var wallM, roofM, glowM, draws = 0;
+
+  if (fancy) {
+    // 精致：真扫描贴图。UV 已按面生成（box 每面 0..1，屋顶 v 沿斜面）
+    wallM = matTex('planks', { rep: 1, rough: 0.85, emissive: 0x2a1a0c, emInt: 0.45, vcol: 1 });
+    roofM = matTex('roof',   { rep: 1, rough: 0.80, emissive: 0x1c0e08, emInt: 0.35, vcol: 1 });
+  } else {
+    // 火柴盒：单材质 + 顶点色 → 整片房子 1 次 draw call
+    wallM = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0.02, emissive: 0x241608, emissiveIntensity: 0.42 });
+    roofM = wallM;
+  }
+  if (!fancy) wallM._houseOwn = true;      // 火柴盒材质是本函数 new 的，可以销毁
+  if (fancy && roofM !== wallM) { /* matTex 共享材质：不销毁 */ }
+
+  var mW = bWall.build(wallM); mW.castShadow = fancy; mW.receiveShadow = true; G.add(mW); draws++;
+  if (bRoof.count()) {
+    var mR = bRoof.build(roofM); mR.castShadow = fancy; mR.receiveShadow = true; G.add(mR);
+    if (roofM !== wallM) draws++;
+  }
+  if (bGlow && bGlow.count()) {
+    glowM = new THREE.MeshBasicMaterial({ vertexColors: true });
+    glowM._houseOwn = true;
+    var mG = bGlow.build(glowM); mG.castShadow = false; mG.receiveShadow = false; G.add(mG); draws++;
+  }
+
+  window.__houseDraws = draws;
+  window.__houseVerts = bWall.count() + bRoof.count() + (bGlow ? bGlow.count() : 0);
+  window.__houseSolid = Solid.stats();
+  window.__houseSolidShapes = Solid._shapes().length - oldN;
+  window.__houseSolidN = oldN;      // 记住"房子开始的位置"，下次重建从这里截断
+  try {
+    console.log('[house] 合并完成 · draw calls = ' + draws +
+      ' · 顶点 ' + window.__houseVerts + ' · 碰撞体 ' + window.__houseSolid.shapes + ' 个/' + window.__houseSolid.planes + ' 平面 (' + window.__houseSolid.kb + ' KB)');
+  } catch (e) {}
 }
 
 /* 菜单里切换：window.setHouseFancy(true/false)，立即重建 + 记住 */
