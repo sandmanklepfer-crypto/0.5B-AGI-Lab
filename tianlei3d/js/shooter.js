@@ -2707,6 +2707,13 @@ function loopBody(dt, now) {
   HUD.score(); HUD.vitals();
   mmT += dt; if (mmT > 0.5) { mmT = 0; if (!mmBase) buildMmBase(); HUD.minimap(); }
 
+  /* ★ 世界之外：远景地形 + 水域 + 昼夜（Player 坐标驱动区块流式加载） */
+  try {
+    if (window.Wildlands && Wildlands.inited) {
+      Wildlands.update(dt, P.x, P.z);
+    }
+  } catch (e) { window.__wildErr = String((e && e.message) || e); }
+
   if (!HOST) try { renderFrame(); } catch (e) { window.__renderErr = (e && (e.stack || e.message)) || String(e); try { renderer.setRenderTarget(null); renderer.render(actionScene, cam()); } catch (_) {} }
   frames++; if (now - lastF > 1000) {
     fps = frames * 1000 / (now - lastF); frames = 0; lastF = now;
@@ -3360,6 +3367,34 @@ function bindUI() {
   _on('goBtn', 'click', startGame);
   _on('chatSend', 'click', sendChat);
   _on('chatInput', 'keydown', function (e) { if (e.key === 'Enter') { sendChat(); e.stopPropagation(); } });
+  /* ★ 远景地形开关 */
+  _on('bWild', 'click', function () {
+    var W = window.Wildlands; if (!W || !W.inited) { HUD.center('远景未就绪', '', 1200); return; }
+    var on = !W.group.visible;
+    W.group.visible = on;
+    this.textContent = '远景地形:' + (on ? '开' : '关');
+    this.className = on ? 'on' : '';
+    HUD.center('远景地形 ' + (on ? '开' : '关'), on ? '城墙外不再是黑虚空' : '已隐藏（省性能）', 1800);
+    Sfx.ui();
+  });
+  /* ★ 昼夜：走 / 停 / 手动拖 */
+  _on('bCycle', 'click', function () {
+    var W = window.Wildlands; if (!W || !W.inited) { HUD.center('远景未就绪', '', 1200); return; }
+    var moving = W.cfg.daySpeed > 0;
+    if (moving) {
+      W.cfg.daySpeed = 0;
+      this.textContent = '昼夜:停';
+      HUD.center('昼夜已暂停', '当前时刻 ' + (W.getDayTime() * 24).toFixed(1) + ' 点', 1600);
+    } else {
+      // 停着时每点一次往前推 3 小时，方便看效果
+      var t = (W.getDayTime() + 3 / 24) % 1;
+      W.setDayTime(t);
+      var hh = t * 24;
+      HUD.center('时刻 ' + hh.toFixed(0) + ' 点', hh > 20 || hh < 5 ? '夜里 · 看得见星空' : (hh < 8 ? '清晨' : (hh > 17 ? '黄昏' : '白天')), 1600);
+      if (t > 0.99) { W.cfg.daySpeed = 0.0035; this.textContent = '昼夜:走'; }
+    }
+    Sfx.ui();
+  });
   _on('bFx', 'click', function () {
     if (HOST && window.__OCTO && window.__OCTO.setFx) { var v = !window.__OCTO.getFx(); window.__OCTO.setFx(v); this.textContent = '后处理' + (v ? '' : '(关)'); this.className = v ? 'on' : ''; return; }
     FXp.on = !FXp.on; this.textContent = '后处理' + (FXp.on ? '' : '(关)'); this.className = FXp.on ? 'on' : '';
