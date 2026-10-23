@@ -3343,7 +3343,7 @@ function bindUI() {
   try {
     ['dmgLayer', 'perf', 'tipTxt', 'chatLog'].forEach(function (id) { var e = $(id); if (e) e.style.pointerEvents = 'none'; });
     // ★ 顶栏所有按钮 + 聊天 + 开始面板：强制可点（.hud>* 的 pointer-events:none 特异性更高，会把它们全吃掉）
-    var clickable = document.querySelectorAll('.hrbtns button, #chatSend, #chatInput, #goBtn, #board button, .modeSel .m');
+    var clickable = document.querySelectorAll('.hrbtns button, #chatSend, #chatInput, #goBtn, #board button, .modeSel .m, .topbar .chip, #htChip, #chipMini, #htPanel, #htPanel *');
     for (var ci = 0; ci < clickable.length; ci++) clickable[ci].style.pointerEvents = 'auto';
     // ★ 强制触控元素可点（CSS 里 .hud>*{none} 会覆盖 #joy 等，这里内联兜底，杜绝"点不到"）
     ['joy', 'lookZone', 'btnFire', 'btnAds', 'btnJump', 'btnReload', 'btnSwap', 'btnGrenade'].forEach(function (id) { var e = $(id); if (e) e.style.pointerEvents = 'auto'; });
@@ -3403,6 +3403,19 @@ function bindUI() {
     _on('bRace2', 'click', function () { gotoRace(); });
     _on('bRace3', 'click', function () { openTree(false); openRace(true); });
     _on('raceClose', 'click', function () { openRace(false); });
+    /* ★ 兜底：任何情况下都能回主城（防止在赛车区/地图外被卡死） */
+    function backToCity() {
+      openTree(false);
+      try { openRace(false); } catch (e) {}
+      var R = window.__RACE_STRIP;
+      var tx = R && R.back ? R.back.x : 40, tz = R && R.back ? R.back.z : 12;
+      var O = window.__OCTO; if (O && O.hero) { O.hero.x = tx; O.hero.y = tz; }
+      try { P.x = tx; P.z = tz; P.y = 0; P.vy = 0; P.onGround = true; } catch (e) {}
+      HUD.center('🏠 已回到主城', '赛车区在北边，走连接路也能回来', 2200);
+      try { Sfx.ui(); } catch (e) {}
+    }
+    _on('bBackCity', 'click', backToCity);
+    window.__backToCity = backToCity;
     window.__openRace = openRace; window.__gotoRace = gotoRace;
   })();
   window.addEventListener('keydown', function (e) {

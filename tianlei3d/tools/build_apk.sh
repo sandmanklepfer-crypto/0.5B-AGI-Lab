@@ -30,7 +30,8 @@ DRY=0
 # ---- 必须进包的清单（漏一个就报错，不再静默）----
 MUST=(
   index.html
-  js/shooter.js js/arena3d.js js/mqtt.js js/fp.js js/hearth.js
+  js/shooter.js js/arena3d.js js/racestrip.js js/hd2d_arena.js js/kernel.js
+  js/mqtt.js js/fp.js js/hearth.js
   js/vendor/qrcode.js
   site/index.html site/forum.html
   site/js/rewards.js site/js/live-stats.js site/js/forum.js

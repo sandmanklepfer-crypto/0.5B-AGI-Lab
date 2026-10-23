@@ -15,11 +15,24 @@ try {
   var X0 = 10, X1 = 70, Z0 = -30, Z1 = -14;             // 跑道区
   var CX = (X0 + X1) / 2, CZ = (Z0 + Z1) / 2, LEN = X1 - X0, WID = Z1 - Z0;
 
-  /* ① 把跑道区设为"可走平地"（否则在地图外会被当墙） */
+  /* ① 把跑道区设为"可走平地"（否则在地图外会被当墙）
+     ★ 同时打通「赛车区 ↔ 主城」的连接廊道：
+        以前条带在 z<0（地图外），北墙 z=0..6 高 11.5，
+        往南走会被边界判定卡死在 z≈-11，永远回不去。
+        arena3d 已在高度图上把北墙 u10..15（x 30..45）挖成门洞，
+        这里把门洞 + 廊道的通行判定一并放开，并铺一段路面。 */
   var oldH = A.Ground.h, oldStand = A.Ground.canStand;
   function inStrip(x, z) { return x >= X0 - 3 && x <= X1 + 3 && z >= Z0 - 3 && z <= Z1 + 3; }
-  A.Ground.h = function (x, z) { return inStrip(x, z) ? 0 : oldH(x, z); };
-  A.Ground.canStand = function (x, z, y, step) { return inStrip(x, z) ? true : oldStand(x, z, y, step); };
+
+  // 连接廊道：从条带南缘(-16) 穿过门洞，一直伸到城里(z=+8)
+  var G = window.__GATE || { x0: 30, x1: 45 };
+  var CX0 = G.x0 - 1, CX1 = G.x1 + 1, CZ0 = -17, CZ1 = 9;
+  function inGate(x, z) { return x >= CX0 && x <= CX1 && z >= CZ0 && z <= CZ1; }
+
+  A.Ground.h = function (x, z) { return (inStrip(x, z) || inGate(x, z)) ? 0 : oldH(x, z); };
+  A.Ground.canStand = function (x, z, y, step) {
+    return (inStrip(x, z) || inGate(x, z)) ? true : oldStand(x, z, y, step);
+  };
 
   var G = new T.Group(); scene.add(G);
 
@@ -44,6 +57,41 @@ try {
   line(LEN, 0.16, CX, CZ - WID / 2 + 2.2, 0xf2c94c);
   line(LEN, 0.16, CX, CZ + WID / 2 - 2.2, 0xf2c94c);
   for (var dx = 0; dx < LEN - 3; dx += 6) line(3.0, 0.16, X0 + 1.5 + dx, CZ, 0xe9e6dc);
+
+  /* ★ 连接廊道：从跑道穿过北墙门洞，一路铺到主城地面
+        —— 让"赛车区和主城连在一起"这件事看得见，而不是靠瞬移 */
+  (function buildConnector() {
+    var w = CX1 - CX0, len = CZ1 - CZ0;
+    var mx = (CX0 + CX1) / 2, mz = (CZ0 + CZ1) / 2;
+
+    // 路面（比跑道稍暗一点，像"引道"）
+    var cm = new T.MeshStandardMaterial({ color: 0x1e1f24, roughness: 0.44, metalness: 0.14 });
+    var road = new T.Mesh(new T.PlaneGeometry(w, len), cm);
+    road.rotation.x = -Math.PI / 2; road.position.set(mx, 0.02, mz); road.receiveShadow = true; G.add(road);
+
+    // 两侧白边线（用横向矩形拼，避免旋转方向搞错）
+    var edgeM = new T.MeshStandardMaterial({ color: 0xe9e6dc, roughness: 0.6 });
+    [CX0 + 0.8, CX1 - 0.8].forEach(function (ex) {
+      var e = new T.Mesh(new T.PlaneGeometry(0.16, len), edgeM);
+      e.rotation.x = -Math.PI / 2; e.position.set(ex, 0.035, mz); G.add(e);
+    });
+
+    // 中线虚线
+    for (var z2 = CZ0 + 2; z2 < CZ1 - 2; z2 += 5) {
+      var m = new T.Mesh(new T.PlaneGeometry(0.16, 2.4), edgeM);
+      m.rotation.x = -Math.PI / 2; m.position.set(mx, 0.035, z2); G.add(m);
+    }
+
+    // 门洞两侧的灯柱（提示"这里是入口"）
+    var poleM = new T.MeshStandardMaterial({ color: 0x1c2026, roughness: 0.5, metalness: 0.6 });
+    var headM = new T.MeshStandardMaterial({ color: 0xffdca8, emissive: 0xffc27a, emissiveIntensity: 3.0, roughness: 0.4 });
+    var pg = new T.CylinderGeometry(0.08, 0.11, 5.4, 8);
+    [[CX0 + 0.4, CZ1 - 1.5], [CX1 - 0.4, CZ1 - 1.5]].forEach(function (p2) {
+      var pole = new T.Mesh(pg, poleM); pole.position.set(p2[0], 2.7, p2[1]); pole.castShadow = true; G.add(pole);
+      var head = new T.Mesh(new T.BoxGeometry(0.42, 0.24, 0.9), headM);
+      head.position.set(p2[0], 5.45, p2[1]); G.add(head);
+    });
+  })();
 
   /* ④ 护栏 */
   var railM = new T.MeshStandardMaterial({ color: 0xb8bcc2, roughness: 0.34, metalness: 0.78 });
@@ -92,7 +140,13 @@ try {
 
   window.__CARS = CARS;
   window.__DRIVE = { on: false, car: null };   // ★ 驾驶状态（上车/下车由 shooter 控制）
-  window.__RACE_STRIP = { X0: X0, X1: X1, Z0: Z0, Z1: Z1, inStrip: inStrip, spawn: { x: CX + 9, z: CZ - 4.4 } };
+  window.__RACE_STRIP = {
+    X0: X0, X1: X1, Z0: Z0, Z1: Z1, inStrip: inStrip, inGate: inGate,
+    gate: { x0: CX0, x1: CX1, z0: CZ0, z1: CZ1 },
+    spawn: { x: CX + 9, z: CZ - 4.4 },
+    /* 回主城：从廊道走回去太慢时的一键兜底（永不卡死） */
+    back: { x: (CX0 + CX1) / 2, z: 12 }
+  };
   window.__raceReady = true;
   try { console.log('[racestrip] 就绪', CX, CZ); } catch (e) {}
 } catch (e) { window.__raceErr = (e && (e.stack || e.message)) || String(e); }

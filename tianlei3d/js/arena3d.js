@@ -37,6 +37,16 @@ var ATTACH = !!window.__ATTACH_CITY;   // ★ 必须最先定义（buildMap 要�
   var i, j, u, v;
   for (v = 0; v < GH; v++) for (u = 0; u < GW; u++) H[v * GW + u] = 0;
   for (i = 0; i < GW; i++) { setH(i, 0, WALL_H); setH(i, 1, WALL_H); setH(i, GH - 1, WALL_H); setH(i, GH - 2, WALL_H); }
+
+  /* ★★★ 北墙开口：让「赛车区」和「主城」真的连通 ★★★
+     以前赛车条带在 z=-30..-14（地图外），北墙 z=0..6 又高 11.5，
+     传送到赛车区后往南走会被边界判定卡死在 z≈-11，永远回不来。
+     这里在高度图上把 u 10..15（世界 x 30..45）的两层北墙挖掉，
+     地形网格会自然生成一个"门洞"（两侧仍有墙面，边缘自动补侧壁）。
+     对应的通行判定在 racestrip.js 里同步放开。 */
+  var GATE_U0 = 10, GATE_U1 = 15;
+  for (var gu = GATE_U0; gu <= GATE_U1; gu++) { setH(gu, 0, 0); setH(gu, 1, 0); }
+  window.__GATE = { u0: GATE_U0, u1: GATE_U1, x0: GATE_U0 * TILE, x1: (GATE_U1 + 1) * TILE };
   for (j = 0; j < GH; j++) { if (!ATTACH) { setH(0, j, WALL_H); setH(1, j, WALL_H); } setH(GW - 1, j, WALL_H); setH(GW - 2, j, WALL_H); }   // ★ 附加模式：西墙全开（与营地畅通）   // ★ 附加模式：西侧留一个大门与营地连通
   function rect(x0, y0, x1, y1, h) { x0 += OFF_U; x1 += OFF_U; for (var v2 = y0; v2 <= y1; v2++) for (var u2 = x0; u2 <= x1; u2++) setH(u2, v2, h); }
   function stairX(x0, y0, x1, y1, h0, h1) { var n = x1 - x0 + 1; for (var k = 0; k < n; k++) { var h = h0 + (h1 - h0) * (k / Math.max(1, n - 1)); rect(x0 + k, y0, x0 + k, y1, +h.toFixed(3)); } }

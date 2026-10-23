@@ -35,6 +35,9 @@
   .hud{position:absolute;inset:0;pointer-events:none;z-index:10}
   button,.clickable{pointer-events:auto}
   .hud .hrbtns button,.hud #chatBar button,.hud #chatInput,.hud #board button{pointer-events:auto}
+  /* ★★ 必须显式放开：.hud 是 pointer-events:none，div 类控件（chip/面板）会继承 none 而点不动。
+     之前漏掉了 .chip → 状态栏折叠后点不开、守夜灯面板点不开。★★ */
+  .hud .chip,.hud #htPanel,.hud #htPanel *,.hud #treePanel,.hud #treePanel *{pointer-events:auto}
 
   #xhair{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;z-index:14;opacity:.95;transition:transform .06s}
   #xhair .l{position:absolute;background:var(--cy);box-shadow:0 0 6px rgba(34,211,238,.9)}
@@ -1753,6 +1756,7 @@ window.__OCTO = {
     <div class="tleaf"><button id="bSandbox" class="on">🧱 沙盒</button><button id="bFight">⚔ 战斗</button></div>
     <div class="tleaf"><button id="bCine">🎬 影院模式</button><button id="bRace2">🏁 极速公路(去兜风)</button></div>
     <div class="tleaf"><button id="bRace3">🏁 极限刹车(原版全屏)</button></div>
+    <div class="tleaf"><button id="bBackCity">🏠 回主城（跑远了点这个）</button></div>
     <div class="tgrp">世 界</div>
     <div class="tleaf"><button id="bBoard">战况</button><button id="bHist">历史</button><button id="bVisitors">👣 访客</button><button id="bInv">邀请</button><button id="bShare">分享(0)</button></div>
     <div class="tgrp">其 它</div>
@@ -1934,17 +1938,17 @@ window.__ATTACH_CITY = true;
 window.__ATTACH_RENDERER = window.__OCTO.renderer;
 window.__ATTACH_SCENE = window.__OCTO.scene;
 </script>
-<script src="js/arena3d.js?v=1792761000"></script>
+<script src="js/arena3d.js?v=1792763000"></script>
 <script>window.__HD2D_HOST = true;</script>
 <script src="js/vendor/qrcode.js?v=1792145440"></script>
 <script src="js/mqtt.js?v=1792145440"></script>
 <script src="js/fp.js?v=1792145440"></script>
 <!-- ★ 积分（进游戏 +10、每分钟 +2，100 分解锁神器） -->
-<script src="site/js/rewards.js?v=1792761000"></script>
+<script src="site/js/rewards.js?v=1792763000"></script>
 <script src="js/hd2d_arena.js?v=1792145440"></script>
-<script src="js/shooter.js?v=1792761000"></script>
+<script src="js/shooter.js?v=1792763000"></script>
 <!-- ★ 守夜灯：离线发育 + 留存钩子 -->
-<script src="js/hearth.js?v=1792762000"></script>
-<script src="js/racestrip.js?v=1792145440"></script>
+<script src="js/hearth.js?v=1792763000"></script>
+<script src="js/racestrip.js?v=1792763000"></script>
 <script src="js/kernel.js?v=1792145440"></script>
 </body></html>
