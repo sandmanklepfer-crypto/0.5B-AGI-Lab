@@ -2708,12 +2708,10 @@ function loopBody(dt, now) {
   HUD.score(); HUD.vitals();
   mmT += dt; if (mmT > 0.5) { mmT = 0; if (!mmBase) buildMmBase(); HUD.minimap(); }
 
-  /* ★ 世界之外：远景地形 + 水域 + 昼夜（Player 坐标驱动区块流式加载） */
+  /* ★ 天空：蓝天白云 + 昼夜（纯视觉，不碰玩法逻辑） */
   try {
-    if (window.Wildlands && Wildlands.inited) {
-      Wildlands.update(dt, P.x, P.z);
-    }
-  } catch (e) { window.__wildErr = String((e && e.message) || e); }
+    if (window.Sky && Sky.inited) Sky.update(dt, P.x, P.z);
+  } catch (e) { window.__skyErr = String((e && e.message) || e); }
 
   if (!HOST) try { renderFrame(); } catch (e) { window.__renderErr = (e && (e.stack || e.message)) || String(e); try { renderer.setRenderTarget(null); renderer.render(actionScene, cam()); } catch (_) {} }
   frames++; if (now - lastF > 1000) {
@@ -3368,44 +3366,37 @@ function bindUI() {
   _on('goBtn', 'click', startGame);
   _on('chatSend', 'click', sendChat);
   _on('chatInput', 'keydown', function (e) { if (e.key === 'Enter') { sendChat(); e.stopPropagation(); } });
-  /* ★ 远景地形开关 */
-  _on('bWild', 'click', function () {
-    var W = window.Wildlands; if (!W || !W.inited) { HUD.center('远景未就绪', '', 1200); return; }
-    var on = !W.group.visible;
-    W.group.visible = on;
-    this.textContent = '远景地形:' + (on ? '开' : '关');
+  /* ★ 天空开关 */
+  _on('bSky', 'click', function () {
+    var K = window.Sky; if (!K || !K.inited) { HUD.center('天空未就绪', '', 1200); return; }
+    var on = K.setEnabled(!K.enabled);
+    this.textContent = '天空:' + (on ? '开' : '关');
     this.className = on ? 'on' : '';
-    HUD.center('远景地形 ' + (on ? '开' : '关'), on ? '城墙外不再是黑虚空' : '已隐藏（省性能）', 1800);
+    HUD.center('天空 ' + (on ? '开' : '关'), on ? '蓝天白云 + 昼夜' : '已关闭（回到纯色背景）', 1800);
     Sfx.ui();
   });
-  /* ★ 昼夜：走 / 停 / 手动拖 */
+  /* ★ 昼夜：走 / 停 */
   _on('bCycle', 'click', function () {
-    var W = window.Wildlands; if (!W || !W.inited) { HUD.center('远景未就绪', '', 1200); return; }
-    var moving = W.cfg.daySpeed > 0;
-    if (moving) {
-      W.cfg.daySpeed = 0;
-      this.textContent = '昼夜:停';
-      HUD.center('昼夜已暂停', '当前时刻 ' + (W.getDayTime() * 24).toFixed(1) + ' 点', 1600);
-    } else {
-      // 停着时每点一次往前推 3 小时，方便看效果
-      var t = (W.getDayTime() + 3 / 24) % 1;
-      W.setDayTime(t);
-      var hh = t * 24;
-      HUD.center('时刻 ' + hh.toFixed(0) + ' 点', hh > 20 || hh < 5 ? '夜里 · 看得见星空' : (hh < 8 ? '清晨' : (hh > 17 ? '黄昏' : '白天')), 1600);
-      if (t > 0.99) { W.cfg.daySpeed = 0.0035; this.textContent = '昼夜:走'; }
-    }
+    var K = window.Sky; if (!K || !K.inited) { HUD.center('天空未就绪', '', 1200); return; }
+    var moving = K.setCycle(!K.cfg.cycle);
+    this.textContent = '昼夜:' + (moving ? '走' : '停');
+    this.className = moving ? 'on' : '';
+    HUD.center('昼夜 ' + (moving ? '开始流动' : '已暂停'),
+      '当前 ' + K.clock() + ' · ' + K.phaseName(), 2000);
     Sfx.ui();
   });
-  /* ★ 植被画质：低/中/高（低端机关掉植被能省不少） */
-  _on('bVeg', 'click', function () {
-    var W = window.Wildlands; if (!W || !W.inited) { HUD.center('远景未就绪', '', 1200); return; }
-    var order = ['low', 'mid', 'high'], names = { low: '低', mid: '中', high: '高' };
-    var cur = W.cfg.quality || 'mid';
-    var nx = order[(order.indexOf(cur) + 1) % 3];
-    W.setQuality(nx);
-    this.textContent = '植被:' + names[nx];
-    this.className = nx === 'mid' ? 'on' : '';
-    HUD.center('植被画质 · ' + names[nx], nx === 'low' ? '已关植被（省性能）' : (nx === 'high' ? '最密（吃性能）' : '平衡'), 1800);
+  /* ★ 时间：每点一次 +3 小时（停着时方便看清晨/黄昏/夜） */
+  _on('bTime', 'click', function () {
+    var K = window.Sky; if (!K || !K.inited) { HUD.center('天空未就绪', '', 1200); return; }
+    K.setCycle(false);
+    var nt = (K.getTime() + 3 / 24) % 1;
+    K.setTime(nt);
+    var cb = $('bCycle'); if (cb) { cb.textContent = '昼夜:停'; cb.className = ''; }
+    this.textContent = '时间:' + K.clock();
+    HUD.center(K.clock() + ' · ' + K.phaseName(),
+      nt > 0.2 && nt < 0.3 ? '正午：天最蓝，云最白' :
+      (nt > 0.42 && nt < 0.58 ? '黄昏：地平线泛橙' :
+      (nt > 0.7 && nt < 0.8 ? '午夜：有星空' : '点「昼夜:走」恢复自动')), 2200);
     Sfx.ui();
   });
   _on('bFx', 'click', function () {

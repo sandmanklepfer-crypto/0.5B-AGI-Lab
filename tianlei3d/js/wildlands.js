@@ -33,16 +33,26 @@
   var W = {
     /* ---- 参数（对齐 world3d.js 的默认值）---- */
     cfg: {
-      chunkSize: 220,
-      viewChunks: 2,          // 手机保守：半径 2 圈（5x5=25 块）
-      segments: 44,           // 每块网格密度（远景不需要高）
+      chunkSize: 88,          // ★ 220 太大：最近一块离玩家 400+ 单位，眼前一片空
+      viewChunks: 4,          // ★ 4 圈 = 9x9 块，覆盖 ±352 单位
+      segments: 26,           // 每块 88/26 ≈ 3.4 单位一顶点，远景够用
       seed: 20260,
       seaLevel: -1.4,
 
-      /* 主城范围：这块区域不生成远景地形（避免和城里的地面打架） */
-      cityMinX: -80,          // 含营地（营地 x 从 -78 起）
+      /* ★★ 主城范围 —— 这两个用途必须分开，混用就是"永远出不去"的 bug ★★
+         cityBox*  : 判定"这里该不该由城内系统接管"。必须严格小于玩家可达范围，
+                     否则玩家在城里就被原版硬边界挡住，永远走不到城外分支。
+                     主城可达范围 x∈(4.8, 223.2) z∈(4.8, 151.2)（TILE*1.6 边距）
+         hideBox*  : 判定"这块区块要不要跳过不生成"。可以大一些，用来盖住主城+营地+赛道。
+         之前把两者混成一个 234 的框 → 玩家最多走到 223.2，
+         而 223.2 < 234 仍算"城内" → 永远走不出去。 */
+      cityBox: { x0: 9, x1: 219, z0: 9, z1: 147 },
+      hideBox: { x0: -80, x1: 234, z0: -34, z1: 162 },
+
+      /* 兼容旧字段（外部可能引用） */
+      cityMinX: -80,
       cityMaxX: 234,
-      cityMinZ: -34,          // 含北边赛车区（z -30 起）
+      cityMinZ: -34,
       cityMaxZ: 162,
 
       /* 地形（从 world3d 的 terrain 段取用） */
@@ -70,6 +80,7 @@
     },
 
     inited: false,
+    enabled: false,        // ★ 默认关闭：外景地形污染过 Ground 逻辑，先停用
     scene: null,
     renderer: null,
     group: null,
@@ -79,7 +90,7 @@
     _sun: null, _hemi: null, _skyMesh: null,
     water: null,
     _frame: 0,
-    _budget: 2,
+    _budget: 3,          // 每 6 帧建 3 块（块变小了，成本更低）
 
     /* ------------------------------------------------------------------ */
     /*  噪声（照搬 world3d.js 的 _noise2 / _fbm / _sfbm / _ridged）        */
@@ -131,12 +142,12 @@
 
     /* 主城附近把地形压平，越往外越恢复原样（防止与城里地面冲突） */
     _edgeFade: function (wx, wz) {
-      var C = this.cfg;
+      var b = this.cfg.hideBox;
       var dx = 0, dz = 0;
-      if (wx < C.cityMinX) dx = C.cityMinX - wx;
-      else if (wx > C.cityMaxX) dx = wx - C.cityMaxX;
-      if (wz < C.cityMinZ) dz = C.cityMinZ - wz;
-      else if (wz > C.cityMaxZ) dz = wz - C.cityMaxZ;
+      if (wx < b.x0) dx = b.x0 - wx;
+      else if (wx > b.x1) dx = wx - b.x1;
+      if (wz < b.z0) dz = b.z0 - wz;
+      else if (wz > b.z1) dz = wz - b.z1;
       var d = Math.sqrt(dx * dx + dz * dz);
       if (d <= 0) return 0;
       var t = Math.min(1, d / 90);
@@ -171,6 +182,7 @@
       this._initLights();
       this._dayTime = this.cfg.startTime;
 
+      this.hookGround();
       this.inited = true;
       try { console.log('[wildlands] 世界之外已启用 · 区块', this.cfg.chunkSize, '· 视距', this.cfg.viewChunks); } catch (e) {}
       return this;
@@ -341,6 +353,60 @@
       this._hemi = hemi;
     },
 
+    /* ================================================================== */
+    /*  ★ 出城行走：把 Ground 接管成"城内查高度图 / 城外查解析地形"      */
+    /*  这样城墙外的山是真的能走能爬，而不是"看得见摸不着的空气墙"        */
+    /* ================================================================== */
+    /* 由"城内系统"接管的范围（严格小于玩家可达范围，才能走出去） */
+    _inCityBox: function (x, z) {
+      var b = this.cfg.cityBox;
+      return x >= b.x0 && x <= b.x1 && z >= b.z0 && z <= b.z1;
+    },
+    /* 生成时跳过的范围（盖住主城+营地+赛道，可以更大） */
+    _inHideBox: function (x, z) {
+      var b = this.cfg.hideBox;
+      return x >= b.x0 && x <= b.x1 && z >= b.z0 && z <= b.z1;
+    },
+
+    /* 城外地形高度（含海平面：水下也是地面，只是低头能看见水） */
+    outsideHeight: function (x, z) {
+      var h = this.heightAt(x, z);
+      var sl = this.cfg.seaLevel;
+      // 水下的地面是海床；水面高度单独由 water mesh 表示
+      return h;
+    },
+
+    /* 接管 Ground：只处理"出城"这一段，城内完全交回原实现 */
+    hookGround: function () {
+      var A = root.ARENA;
+      if (!A || !A.Ground || this._hooked) return;
+      var G = A.Ground, W = this;
+      var _h = G.h, _cs = G.canStand;
+
+      G.h = function (x, z) {
+        if (W._inCityBox(x, z)) return _h.call(this, x, z);
+        return W.outsideHeight(x, z);
+      };
+
+      G.canStand = function (nx, nz, y, step) {
+        step = step === undefined ? 0.62 : step;
+        if (W._inCityBox(nx, nz)) return _cs.call(this, nx, nz, y, step);
+
+        /* 城外：没有硬边界（原来的 nx<TILE*1.6 那种空气墙去掉了） */
+        var h = W.outsideHeight(nx, nz);
+
+        /* 水深超过 1.2 米就当作不能站（否则人会走到海里沉下去） */
+        if (h < W.cfg.seaLevel - 1.2) return false;
+
+        /* 台阶判断：比脚下高太多就是陡坡，挡住 */
+        if (h - y > Math.max(step, 0.9)) return false;
+        return true;
+      };
+
+      this._hooked = true;
+      try { console.log('[wildlands] 出城行走已开放（Ground 已接管）'); } catch (e) {}
+    },
+
     /* 画质档：low 关植被省性能，mid/high 按密度开 */
     setQuality: function (q) {
       this.cfg.quality = q;
@@ -479,8 +545,9 @@
       var C = this.cfg, seg = C.segments, cs = C.chunkSize;
       var ox = cx * cs, oz = cz * cs;
 
-      if (ox > C.cityMinX - cs && ox < C.cityMaxX + cs &&
-          oz > C.cityMinZ - cs && oz < C.cityMaxZ + cs) {
+      var HB = C.hideBox;
+      if (ox > HB.x0 - cs && ox < HB.x1 + cs &&
+          oz > HB.z0 - cs && oz < HB.z1 + cs) {
         this.chunks[cx + ',' + cz] = null;
         return;
       }
@@ -510,6 +577,48 @@
       }
     },
 
+    /* 造一簇草：n 片细叶，每片是一个细长三角形，带随机朝向与倾斜 */
+    _makeGrassClump: function (TH, blades) {
+      if (this._grassGeoCache) return this._grassGeoCache;
+      var pos = [], col = [], idx = [], v = 0;
+      var base = new TH.Color(0x3f6b22);   // 根部深绿
+      var tip = new TH.Color(0x8fbf4a);    // 叶尖偏黄绿
+
+      for (var i = 0; i < blades; i++) {
+        // 根部在半径 0.14 的小圆内随机散开
+        var a0 = Math.random() * Math.PI * 2;
+        var r0 = Math.random() * 0.14;
+        var bx = Math.cos(a0) * r0, bz = Math.sin(a0) * r0;
+
+        // 叶尖向外张开 + 随机倾斜
+        var ang = a0 + (Math.random() - 0.5) * 0.9;
+        var lean = 0.12 + Math.random() * 0.32;      // 外张幅度
+        var hgt = 0.30 + Math.random() * 0.34;       // 叶高
+        var tx = bx + Math.cos(ang) * lean;
+        var tz = bz + Math.sin(ang) * lean;
+
+        // 叶片宽度（根部宽、尖端收成一点）
+        var w = 0.014 + Math.random() * 0.016;
+        var px = -Math.sin(ang) * w, pz = Math.cos(ang) * w;
+
+        // 两个底面点 + 一个尖
+        pos.push(bx - px, 0, bz - pz);  col.push(base.r, base.g, base.b);
+        pos.push(bx + px, 0, bz + pz);  col.push(base.r, base.g, base.b);
+        pos.push(tx, hgt, tz);          col.push(tip.r, tip.g, tip.b);
+
+        idx.push(v, v + 1, v + 2, v + 2, v + 1, v);
+        v += 3;
+      }
+
+      var g = new TH.BufferGeometry();
+      g.setAttribute('position', new TH.Float32BufferAttribute(pos, 3));
+      g.setAttribute('color', new TH.Float32BufferAttribute(col, 3));
+      g.setIndex(idx);
+      g.computeVertexNormals();
+      this._grassGeoCache = g;
+      return g;
+    },
+
     /* 植被：草丛 + 树（照搬 world3d 的做法） */
     _makeVegetation: function (ox, oz, cs) {
       if (this.cfg.vegDensity <= 0) return null;
@@ -532,9 +641,14 @@
 
       var group = new TH.Group();
 
-      var grassGeo = new TH.ConeGeometry(0.07, 0.55, 3, 1, true);
-      grassGeo.translate(0, 0.5, 0);
-      var grassMat = new TH.MeshStandardMaterial({ color: 0x4d7c2a, roughness: 1.0, side: TH.DoubleSide });
+      /* ★ 草：一簇 = 多片细三角形叶片（照 Godot 的 grass_blade_count 做法）
+         原来是单个 3 段圆锥 → 远看像碎石子。这里每片叶子都是一条从根部张开、
+         顶部随机倾斜的细长三角形，十几片扎成一簇才有"草"的形状。 */
+      var grassGeo = this._makeGrassClump(TH, 14);
+      var grassMat = new TH.MeshStandardMaterial({
+        color: 0x5c8f33, roughness: 1.0, metalness: 0.0,
+        side: TH.DoubleSide, vertexColors: true
+      });
       var gn = Math.min(spots.length, Math.floor(spots.length * C.vegDensity));
       if (gn > 0) {
         var grass = new TH.InstancedMesh(grassGeo, grassMat, gn);
@@ -586,16 +700,23 @@
     /* 以玩家为中心流式加载/卸载 */
     updateChunks: function (px, pz, budget) {
       var C = this.cfg, cs = C.chunkSize, vc = C.viewChunks;
-      var ccx = Math.round(px / cs), ccz = Math.round(pz / cs);
+      /* ★ 用 floor 而不是 round：round(114/220)=1 会把中心偏一块，近处漏空 */
+      var ccx = Math.floor(px / cs), ccz = Math.floor(pz / cs);
       var b = budget == null ? this._budget : budget;
 
-      for (var dx = -vc; dx <= vc && b > 0; dx++) {
-        for (var dz = -vc; dz <= vc && b > 0; dz++) {
+      /* ★ 按离玩家距离由近到远排队，保证眼前先有地形，而不是先建远处的 */
+      var todo = [];
+      for (var dx = -vc; dx <= vc; dx++) {
+        for (var dz = -vc; dz <= vc; dz++) {
           var cx = ccx + dx, cz = ccz + dz, k = cx + ',' + cz;
           if (k in this.chunks) continue;
-          this._makeChunk(cx, cz);
-          b--;
+          todo.push({ cx: cx, cz: cz, d: dx * dx + dz * dz });
         }
+      }
+      todo.sort(function (a, b2) { return a.d - b2.d; });
+      for (var i = 0; i < todo.length && b > 0; i++) {
+        this._makeChunk(todo[i].cx, todo[i].cz);
+        b--;
       }
       for (var kk in this.chunks) {
         var p = kk.split(',');
@@ -736,11 +857,15 @@
   /* ---- 自动挂载：有 ARENA 就自己起来，不改 shooter.js ---- */
   function autoBoot() {
     if (!root.ARENA || !root.ARENA.scene) { setTimeout(autoBoot, 600); return; }
+    if (!W.enabled) {
+      try { console.log('[wildlands] 已停用（外景地形改为可选，天空由 sky.js 负责）'); } catch (e) {}
+      return;
+    }
     try {
       W.init(root.ARENA.scene, root.ARENA.renderer);
       var px = 0, pz = 0;
       try { if (root.P) { px = P.x || 0; pz = P.z || 0; } } catch (e) {}
-      W.updateChunks(px, pz, 8);
+      W.updateChunks(px, pz, 16);   // ★ 首帧多建几块，进游戏眼前就有地形
     } catch (e) {
       try { console.log('[wildlands] 启动失败', e); } catch (_) {}
     }
