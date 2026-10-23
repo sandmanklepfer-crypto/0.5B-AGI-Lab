@@ -3270,6 +3270,70 @@ function toggle3D() {
 }
 
 function bindUI() {
+  /* ★★ 手机 HUD：状态栏折叠 + 横屏提示（解决"挡住 3D 切换"）★★ */
+  (function () {
+    var tb = document.querySelector('.topbar'), mini = $('chipMini');
+    if (mini) mini.addEventListener('click', function () {
+      tb.classList.toggle('open');
+      Sfx.ui();
+    });
+    // 折叠时给个一眼能看懂的小结
+    var mt = $('miniTxt');
+    setInterval(function () {
+      if (!mt) return;
+      var k = $('kKill') ? $('kKill').textContent : '0';
+      var p = 0; try { p = TLReward ? TLReward.pts() : 0; } catch (e) {}
+      mt.textContent = '击杀 ' + k + ' · 积分 ' + p;
+    }, 1500);
+
+    /* 竖屏提示：只在"手机上 + 竖屏 + 没点过先这样玩"时出现 */
+    var hint = $('rotateHint');
+    var isTouch = /Mobi|Android|iPhone|iPad|HarmonyOS|MiuiBrowser|XiaoMi/i.test(navigator.userAgent) || (navigator.maxTouchPoints || 0) > 1;
+    function portrait() { return window.innerHeight > window.innerWidth; }
+    function upd() {
+      if (!hint || !isTouch) return;
+      var skipped = false;
+      try { skipped = localStorage.getItem('tl_rotate_skip') === '1'; } catch (e) {}
+      hint.classList.toggle('on', portrait() && !skipped);
+    }
+    upd();
+    addEventListener('resize', upd);
+    addEventListener('orientationchange', function () { setTimeout(upd, 260); });
+
+    /* 一键横屏：全屏 + 尝试锁横屏（浏览器允许就生效，不允许就只全屏） */
+    var go = $('rhGo');
+    if (go) go.addEventListener('click', function () {
+      var el = document.documentElement;
+      try {
+        var p = el.requestFullscreen ? el.requestFullscreen() : (el.webkitRequestFullscreen && el.webkitRequestFullscreen());
+        if (p && p.then) p.then(lockLandscape, lockLandscape);
+        else setTimeout(lockLandscape, 200);
+      } catch (e) { lockLandscape(); }
+      hint.classList.remove('on');
+      Sfx.ui();
+    });
+    function lockLandscape() {
+      try {
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(function () { });
+        }
+      } catch (e) {}
+      setTimeout(function () { try { A.resize(); resizeFX(); } catch (e) {} }, 320);
+    }
+    var skip = $('rhSkip');
+    if (skip) skip.addEventListener('click', function () {
+      try { localStorage.setItem('tl_rotate_skip', '1'); } catch (e) {}
+      hint.classList.remove('on');
+    });
+
+    /* 全屏切换后重新算尺寸（解决"全屏后格式乱"） */
+    ['fullscreenchange', 'webkitfullscreenchange'].forEach(function (ev) {
+      document.addEventListener(ev, function () {
+        setTimeout(function () { try { A.resize(); resizeFX(); } catch (e) {} upd(); }, 260);
+      });
+    });
+  })();
+
   // ★ 兜底：这些层绝不拦截触摸（即便 CSS 被缓存）
   try {
     ['dmgLayer', 'perf', 'tipTxt', 'chatLog'].forEach(function (id) { var e = $(id); if (e) e.style.pointerEvents = 'none'; });

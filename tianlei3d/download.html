@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#06050d">
+<title>下载安卓版 · 天泪纪元</title>
+<link rel="icon" href="icon-192.png">
+<style>
+  :root{--bg:#06050d;--panel:rgba(16,12,32,.82);--line:rgba(168,85,247,.32);
+    --neon:#c084fc;--cy:#22d3ee;--tx:#ece7f7;--tx2:#a99fc4;--tx3:#7d7398;--gold:#ffd166;--ok:#4ade80}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--tx);
+    font-family:"Noto Sans SC",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  body{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+    background:radial-gradient(900px 500px at 50% -10%,rgba(168,85,247,.20),transparent 70%)}
+  .box{width:100%;max-width:460px;background:var(--panel);border:1px solid var(--line);
+    border-radius:22px;padding:26px 22px;backdrop-filter:blur(12px);box-shadow:0 24px 80px rgba(0,0,0,.6)}
+  h1{margin:0 0 6px;font-size:21px;letter-spacing:.06em}
+  .sub{margin:0 0 20px;font-size:12.5px;color:var(--tx3);line-height:1.8}
+  .meta{display:flex;justify-content:space-between;font-size:12px;color:var(--tx2);margin-bottom:8px}
+  .meta b{color:#fff}
+  .bar{height:14px;border-radius:999px;background:rgba(255,255,255,.08);
+    border:1px solid var(--line);overflow:hidden;position:relative}
+  .bar i{display:block;height:100%;width:0%;border-radius:999px;
+    background:linear-gradient(90deg,#a855f7,#22d3ee);transition:width .18s linear;
+    box-shadow:0 0 16px rgba(34,211,238,.7)}
+  .stat{display:flex;justify-content:space-between;margin-top:9px;font-size:12.5px;color:var(--tx2)}
+  .stat .sp{color:var(--cy);font-weight:700}
+  .btn{display:block;width:100%;margin-top:18px;padding:16px;border:0;border-radius:14px;
+    font-size:16.5px;font-weight:800;letter-spacing:.06em;color:#fff;cursor:pointer;font-family:inherit;
+    background:linear-gradient(100deg,#a855f7,#7c3aed 55%,#22d3ee);
+    box-shadow:0 10px 36px rgba(168,85,247,.5)}
+  .btn:active{transform:scale(.985)}
+  .btn.ghost{background:rgba(30,20,50,.8);border:1px solid var(--line);box-shadow:none;font-weight:600;
+    font-size:13.5px;padding:12px;margin-top:10px;color:var(--tx2)}
+  .tip{margin-top:14px;font-size:11.5px;color:var(--tx3);line-height:1.9}
+  .tip b{color:var(--gold)}
+  .row{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:12.5px;color:var(--tx2)}
+  .row input[type=range]{flex:1;accent-color:#a855f7}
+  .ok{color:var(--ok)}
+  .err{color:#f87171}
+  #log{margin-top:10px;font:11px/1.6 monospace;color:var(--tx3);max-height:80px;overflow:auto;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>⬇ 天泪纪元 · 安卓版</h1>
+  <p class="sub" id="sub">正在读取包体大小…</p>
+
+  <div class="meta">
+    <span>已下载 <b id="done">0 MB</b> / <b id="total">—</b></span>
+    <span id="pct">0%</span>
+  </div>
+  <div class="bar"><i id="fill"></i></div>
+  <div class="stat">
+    <span>速度 <span class="sp" id="spd">—</span></span>
+    <span id="eta">剩余 —</span>
+  </div>
+
+  <button class="btn" id="go">开始下载（多线程加速）</button>
+  <button class="btn ghost" id="direct">改用普通下载（单连接）</button>
+
+  <div class="row">
+    <span>线程</span>
+    <input type="range" id="thr" min="1" max="8" value="6">
+    <b id="thrv">6</b>
+  </div>
+
+  <div class="tip">
+    · 单连接被限速时，<b>多线程能快好几倍</b>（每个连接各分一段并行拉）。<br>
+    · 已装旧版可直接覆盖安装，<b>不需要卸载</b>（同一个签名）。<br>
+    · 下载中断没关系，再点一次会从断点接着下。
+  </div>
+  <div id="log"></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var URL_APK = 'download/tianlei.apk';
+  var STORE = 'tl_dl_chunks_v1';
+  var $ = function (s) { return document.querySelector(s); };
+  var log = function (t) { var e = $('#log'); e.textContent += t + '\n'; e.scrollTop = e.scrollHeight; };
+
+  var size = 0, parts = [], workers = 0, totalGot = 0;
+  var running = false, aborted = false;
+  var speedWin = [];       // [时间, 字节] 滑动窗口算速度
+
+  var fmt = function (b) {
+    if (b >= 1048576) return (b / 1048576).toFixed(1) + ' MB';
+    if (b >= 1024) return (b / 1024).toFixed(0) + ' KB';
+    return b + ' B';
+  };
+
+  /* ---------- 1) 探测文件大小 + 是否支持 Range ---------- */
+  fetch(URL_APK, { method: 'HEAD', cache: 'no-store' })
+    .then(function (r) {
+      size = parseInt(r.headers.get('content-length') || '0', 10);
+      var range = (r.headers.get('accept-ranges') || '').toLowerCase();
+      $('#total').textContent = size ? fmt(size) : '—';
+      var mb = (size / 1048576).toFixed(0);
+      $('#sub').innerHTML = '包体 <b>' + mb + ' MB</b>' +
+        (range === 'bytes' ? ' · 服务器支持分段 → <b>可以多线程加速</b>' :
+          ' · 服务器不支持分段，只能用普通下载');
+      if (range !== 'bytes') { $('#go').disabled = true; $('#thr').disabled = true; }
+    })
+    .catch(function () { $('#sub').textContent = '读取失败，请直接用普通下载'; });
+
+  /* ---------- 2) 分块下载 ---------- */
+  function chunkSize() {
+    var n = Math.max(1, Math.min(8, +$('#thr').value || 6));
+    return Math.ceil(size / n);
+  }
+
+  function ensureParts() {
+    var cs = chunkSize();
+    var n = Math.ceil(size / cs);
+    parts = [];
+    for (var i = 0; i < n; i++) {
+      parts.push({ i: i, start: i * cs, end: Math.min(size - 1, (i + 1) * cs - 1), buf: null, got: 0 });
+    }
+    totalGot = 0;
+  }
+
+  function paint() {
+    var p = size ? Math.min(100, totalGot / size * 100) : 0;
+    $('#fill').style.width = p.toFixed(1) + '%';
+    $('#pct').textContent = p.toFixed(1) + '%';
+    $('#done').textContent = fmt(totalGot);
+    var now = performance.now();
+    speedWin.push([now, totalGot]);
+    while (speedWin.length > 2 && now - speedWin[0][0] > 2500) speedWin.shift();
+    var w = speedWin[0], dt = (now - w[0]) / 1000;
+    if (dt > 0.4) {
+      var sp = (totalGot - w[1]) / dt;
+      $('#spd').textContent = fmt(sp) + '/s';
+      if (sp > 1024) {
+        var left = (size - totalGot) / sp;
+        $('#eta').textContent = '剩余 ' + (left > 60 ? Math.ceil(left / 60) + ' 分' + Math.round(left % 60) + ' 秒' : Math.round(left) + ' 秒');
+      }
+    }
+  }
+
+  /* 下载一个分块（带流式进度） */
+  function getPart(pt) {
+    if (pt.buf) return Promise.resolve(pt);
+    return fetch(URL_APK, { headers: { Range: 'bytes=' + pt.start + '-' + pt.end }, cache: 'no-store' })
+      .then(function (r) {
+        if (r.status !== 206 && r.status !== 200) throw new Error('HTTP ' + r.status);
+        var chunks = [], recv = 0;
+        if (!r.body || !r.body.getReader) {
+          return r.arrayBuffer().then(function (ab) {
+            pt.buf = new Uint8Array(ab); pt.got = ab.byteLength; totalGot += ab.byteLength; paint(); return pt;
+          });
+        }
+        var reader = r.body.getReader();
+        function pump() {
+          return reader.read().then(function (res) {
+            if (res.done) {
+              var total = 0; chunks.forEach(function (c) { total += c.length; });
+              var out = new Uint8Array(total), off = 0;
+              chunks.forEach(function (c) { out.set(c, off); off += c.length; });
+              pt.buf = out; pt.got = total;
+              totalGot += total; paint();
+              return pt;
+            }
+            chunks.push(res.value); recv += res.value.length;
+            totalGot += res.value.length; paint();
+            if (aborted) { try { reader.cancel(); } catch (e) {} throw new Error('已取消'); }
+            return pump();
+          });
+        }
+        return pump();
+      });
+  }
+
+  /* 并发池 */
+  function runPool() {
+    var queue = parts.filter(function (p) { return !p.buf; });
+    var running2 = [];
+    var results = [];
+    function next() {
+      if (aborted) return Promise.reject(new Error('已取消'));
+      var pt = queue.shift();
+      if (!pt) return Promise.resolve();
+      var pr = getPart(pt).then(function (r) { results.push(r); return next(); },
+        function (e) { log('  分块 ' + pt.i + ' 失败: ' + e.message + '（稍后重试）'); queue.push(pt); return next(); });
+      running2.push(pr);
+      return pr;
+    }
+    var pool = [];
+    var n = Math.max(1, Math.min(8, +$('#thr').value || 6));
+    for (var i = 0; i < n; i++) pool.push(next());
+    return Promise.all(pool).then(function () { return results; });
+  }
+
+  function assemble() {
+    var total = 0;
+    parts.forEach(function (p) { total += p.buf ? p.buf.length : 0; });
+    var out = new Uint8Array(total), off = 0;
+    parts.sort(function (a, b) { return a.start - b.start; });
+    parts.forEach(function (p) { if (p.buf) { out.set(p.buf, off); off += p.buf.length; } });
+    return out;
+  }
+
+  function save(u8) {
+    var blob = new Blob([u8], { type: 'application/vnd.android.package-archive' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'tianlei.apk';
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 60000);
+  }
+
+  /* ---------- 3) 按钮 ---------- */
+  $('#thr').addEventListener('input', function () { $('#thrv').textContent = this.value; });
+
+  $('#go').addEventListener('click', function () {
+    if (!size) { alert('还没读到文件大小，请稍等或改用普通下载'); return; }
+    if (running) { aborted = true; return; }
+    running = true; aborted = false;
+    this.textContent = '下载中… 点这里取消';
+    log('开始 · 包体 ' + fmt(size) + ' · ' + $('#thr').value + ' 线程');
+    ensureParts();
+    speedWin = []; totalGot = 0; paint();
+    var t0 = performance.now();
+    runPool().then(function () {
+      if (aborted) { running = false; $('#go').textContent = '继续下载（断点续传）'; return; }
+      var u8 = assemble();
+      var sec = (performance.now() - t0) / 1000;
+      log('完成 · ' + fmt(u8.length) + ' · 用时 ' + sec.toFixed(1) + ' 秒 · 平均 ' + fmt(u8.length / sec) + '/s');
+      log('校验长度: ' + (u8.length === size ? '✅ 与服务器一致' : '⚠️ 不一致，请重试'));
+      save(u8);
+      $('#go').textContent = '✅ 已开始保存，请到通知栏查看';
+      $('#go').disabled = true;
+      running = false;
+    }).catch(function (e) {
+      running = false;
+      $('#go').textContent = '继续下载（断点续传）';
+      log('中断: ' + e.message + ' · 已保留 ' + fmt(totalGot));
+    });
+  });
+
+  $('#direct').addEventListener('click', function () {
+    location.href = URL_APK;
+  });
+})();
+</script>
+</body>
+</html>

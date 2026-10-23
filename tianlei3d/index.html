@@ -1593,9 +1593,18 @@ window.__OCTO = {
   <!-- ★ 一次性 3D 引导（点过就永久消失） -->
   <div id="coach3d"><span class="arw"></span>点这里转视角 · 3D 模式</div>
 
+  <!-- ★★ 手机：竖屏提示（横屏后自动消失，不挡操作）★★ -->
+  <div id="rotateHint">
+    <div class="rh-ico">📱</div>
+    <div class="rh-t">请把手机横过来</div>
+    <div class="rh-s">横屏视野更宽、按钮不挤<br>点下面可以自动横屏（浏览器全屏）</div>
+    <button id="rhGo">一键横屏</button>
+    <button id="rhSkip">先这样玩</button>
+  </div>
+
   <div id="voiceLog"></div>
   <div class="topbar">
-    <div style="display:flex;gap:8px">
+    <div class="chips" id="chipBox">
       <div class="chip" id="netChip"><span class="dot"></span><span id="netText">离线 · 单机</span></div>
       <div class="chip" id="visitChip" title="累计来访人数（保留消息统计，跨设备）">👣 访客 —</div>
       <div class="chip" id="saveChip" title="你的累计战绩（存在本机）">🏆 累计击杀 0</div>
@@ -1606,9 +1615,11 @@ window.__OCTO = {
         <span>积分 <b id="kScore">0</b></span><span>波次 <b id="kWave">1</b></span>
       </div>
     </div>
+    <!-- ★ 折叠后的迷你信息（点一下展开上面那排） -->
+    <div class="chip mini" id="chipMini" title="点一下展开状态栏">📊 <b id="miniTxt">状态</b></div>
     <div class="hrbtns">
       <button id="bBuild" title="建造 / 拆除（点地面放置）">🔨</button>
-      <button id="b3D" title="切换 3D 透视视角">3D</button>
+      <button id="b3D" title="切换 3D 透视 / HD-2D 视角">3D</button>
       <button id="bFP" title="第一人称：点一下切进去，再点回来（键盘 F）">1P</button>
       <button id="btnVoice" title="按住说话">🎤</button>
       <button id="bChat" title="聊天">💬</button>
@@ -1731,6 +1742,70 @@ window.__OCTO = {
 #vnTip{display:none;position:fixed;left:50%;bottom:22%;transform:translateX(-50%);z-index:35;
   background:rgba(12,10,22,.92);border:1px solid rgba(255,150,70,.6);border-radius:11px;padding:9px 20px;
   color:#ffe3c8;font:600 14px/1 system-ui,sans-serif;cursor:pointer;box-shadow:0 8px 26px rgba(0,0,0,.6)}
+
+/* ==========================================================================
+   ★★★ 手机 HUD 重排（2026-10）：不再挡住 3D/2D 切换、横屏友好、全屏不乱 ★★★
+   问题：
+     · .topbar 里 chips 一多就换行，把右侧 3D/1P 按钮盖住 → 点不到
+     · 竖屏时按钮挤成两行，正好压在上方视野里
+     · 浏览器全屏后 100% 高度算错（地址栏/手势条），UI 溢出屏幕
+   做法：
+     1) chips 默认折叠成一个小方块（📊 状态），点开才展开
+     2) 3D / 1P / 建造 / 菜单 提到独立的右侧竖条（拇指位），永不重叠
+     3) 高度一律用 100dvh + env(safe-area-inset-*)，全屏/手势条都不再挤
+     4) 竖屏给一张「请横屏」卡片（可一键横屏，也可跳过）
+   ========================================================================== */
+  html,body{height:100dvh}
+  body{overflow:hidden;padding-top:env(safe-area-inset-top,0px)}
+
+  .topbar{padding:calc(6px + env(safe-area-inset-top,0px)) calc(8px + env(safe-area-inset-right,0px)) 6px calc(8px + env(safe-area-inset-left,0px));
+    align-items:flex-start;gap:6px}
+  .topbar .chips{display:none;flex-wrap:wrap;gap:5px;max-width:min(62vw,560px)}
+  .topbar.open .chips{display:flex}
+  .topbar.open .chip.mini{display:none}
+  .chip{font-size:11.5px;padding:4px 9px;border-radius:8px}
+  .chip.mini{display:flex;cursor:pointer;background:rgba(12,10,22,.85)}
+  #scoreChip span{margin-right:7px}
+  #scoreChip span:last-child{margin-right:0}
+
+  /* 右上按钮条：一行放不下就缩，不再换行盖住画面 */
+  .hrbtns{flex-wrap:nowrap;gap:5px;flex:0 0 auto}
+  .hrbtns button{min-width:0;padding:7px 9px;font-size:12px;line-height:1}
+
+  /* ---- 竖屏：贴到右侧竖排，避开顶部 chips ---- */
+  @media (orientation:portrait) and (max-width:900px){
+    .hrbtns{position:fixed;right:calc(6px + env(safe-area-inset-right,0px));top:50%;
+      transform:translateY(-50%);flex-direction:column;gap:7px;z-index:20}
+    .hrbtns button{width:46px;height:46px;font-size:15px;border-radius:12px;
+      background:rgba(12,10,22,.82);backdrop-filter:blur(6px)}
+    #b3D{width:52px;height:52px;font-size:15px;font-weight:800;
+      background:rgba(34,211,238,.28)!important;border-color:#22d3ee!important;
+      box-shadow:0 0 16px rgba(34,211,238,.45)}
+    .topbar .chips{max-width:calc(100vw - 76px)}
+  }
+  /* ---- 横屏：按钮回到右上，但留出安全距离，绝不压到画面中心 ---- */
+  @media (orientation:landscape) and (max-height:560px){
+    .hrbtns{gap:4px}
+    .hrbtns button{padding:6px 8px;font-size:11.5px}
+    #b3D{background:rgba(34,211,238,.3)!important;border-color:#22d3ee!important;font-weight:800}
+    .topbar .chips{max-width:60vw}
+    .chip{font-size:11px;padding:3px 8px}
+  }
+
+  /* ---- 竖屏提示卡 ---- */
+  #rotateHint{display:none;position:fixed;inset:0;z-index:120;
+    background:linear-gradient(160deg,rgba(6,5,13,.97),rgba(20,10,36,.97));
+    flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:26px;text-align:center}
+  #rotateHint.on{display:flex}
+  #rotateHint .rh-ico{font-size:56px;animation:rhTilt 2.2s ease-in-out infinite}
+  @keyframes rhTilt{0%,100%{transform:rotate(0)}50%{transform:rotate(-90deg)}}
+  #rotateHint .rh-t{font-size:19px;font-weight:800;letter-spacing:.06em}
+  #rotateHint .rh-s{font-size:12.5px;color:var(--tx3,#7d7398);line-height:1.9;margin-bottom:10px}
+  #rotateHint button{font-family:inherit;cursor:pointer;border-radius:12px;padding:13px 30px;font-size:14.5px;
+    border:1px solid rgba(168,85,247,.5);background:linear-gradient(100deg,#a855f7,#22d3ee);
+    color:#fff;font-weight:800;letter-spacing:.05em;box-shadow:0 8px 30px rgba(168,85,247,.45)}
+  #rotateHint button#rhSkip{background:transparent;box-shadow:none;color:#a99fc4;font-weight:500;
+    font-size:12.5px;padding:8px 20px;border-color:rgba(255,255,255,.15)}
 </style>
   <div id="dmgVig"></div>
 </div>
@@ -1752,15 +1827,15 @@ window.__ATTACH_CITY = true;
 window.__ATTACH_RENDERER = window.__OCTO.renderer;
 window.__ATTACH_SCENE = window.__OCTO.scene;
 </script>
-<script src="js/arena3d.js?v=1792752700"></script>
+<script src="js/arena3d.js?v=1792753200"></script>
 <script>window.__HD2D_HOST = true;</script>
 <script src="js/vendor/qrcode.js?v=1792145440"></script>
 <script src="js/mqtt.js?v=1792145440"></script>
 <script src="js/fp.js?v=1792145440"></script>
 <!-- ★ 积分（进游戏 +10、每分钟 +2，100 分解锁神器） -->
-<script src="site/js/rewards.js?v=1792752700"></script>
+<script src="site/js/rewards.js?v=1792753200"></script>
 <script src="js/hd2d_arena.js?v=1792145440"></script>
-<script src="js/shooter.js?v=1792752700"></script>
+<script src="js/shooter.js?v=1792753200"></script>
 <script src="js/racestrip.js?v=1792145440"></script>
 <script src="js/kernel.js?v=1792145440"></script>
 </body></html>
