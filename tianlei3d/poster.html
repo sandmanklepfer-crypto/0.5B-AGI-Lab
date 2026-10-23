@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#06050d">
+<title>做一张海报 · 天泪纪元</title>
+<link rel="icon" href="icon-192.png">
+<style>
+  :root{--bg:#06050d;--panel:rgba(16,12,32,.86);--line:rgba(168,85,247,.32);
+    --neon:#c084fc;--cy:#22d3ee;--tx:#ece7f7;--tx2:#a99fc4;--tx3:#7d7398;--gold:#ffd166;--ok:#4ade80}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--tx);
+    font-family:"Noto Sans SC",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  body{min-height:100vh;padding:18px 14px 40px;
+    background:radial-gradient(1000px 560px at 50% -8%,rgba(168,85,247,.20),transparent 70%)}
+  .wrap{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:1fr 380px;gap:22px;align-items:start}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr}}
+  h1{margin:0 0 4px;font-size:19px;letter-spacing:.05em}
+  .sub{margin:0 0 16px;font-size:12.5px;color:var(--tx3);line-height:1.8}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px;backdrop-filter:blur(10px)}
+  #stage{position:relative;border-radius:16px;overflow:hidden;border:1px solid var(--line);
+    background:#0a0816;display:flex;align-items:center;justify-content:center;padding:10px}
+  #cv{width:100%;height:auto;max-height:78vh;object-fit:contain;border-radius:10px;display:block;
+    box-shadow:0 18px 60px rgba(0,0,0,.6)}
+  label{display:block;font-size:11.5px;color:var(--tx3);letter-spacing:.08em;margin:12px 0 5px}
+  input[type=text],textarea{width:100%;background:rgba(6,4,14,.92);border:1px solid var(--line);
+    border-radius:11px;color:var(--tx);padding:10px 12px;font-size:13.5px;font-family:inherit;outline:none}
+  input[type=text]:focus,textarea:focus{border-color:var(--neon)}
+  textarea{resize:vertical;min-height:58px;line-height:1.7}
+  .row{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  .btn{flex:1;min-width:120px;padding:13px 16px;border:0;border-radius:12px;cursor:pointer;
+    font-family:inherit;font-size:14px;font-weight:800;letter-spacing:.04em;color:#fff;
+    background:linear-gradient(100deg,#a855f7,#7c3aed 55%,#22d3ee);
+    box-shadow:0 8px 26px rgba(168,85,247,.45)}
+  .btn:active{transform:scale(.985)}
+  .btn.ghost{background:rgba(30,20,50,.82);border:1px solid var(--line);box-shadow:none;
+    font-weight:600;font-size:13px;color:var(--tx2)}
+  .seg{display:flex;gap:6px;margin-top:6px}
+  .seg button{flex:1;padding:9px 6px;border-radius:10px;border:1px solid var(--line);
+    background:rgba(30,20,50,.7);color:var(--tx2);font-family:inherit;font-size:12.5px;cursor:pointer}
+  .seg button.on{background:rgba(168,85,247,.42);border-color:var(--neon);color:#fff;font-weight:700}
+  .hint{font-size:11px;color:var(--tx3);line-height:1.8;margin-top:10px}
+  .hint b{color:var(--gold)}
+  .flash{position:fixed;left:50%;bottom:26px;transform:translate(-50%,16px);opacity:0;
+    background:rgba(20,14,40,.96);border:1px solid var(--line);border-radius:999px;
+    padding:11px 22px;font-size:13.5px;pointer-events:none;transition:.24s;z-index:99}
+  .flash.on{opacity:1;transform:translate(-50%,0)}
+  .inv{font-size:12px;color:var(--tx3);margin-top:8px;word-break:break-all;line-height:1.7}
+  .inv b{color:var(--cy)}
+</style>
+</head>
+<body data-track="poster">
+<div class="wrap">
+  <div>
+    <h1>🖼 做一张海报</h1>
+    <p class="sub">自动带上<b>你自己的邀请码</b>——别人扫码进来，会直接落在你身边同一个世界。</p>
+    <div id="stage"><canvas id="cv" width="1080" height="1920"></canvas></div>
+  </div>
+
+  <div class="card">
+    <label>尺寸</label>
+    <div class="seg" id="sizeSeg">
+      <button data-w="1080" data-h="1920" class="on">竖版 9:16</button>
+      <button data-w="1080" data-h="1080">方版 1:1</button>
+      <button data-w="1920" data-h="1080">横版 16:9</button>
+    </div>
+
+    <label>标题</label>
+    <input type="text" id="inTitle" value="天泪纪元" maxlength="12">
+
+    <label>一句话（副标题）</label>
+    <input type="text" id="inSlogan" value="雨夜之城 · 与人共建" maxlength="22">
+
+    <label>卖点（一行一条，最多 4 条；竖版显示 4 条，横/方版显示 2 条）</label>
+    <textarea id="inPoints" maxlength="120">点链接就进 · 不用注册
+建筑全服共享 · 全世界看得见
+多人同屏 · 队友就在旁边
+玩就送积分 · 攒满 100 分解锁神器</textarea>
+
+    <label>手机横屏？</label>
+    <div class="seg" id="qrSeg">
+      <button data-q="0" class="on">普通</button>
+      <button data-q="1">大二维码（面对面扫）</button>
+    </div>
+
+    <div class="row">
+      <button class="btn" id="btnDl">⬇ 下载海报</button>
+    </div>
+    <div class="row">
+      <button class="btn ghost" id="btnCopy">📋 复制邀请链接</button>
+      <button class="btn ghost" id="btnOpen">▶ 打开游戏</button>
+    </div>
+
+    <div class="inv">你的专属链接：<b id="invUrl">—</b></div>
+
+    <div class="hint">
+      · 二维码用的是<b>你的邀请链接</b>，别人扫码进来直接进同一个世界、落在你身边。<br>
+      · 想让更多人点进来：把人名/群名写进「一句话」里，转化会明显更高。<br>
+      · 下载的是 1080p PNG，直接发微信 / 群里都清晰。
+    </div>
+  </div>
+</div>
+
+<div class="flash" id="flash"></div>
+
+<script src="js/vendor/qrcode.js"></script>
+<script src="js/fp.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (s) { return document.querySelector(s); };
+  var cv = $('#cv'), ctx = cv.getContext('2d');
+  var hero = new Image();
+  var heroReady = false;
+  var W = 1080, H = 1920, bigQR = false;
+
+  /* ---------- 邀请链接：带上自己的 uid ---------- */
+  function myUid() {
+    var u = '';
+    try { if (window.Fp && Fp.uid) u = Fp.uid(); } catch (e) {}
+    if (!u) {
+      try { u = localStorage.getItem('tianlei_uid') || ''; } catch (e) {}
+      if (!u) { u = 'u' + Math.random().toString(36).slice(2, 12); try { localStorage.setItem('tianlei_uid', u); } catch (e) {} }
+    }
+    return u;
+  }
+  var UID = myUid();
+  var BASE = location.origin + location.pathname.replace(/poster\.html$/, '');
+  var GAME = BASE + 'index.html';
+  var INVITE = GAME + '?inv=' + encodeURIComponent(UID);
+
+  $('#invUrl').textContent = INVITE;
+  $('#invUrl').title = INVITE;
+
+  /* ---------- 字体：标题用站内宋体，正文用系统黑体 ---------- */
+  var serifReady = false;
+  try {
+    var ff = new FontFace('TLSerif', 'url(assets/fonts/NotoSerifSC-Bold.woff2)');
+    ff.load().then(function (f) {
+      document.fonts.add(f); serifReady = true; draw();
+    }).catch(function () { draw(); });
+  } catch (e) { }
+
+  hero.onload = function () { heroReady = true; draw(); };
+  hero.src = 'site/img/hero.jpg';
+
+  function F(size, serif) {
+    return (serif && serifReady ? '"TLSerif", ' : '') +
+      '"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif';
+  }
+
+  /* ---------- 绘图基础 ---------- */
+  function cover(img, w, h, fx, fy) {
+    var sw = img.width, sh = img.height;
+    var s = Math.max(w / sw, h / sh);
+    var nw = sw * s, nh = sh * s;
+    var dx = (w - nw) * fx, dy = (h - nh) * fy;
+    ctx.drawImage(img, dx, dy, nw, nh);
+  }
+
+  function vgrad(h, stops) {
+    var g = ctx.createLinearGradient(0, 0, 0, h);
+    stops.forEach(function (s) { g.addColorStop(s[0], s[1]); });
+    return g;
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function textFit(str, maxW, size, font, min) {
+    var s = size;
+    for (; s > (min || 14); s--) {
+      ctx.font = s + 'px ' + font;
+      if (ctx.measureText(str).width <= maxW) break;
+    }
+    return s;
+  }
+
+  /* glowFontStr 必须是完整 CSS font 串，如 '172px "TLSerif", sans-serif' */
+  function glowText(str, x, y, fontStr, color, glow, align, blurPx) {
+    ctx.save();
+    ctx.font = fontStr;
+    ctx.textAlign = align || 'left';
+    ctx.textBaseline = 'top';
+    if (glow) {
+      ctx.shadowColor = glow;
+      ctx.shadowBlur = blurPx || 40;
+      ctx.fillStyle = glow;
+      ctx.fillText(str, x, y);
+      ctx.fillText(str, x, y);
+    }
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'transparent';
+    ctx.fillStyle = color;
+    ctx.fillText(str, x, y);
+    ctx.restore();
+  }
+
+  /* ---------- 二维码（画到 canvas）---------- */
+  function drawQR(url, box, x, y) {
+    var q = qrcode(0, 'H');
+    q.addData(url); q.make();
+    var count = q.getModuleCount();
+    var pad = Math.round(box * 0.072);
+    var inner = box - pad * 2;
+
+    // 外发光
+    ctx.save();
+    ctx.shadowColor = 'rgba(168,85,247,.85)';
+    ctx.shadowBlur = 46;
+    ctx.fillStyle = '#fff';
+    roundRect(x, y, box, box, box * 0.095);
+    ctx.fill();
+    ctx.restore();
+
+    // 白底
+    ctx.fillStyle = '#fff';
+    roundRect(x, y, box, box, box * 0.095);
+    ctx.fill();
+
+    // 码点
+    var cell = inner / count;
+    ctx.fillStyle = '#0a0816';
+    for (var r = 0; r < count; r++) {
+      for (var c = 0; c < count; c++) {
+        if (q.isDark(r, c)) {
+          ctx.fillRect(
+            Math.round(x + pad + c * cell),
+            Math.round(y + pad + r * cell),
+            Math.ceil(cell), Math.ceil(cell)
+          );
+        }
+      }
+    }
+  }
+
+  /* ---------- 主绘制 ---------- */
+  function draw() {
+    if (!heroReady) {
+      ctx.fillStyle = '#0a0816'; ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.fillStyle = '#7d7398'; ctx.font = '34px ' + F();
+      ctx.textAlign = 'center';
+      ctx.fillText('素材加载中…', cv.width / 2, cv.height / 2);
+      return;
+    }
+
+    var title = ($('#inTitle').value || '天泪纪元').trim();
+    var slogan = ($('#inSlogan').value || '').trim();
+    var pts = ($('#inPoints').value || '').split('\n').map(function (s) { return s.trim(); })
+      .filter(function (s) { return s; }).slice(0, 4);
+    var vertical = (H > W * 1.2);
+
+    cv.width = W; cv.height = H;
+
+    /* 底图 */
+    ctx.clearRect(0, 0, W, H);
+    ctx.save();
+    if (vertical) cover(hero, W, H, 0.56, 0.26);
+    else if (Math.abs(W - H) < 10) cover(hero, W, H, 0.72, 0.20);
+    else cover(hero, W, H, 0.66, 0.32);
+    ctx.restore();
+
+    // 紫调
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-atop';
+    ctx.fillStyle = 'rgba(16,9,34,.19)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+
+    /* 渐变遮罩 */
+    ctx.fillStyle = vertical ? vgrad(H, [
+      [0, 'rgba(6,5,13,.93)'], [.13, 'rgba(6,5,13,.65)'], [.30, 'rgba(6,5,13,.22)'],
+      [.46, 'rgba(6,5,13,.16)'], [.62, 'rgba(7,5,14,.51)'], [.78, 'rgba(7,5,14,.89)'],
+      [.90, 'rgba(6,5,13,.98)'], [1, 'rgba(6,5,13,1)']
+    ]) : vgrad(H, [
+      [0, 'rgba(6,5,13,.80)'], [.2, 'rgba(6,5,13,.35)'], [.42, 'rgba(6,5,13,.12)'],
+      [.66, 'rgba(6,5,13,.37)'], [.86, 'rgba(6,5,13,.84)'], [1, 'rgba(6,5,13,.98)']
+    ]);
+    ctx.fillRect(0, 0, W, H);
+
+    /* 暗角 */
+    var vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.25, W / 2, H / 2, Math.max(W, H) * 0.78);
+    vg.addColorStop(0, 'rgba(4,3,10,0)');
+    vg.addColorStop(1, 'rgba(4,3,10,.86)');
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, W, H);
+
+    if (vertical) drawVertical(title, slogan, pts);
+    else if (Math.abs(W - H) < 10) drawSquare(title, slogan, pts);
+    else drawLandscape(title, slogan, pts);
+  }
+
+  function drawVertical(title, slogan, pts) {
+    var cx = W / 2;
+    // 品牌
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(198,184,231,.6)';
+    ctx.font = '24px ' + F();
+    ctx.fillText('T I A N L E I   S T U D I O', cx, 78);
+
+    // 标题
+    var ts = textFit(title, W - 170, 172, F(0, true), 60);
+    glowText(title, cx, 126, ts + 'px ' + F(0, true), '#fff', 'rgba(192,132,252,.85)', 'center', ts * 0.30);
+    var ty = 126 + ts * 1.24;
+
+    ctx.fillStyle = 'rgba(188,168,228,.72)';
+    ctx.font = '24px ' + F();
+    ctx.fillText('T I A N L E I   C H R O N I C L E', cx, ty);
+    ty += 58;
+
+    if (slogan) {
+      var ss = textFit(slogan, W - 180, 46, F(0, true), 22);
+      ctx.fillStyle = 'rgba(238,232,252,.96)';
+      ctx.font = ss + 'px ' + F(0, true);
+      ctx.fillText(slogan, cx, ty);
+      ty += ss * 1.42;
+    }
+    ty += 14;
+
+    // 免费标签
+    var tag = '免费 · 免注册 · 手机电脑都能玩';
+    ctx.font = '26px ' + F();
+    var tw = ctx.measureText(tag).width + 48, thh = 54;
+    ctx.save();
+    roundRect(cx - tw / 2, ty, tw, thh, thh / 2);
+    ctx.fillStyle = 'rgba(255,209,102,.13)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,209,102,.6)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = '#ffd166'; ctx.font = '26px ' + F();
+    ctx.fillText(tag, cx, ty + 13);
+    ty += thh + 38;
+
+    // 四宫格
+    if (pts.length) {
+      var cw = (W - 148 - 24) / 2, ch = 140;
+      for (var i = 0; i < Math.min(4, pts.length); i++) {
+        var gx = 74 + (i % 2) * (cw + 24);
+        var gy = ty + Math.floor(i / 2) * (ch + 18);
+        ctx.save();
+        roundRect(gx, gy, cw, ch, 24);
+        ctx.fillStyle = 'rgba(15,11,30,.78)'; ctx.fill();
+        ctx.strokeStyle = 'rgba(168,85,247,.35)'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.restore();
+
+        // 序号
+        ctx.save();
+        ctx.beginPath(); ctx.arc(gx + 45, gy + 46, 21, 0, 6.2832);
+        ctx.fillStyle = 'rgba(168,85,247,.28)'; ctx.fill();
+        ctx.strokeStyle = 'rgba(192,132,252,.66)'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.restore();
+        ctx.fillStyle = '#e2d6ff'; ctx.font = '24px ' + F();
+        ctx.textAlign = 'center';
+        ctx.fillText('①②③④'[i], gx + 45, gy + 34);
+
+        // 文案
+        var seg = pts[i].split('·');
+        var l1 = (seg[0] || '').trim(), l2 = (seg[1] || '').trim();
+        ctx.textAlign = 'left';
+        var s1 = textFit(l1, cw - 100, 31, F(), 16);
+        ctx.fillStyle = '#fff'; ctx.font = s1 + 'px ' + F();
+        ctx.fillText(l1, gx + 80, gy + 26);
+        if (l2) {
+          var s2 = textFit(l2, cw - 100, 22, F(), 13);
+          ctx.fillStyle = 'rgba(169,159,196,.92)'; ctx.font = s2 + 'px ' + F();
+          ctx.fillText(l2, gx + 80, gy + 76);
+        }
+      }
+      ty += 2 * (ch + 18);
+    }
+
+    // 二维码
+    var box = bigQR ? 404 : 366;
+    var qy = H - box - (bigQR ? 210 : 250);
+    var qx = (W - box) / 2;
+    // 箭头
+    ctx.beginPath();
+    ctx.moveTo(cx, qy - 26); ctx.lineTo(cx - 16, qy - 46); ctx.lineTo(cx + 16, qy - 46);
+    ctx.closePath(); ctx.fillStyle = 'rgba(255,209,102,.92)'; ctx.fill();
+
+    drawQR(INVITE, box, qx, qy);
+
+    ctx.textAlign = 'center';
+    var cy2 = qy + box + 30;
+    glowText('扫码 3 秒进服', cx, cy2, 54 + 'px ' + F(0, true), '#fff', 'rgba(120,60,210,.9)', 'center', 22);
+    cy2 += 76;
+    ctx.fillStyle = '#ffd166'; ctx.font = '27px ' + F();
+    ctx.fillText('免费 · 免注册 · 手机上就能玩', cx, cy2);
+    cy2 += 44;
+    ctx.fillStyle = 'rgba(138,128,168,.8)'; ctx.font = '20px ' + F();
+    ctx.fillText(location.host + location.pathname.replace(/poster\.html$/, ''), cx, cy2);
+  }
+
+  function drawSquare(title, slogan, pts) {
+    // 左上压暗
+    var cg = ctx.createRadialGradient(W * 0.18, H * 0.16, 0, W * 0.18, H * 0.16, W * 0.62);
+    cg.addColorStop(0, 'rgba(6,5,13,.82)');
+    cg.addColorStop(1, 'rgba(6,5,13,0)');
+    ctx.fillStyle = cg; ctx.fillRect(0, 0, W, H);
+
+    var x = 72, y = 62;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(198,184,231,.55)'; ctx.font = '20px ' + F();
+    ctx.fillText('T I A N L E I', x, y);
+    y += 42;
+
+    var ts = textFit(title, W * 0.62, 104, F(0, true), 40);
+    glowText(title, x, y, ts + 'px ' + F(0, true), '#fff', 'rgba(192,132,252,.8)', 'left', ts * 0.28);
+    y += ts * 1.26;
+
+    if (slogan) {
+      ctx.fillStyle = 'rgba(238,232,252,.96)'; ctx.font = '30px ' + F(0, true);
+      ctx.fillText(slogan, x, y);
+      y += 48;
+    }
+
+    // 免费标签
+    ctx.font = '22px ' + F();
+    var tw = ctx.measureText('免费 · 免注册').width + 44;
+    roundRect(x, y, tw, 48, 24);
+    ctx.fillStyle = 'rgba(255,209,102,.13)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,209,102,.6)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#ffd166'; ctx.font = '22px ' + F();
+    ctx.fillText('免费 · 免注册', x + 22, y + 12);
+
+    // 卖点（左下两行）
+    if (pts.length) {
+      ctx.fillStyle = 'rgba(214,203,240,.9)'; ctx.font = '22px ' + F();
+      var ly = H - 138;
+      for (var i = 0; i < Math.min(2, pts.length); i++) {
+        ctx.fillText(pts[i], 72, ly); ly += 36;
+      }
+    }
+
+    // 二维码右下
+    var box = bigQR ? 340 : 300;
+    var qx = W - box - 66, qy = H - box - 96;
+    drawQR(INVITE, box, qx, qy);
+    ctx.textAlign = 'center';
+    glowText('扫码 3 秒进服', qx + box / 2, qy - 42, 30 + 'px ' + F(0, true), '#fff', 'rgba(120,60,210,.9)', 'center', 16);
+  }
+
+  function drawLandscape(title, slogan, pts) {
+    // 左侧压暗
+    var lg = ctx.createLinearGradient(0, 0, W * 0.66, 0);
+    lg.addColorStop(0, 'rgba(5,4,11,.94)');
+    lg.addColorStop(1, 'rgba(5,4,11,0)');
+    ctx.fillStyle = lg; ctx.fillRect(0, 0, W * 0.66, H);
+
+    var x = 104, y = 108;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(198,184,231,.55)'; ctx.font = '21px ' + F();
+    ctx.fillText('T I A N L E I   S T U D I O', x, y);
+    y += 56;
+
+    var ts = textFit(title, W * 0.44, 118, F(0, true), 44);
+    glowText(title, x, y, ts + 'px ' + F(0, true), '#fff', 'rgba(192,132,252,.8)', 'left', ts * 0.28);
+    y += ts * 1.24;
+
+    ctx.fillStyle = 'rgba(188,168,228,.7)'; ctx.font = '21px ' + F();
+    ctx.fillText('T I A N L E I   C H R O N I C L E', x, y);
+    y += 52;
+
+    if (slogan) {
+      ctx.fillStyle = 'rgba(238,232,252,.96)'; ctx.font = '40px ' + F(0, true);
+      ctx.fillText(slogan, x, y);
+      y += 60;
+    }
+
+    ctx.font = '23px ' + F();
+    var tag = '免费 · 免注册 · 手机电脑都能玩';
+    var tw = ctx.measureText(tag).width + 46;
+    roundRect(x, y, tw, 50, 25);
+    ctx.fillStyle = 'rgba(255,209,102,.13)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,209,102,.6)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#ffd166'; ctx.font = '23px ' + F();
+    ctx.fillText(tag, x + 23, y + 13);
+    y += 74;
+
+    for (var i = 0; i < Math.min(4, pts.length); i++) {
+      ctx.save();
+      roundRect(x, y + 4, 30, 30, 15);
+      ctx.fillStyle = 'rgba(168,85,247,.22)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(192,132,252,.6)'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = '#e2d6ff'; ctx.font = '18px ' + F();
+      ctx.textAlign = 'center';
+      ctx.fillText('①②③④'[i], x + 15, y + 8);
+
+      var maxw = W * 0.56 - x - 46 - 30;
+      var seg = pts[i].split('·');
+      var l1 = (seg[0] || '').trim(), l2 = (seg[1] || '').trim();
+      ctx.textAlign = 'left';
+      var s1 = textFit(l1, maxw * 0.52, 27, F(), 15);
+      ctx.fillStyle = '#fff'; ctx.font = s1 + 'px ' + F();
+      ctx.fillText(l1, x + 46, y + 2);
+      var w1 = ctx.measureText(l1).width;
+      if (l2) {
+        var s2 = textFit(l2, maxw - w1 - 16, 21, F(), 12);
+        ctx.fillStyle = 'rgba(169,159,196,.9)'; ctx.font = s2 + 'px ' + F();
+        ctx.fillText('· ' + l2, x + 46 + w1 + 14, y + 7);
+      }
+      y += 52;
+    }
+
+    var box = bigQR ? 340 : 296;
+    var qx = W - box - 104, qy = H - box - 96;
+    drawQR(INVITE, box, qx, qy);
+    ctx.textAlign = 'center';
+    glowText('扫码 3 秒进服', qx + box / 2, qy - 46, 34 + 'px ' + F(0, true), '#fff', 'rgba(120,60,210,.9)', 'center', 18);
+  }
+
+  /* ---------- 交互 ---------- */
+  function flash(t) {
+    var el = $('#flash'); el.textContent = t; el.classList.add('on');
+    clearTimeout(el._t); el._t = setTimeout(function () { el.classList.remove('on'); }, 1800);
+  }
+
+  $('#sizeSeg').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    [].forEach.call(this.children, function (x) { x.classList.remove('on'); });
+    b.classList.add('on');
+    W = +b.dataset.w; H = +b.dataset.h;
+    cv.width = W; cv.height = H;
+    $('#cv').style.maxHeight = '78vh';
+    draw();
+  });
+
+  $('#qrSeg').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    [].forEach.call(this.children, function (x) { x.classList.remove('on'); });
+    b.classList.add('on');
+    bigQR = b.dataset.q === '1';
+    draw();
+  });
+
+  ['inTitle', 'inSlogan', 'inPoints'].forEach(function (id) {
+    $('#' + id).addEventListener('input', function () {
+      clearTimeout(window.__dt);
+      window.__dt = setTimeout(draw, 180);
+    });
+  });
+
+  $('#btnDl').addEventListener('click', function () {
+    try {
+      cv.toBlob(function (b) {
+        var url = URL.createObjectURL(b);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'tianlei_poster_' + W + 'x' + H + '.png';
+        document.body.appendChild(a); a.click();
+        setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 30000);
+        flash('已生成，去相册/通知栏看看');
+      }, 'image/png');
+    } catch (e) { flash('导出失败：' + e.message); }
+  });
+
+  $('#btnCopy').addEventListener('click', function () {
+    var t = INVITE;
+    if (navigator.clipboard) navigator.clipboard.writeText(t).then(function () { flash('链接已复制'); },
+      function () { window.prompt('复制下面链接', t); });
+    else window.prompt('复制下面链接', t);
+  });
+
+  $('#btnOpen').addEventListener('click', function () { location.href = INVITE; });
+
+  draw();
+})();
+</script>
+</body>
+</html>

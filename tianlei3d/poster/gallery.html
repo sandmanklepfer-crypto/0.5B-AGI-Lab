@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#06050d">
+<title>海报素材 · 天泪纪元</title>
+<link rel="icon" href="../icon-192.png">
+<style>
+  :root{--bg:#06050d;--panel:rgba(16,12,32,.84);--line:rgba(168,85,247,.32);
+    --neon:#c084fc;--cy:#22d3ee;--tx:#ece7f7;--tx2:#a99fc4;--tx3:#7d7398;--gold:#ffd166}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--tx);
+    font-family:"Noto Sans SC",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  body{min-height:100vh;padding:22px 16px 60px;
+    background:radial-gradient(1000px 560px at 50% -10%,rgba(168,85,247,.20),transparent 70%)}
+  .wrap{max-width:1240px;margin:0 auto}
+  h1{margin:0 0 6px;font-size:22px;letter-spacing:.06em}
+  .sub{margin:0 0 26px;font-size:12.5px;color:var(--tx3);line-height:1.9}
+  .sub b{color:var(--gold)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px}
+  .item{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;
+    transition:transform .2s,border-color .2s}
+  .item:hover{transform:translateY(-4px);border-color:var(--neon)}
+  .item img{width:100%;display:block;background:#0a0816}
+  .meta{padding:12px 14px 14px}
+  .meta h3{margin:0 0 4px;font-size:14.5px}
+  .meta p{margin:0 0 10px;font-size:11.5px;color:var(--tx3);line-height:1.7}
+  .btns{display:flex;gap:7px}
+  .btns a{flex:1;text-align:center;padding:9px 6px;border-radius:10px;font-size:12px;
+    text-decoration:none;border:1px solid var(--line);color:var(--tx2);background:rgba(30,20,50,.7)}
+  .btns a.main{background:linear-gradient(100deg,#a855f7,#22d3ee);color:#fff;
+    border:0;font-weight:700;box-shadow:0 6px 20px rgba(168,85,247,.4)}
+  .top{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px}
+  .top a{text-decoration:none;padding:11px 20px;border-radius:12px;font-size:13.5px;
+    border:1px solid var(--line);color:var(--tx);background:rgba(30,20,50,.7)}
+  .top a.main{background:linear-gradient(100deg,#a855f7,#7c3aed 55%,#22d3ee);border:0;font-weight:800;
+    box-shadow:0 8px 28px rgba(168,85,247,.45)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🖼 海报素材</h1>
+  <p class="sub">
+    四张现成海报，可直接下载发群 / 朋友圈。<br>
+    想要<b>带你自己邀请码</b>的版本？点右边「做我的海报」，扫码进来的人会直接落在你身边。
+  </p>
+  <div class="top">
+    <a class="main" href="../poster.html">✏️ 做我的海报（带邀请码）</a>
+    <a href="../site/index.html">← 回官网</a>
+    <a href="../index.html">▶ 进游戏</a>
+  </div>
+
+  <div class="grid" id="grid"></div>
+</div>
+
+<script>
+(function () {
+  var ITEMS = [
+    { f: 'poster_v',     t: '竖版 9:16',   d: '微信好友 / 群聊 / 朋友圈主推，手机上看满屏', w: 1080, h: 1920 },
+    { f: 'poster_sq',    t: '方版 1:1',    d: '朋友圈九宫格、小红书，缩略图也不糊', w: 1080, h: 1080 },
+    { f: 'poster_h',     t: '横版 16:9',   d: '群公告配图、电脑看、当 Banner', w: 1920, h: 1080 },
+    { f: 'poster_story', t: '大二维码版', d: '面对面让人扫，或打印出来贴', w: 1080, h: 1920 }
+  ];
+  var g = document.getElementById('grid');
+  g.innerHTML = ITEMS.map(function (it) {
+    return '<div class="item">' +
+      '<img src="' + it.f + '.jpg" alt="' + it.t + '" loading="lazy">' +
+      '<div class="meta">' +
+        '<h3>' + it.t + '</h3>' +
+        '<p>' + it.d + '<br>' + it.w + '×' + it.h + '</p>' +
+        '<div class="btns">' +
+          '<a class="main" href="' + it.f + '.png" download>⬇ 下载 PNG</a>' +
+          '<a href="' + it.f + '.png" target="_blank">看原图</a>' +
+        '</div>' +
+      '</div></div>';
+  }).join('');
+})();
+</script>
+</body>
+</html>
