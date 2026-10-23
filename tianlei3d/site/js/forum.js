@@ -156,6 +156,11 @@
     return false;
   }
 
+  /* ★ 积分：发帖/回复/点赞真到账（rewards.js），没加载就当 0 */
+  function award(tag) {
+    try { return (window.TLReward && TLReward.add) ? TLReward.add(tag) : 0; } catch (e) { return 0; }
+  }
+
   function post() {
     if (!needNick()) return;
     var ta = $('#text'), text = (ta.value || '').trim();
@@ -163,7 +168,9 @@
     if (text.length > 1200) { toast('太长了（1200 字以内）'); return; }
     var id = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
     if (!pub(ROOT + id, { id: id, uid: uid, nick: nick, text: text, img: '', at: Date.now() }, true)) return;
-    ta.value = ''; toast('已发布');
+    ta.value = '';
+    var g = award('post');
+    toast(g ? ('已发布 · 积分 +' + g) : '已发布');
   }
 
   function reply(pid, text) {
@@ -171,13 +178,15 @@
     text = (text || '').trim(); if (!text) return;
     var rid = 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
     pub(ROOT + pid + '/r/' + rid, { uid: uid, nick: nick, text: text, at: Date.now() }, true);
-    toast('已回复');
+    var g = award('reply');
+    toast(g ? ('已回复 · 积分 +' + g) : '已回复');
   }
 
   function like(pid) {
     var mine = iLiked(pid);
     // 取消点赞 = 发空载荷 + retain（broker 会清掉这条）
     pub(ROOT + pid + '/l/' + uid, mine ? null : { at: Date.now() }, true);
+    if (!mine) award('like');
   }
 
   function del(pid) {

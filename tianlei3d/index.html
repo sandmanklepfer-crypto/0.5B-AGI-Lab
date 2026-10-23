@@ -165,6 +165,7 @@
   #coach3d .arw{position:absolute;right:22px;top:-7px;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:8px solid rgba(168,85,247,.92)}
   @keyframes coachPulse{0%,100%{transform:scale(1);box-shadow:0 6px 20px rgba(168,85,247,.45)}50%{transform:scale(1.06);box-shadow:0 8px 26px rgba(168,85,247,.8)}}
   #b3D.on{background:rgba(34,211,238,.55)!important;border-color:#22d3ee!important}
+  #bFP.on{background:rgba(34,211,238,.55)!important;border-color:#22d3ee!important}
   #treePanel .tgrp{font-size:11px;color:#8b7cb0;letter-spacing:2px;margin:7px 0 3px;padding-left:7px;border-left:2px solid rgba(168,85,247,.55)}
   #treePanel .tleaf{display:flex;gap:6px;flex-wrap:wrap;padding:3px 0 3px 13px}
   #treePanel .tleaf button{background:rgba(30,20,50,.82);color:#e8e0f0;border:1px solid rgba(168,85,247,.35);border-radius:8px;padding:5px 9px;font-size:12px;font-family:inherit}
@@ -257,9 +258,11 @@ addEventListener('unhandledrejection', e=>{ try{ document.getElementById('log').
 const ULTRA = (location.protocol === 'file:') || /android_asset/i.test(location.href);
 window.__ULTRA = ULTRA;
 const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: false, preserveDrawingBuffer: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio || 1, ULTRA ? 2.0 : 1.5));
-renderer.shadowMap.enabled = ULTRA;    // ★ APP：开 4096 真阴影；网页：接地影
-renderer.shadowMap.type = ULTRA ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+/* ★ 首帧就从最低档起（0.55 像素比 · 关阴影），后面由 Perf 自适应往上加。
+   以前这里直接 2.0 + 4096 真阴影 → 一进游戏就是 3A，手机必卡。 */
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 0.55));
+renderer.shadowMap.enabled = false;    // ★ 默认关；画质爬到中档以上才由 Perf.shadow() 打开
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 if (THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
 if (THREE.ACESFilmicToneMapping) renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
@@ -1597,6 +1600,7 @@ window.__OCTO = {
       <div class="chip" id="visitChip" title="累计来访人数（保留消息统计，跨设备）">👣 访客 —</div>
       <div class="chip" id="saveChip" title="你的累计战绩（存在本机）">🏆 累计击杀 0</div>
       <div class="chip" id="modeChip" title="点这里切换玩法">🧱 沙盒</div>
+      <div class="chip" id="ptsChip" title="攒够 100 分解锁神器「虚空之刃」，点这里看进度">🎁 积分 <b id="ptsChipN">0</b>/100</div>
       <div class="chip" id="scoreChip">
         <span>击杀 <b id="kKill">0</b></span><span>死亡 <b id="kDeath">0</b></span>
         <span>积分 <b id="kScore">0</b></span><span>波次 <b id="kWave">1</b></span>
@@ -1605,6 +1609,7 @@ window.__OCTO = {
     <div class="hrbtns">
       <button id="bBuild" title="建造 / 拆除（点地面放置）">🔨</button>
       <button id="b3D" title="切换 3D 透视视角">3D</button>
+      <button id="bFP" title="第一人称：点一下切进去，再点回来（键盘 F）">1P</button>
       <button id="btnVoice" title="按住说话">🎤</button>
       <button id="bChat" title="聊天">💬</button>
       <button id="bMap" title="小地图">🗺</button>
@@ -1619,10 +1624,11 @@ window.__OCTO = {
     <div class="tgrp">声 音</div>
     <div class="tleaf"><button id="bMusic" class="on">音乐:开</button><button id="bSfx" class="on">音效:开</button><button id="bVol" class="on">音量:大</button><button id="bMic" class="on">麦克风:开</button></div>
     <div class="tgrp">显 示</div>
-    <div class="tleaf"><button id="bQual">画质:自动</button><button id="bFx">后处理</button><button id="bFog">薄雾</button></div>
+    <div class="tleaf"><button id="bQual">画质:自动</button><button id="bHouse">房子:简</button><button id="bFx">后处理</button><button id="bFog">薄雾</button></div>
     <div class="tleaf"><button id="bRain" class="on">下雨</button><button id="bSL" class="on">探照灯</button></div>
     <div class="tleaf"><button id="bGround">地面</button><button id="bView">视角:HD-2D</button></div>
     <div class="tleaf"><button id="bCam">机位:居中</button><button id="bAim">辅助:关</button></div>
+    <div class="tleaf"><button id="bFP2">👁 第一人称</button></div>
     <div class="tleaf" id="distBox">高<input id="camDist" type="range" min="3" max="45" value="9">宽<input id="camHW" type="range" min="0" max="60" value="0"></div>
     <div class="tgrp">玩 法</div>
     <div class="tleaf"><button id="bSandbox" class="on">🧱 沙盒</button><button id="bFight">⚔ 战斗</button></div>
@@ -1750,6 +1756,8 @@ window.__ATTACH_SCENE = window.__OCTO.scene;
 <script src="js/vendor/qrcode.js?v=1792145440"></script>
 <script src="js/mqtt.js?v=1792145440"></script>
 <script src="js/fp.js?v=1792145440"></script>
+<!-- ★ 积分（进游戏 +10、每分钟 +2，100 分解锁神器） -->
+<script src="site/js/rewards.js?v=1"></script>
 <script src="js/hd2d_arena.js?v=1792145440"></script>
 <script src="js/shooter.js?v=1792145440"></script>
 <script src="js/racestrip.js?v=1792145440"></script>

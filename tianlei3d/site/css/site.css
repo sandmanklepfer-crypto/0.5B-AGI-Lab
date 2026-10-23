@@ -194,3 +194,128 @@ button{font-family:inherit}
 @media (min-width:900px){
   .tabbar{display:none}                           /* 电脑上用顶部导航 */
 }
+
+/* ==========================================================================
+   ★ 转化层（2026-10 加）：主 CTA / 实时人气 / 福利板块 / 吸底按钮
+   目标：进站 3 秒内一定看得见「立即游玩」，并且知道「玩是有回报的」
+   ========================================================================== */
+
+/* ---------- 首屏实时人气条 ---------- */
+.live{display:inline-flex;align-items:center;gap:9px;margin:18px 0 0;padding:8px 16px;border-radius:999px;
+  font-size:12.5px;letter-spacing:.05em;color:#cfc3ef;
+  background:rgba(10,8,22,.62);border:1px solid var(--line);backdrop-filter:blur(8px)}
+.live b{color:#fff}
+.live .dot{width:7px;height:7px;border-radius:50%;background:#6b6480;flex:0 0 auto}
+.live .dot.on{background:var(--ok);box-shadow:0 0 10px var(--ok);animation:beat 1.8s ease-in-out infinite}
+@keyframes beat{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ---------- 主 CTA（全站最显眼） ---------- */
+.btn.cta-main{padding:20px 42px;font-size:19px;border-radius:18px;letter-spacing:.06em;
+  background:linear-gradient(100deg,#a855f7 0%,#7c3aed 45%,#22d3ee 100%);
+  box-shadow:0 10px 40px rgba(168,85,247,.55),0 0 0 1px rgba(255,255,255,.14) inset;
+  animation:ctaPulse 2.6s ease-in-out infinite}
+@keyframes ctaPulse{
+  0%,100%{box-shadow:0 10px 40px rgba(168,85,247,.5),0 0 0 0 rgba(168,85,247,.55),0 0 0 1px rgba(255,255,255,.14) inset}
+  50%{box-shadow:0 14px 52px rgba(34,211,238,.55),0 0 0 14px rgba(168,85,247,0),0 0 0 1px rgba(255,255,255,.2) inset}
+}
+.btn.cta-main .cta-ico{font-size:24px;line-height:1;filter:drop-shadow(0 0 10px rgba(255,255,255,.7))}
+.btn.cta-main .cta-txt{display:flex;flex-direction:column;align-items:flex-start;line-height:1.28}
+.btn.cta-main .cta-txt small{font-size:12px;font-weight:500;letter-spacing:.02em;opacity:.92}
+.btn.cta-gift{background:rgba(255,209,102,.14);border-color:rgba(255,209,102,.55);color:#ffe6a8;
+  font-size:15px;padding:19px 26px;border-radius:18px}
+.btn.cta-gift:hover{background:rgba(255,209,102,.24);box-shadow:0 10px 34px rgba(255,209,102,.28)}
+.acts-sub{display:flex;gap:22px;flex-wrap:wrap;margin:16px 0 0;font-size:13px;color:var(--tx3)}
+.acts-sub a{transition:.16s}
+.acts-sub a:hover{color:var(--neon)}
+
+/* ---------- 福利板块 ---------- */
+.rw{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(12px,1.6vw,18px);margin-bottom:18px}
+.rw-card{position:relative;background:linear-gradient(165deg,rgba(168,85,247,.16),rgba(16,12,32,.85));
+  border:1px solid var(--line2);border-radius:18px;padding:clamp(16px,2.2vw,24px);transition:transform .2s,border-color .2s}
+.rw-card:hover{transform:translateY(-4px);border-color:var(--neon)}
+.rw-card .ic{font-size:28px;margin-bottom:10px;filter:drop-shadow(0 0 14px rgba(255,209,102,.5))}
+.rw-card h3{margin:0 0 9px;font-size:16.5px;letter-spacing:.03em}
+.rw-card h3 em{font-style:normal;font-size:23px;font-weight:900;color:var(--gold);padding:0 2px}
+.rw-card p{margin:0;font-size:13px;line-height:1.9;color:var(--tx2)}
+.rw-card p b{color:#fff}
+.rw-tag{position:absolute;right:14px;top:14px;font-size:10.5px;letter-spacing:.08em;color:#d9c8ff;
+  background:rgba(168,85,247,.22);border:1px solid var(--line);border-radius:999px;padding:3px 9px}
+
+.rw-goal{display:grid;grid-template-columns:1.25fr .75fr;gap:clamp(18px,3vw,36px);align-items:center;
+  border-color:rgba(255,209,102,.45);background:linear-gradient(120deg,rgba(255,209,102,.09),rgba(16,12,32,.9))}
+.rw-goal h3{margin:0 0 10px;font-size:clamp(17px,2.2vw,22px);color:#ffe9b8}
+.rw-goal p{margin:0 0 12px;font-size:13.5px;line-height:2;color:var(--tx2)}
+.rw-goal p b{color:var(--gold)}
+.rw-rule{font-size:11.5px;color:var(--tx3);line-height:1.9}
+.rw-bar{height:12px;border-radius:999px;background:rgba(255,255,255,.09);overflow:hidden;border:1px solid var(--line)}
+.rw-bar i{display:block;height:100%;width:2%;border-radius:999px;
+  background:linear-gradient(90deg,var(--gold),#ff9d5c);transition:width .6s cubic-bezier(.2,.8,.2,1);
+  box-shadow:0 0 14px rgba(255,209,102,.7)}
+.rw-pts{margin-top:10px;font-size:13px;color:var(--tx2)}
+.rw-pts b{color:var(--gold);font-size:17px}
+.rw-next{color:var(--tx3);font-size:11.5px}
+
+/* ---------- 中段 CTA 条 ---------- */
+.ctastrip{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  margin:8px 0 0;padding:18px clamp(16px,2.6vw,28px);border-radius:16px;
+  background:linear-gradient(100deg,rgba(34,211,238,.13),rgba(168,85,247,.13));
+  border:1px solid var(--line2)}
+.ctastrip.hot{background:linear-gradient(100deg,rgba(255,209,102,.16),rgba(168,85,247,.14));
+  border-color:rgba(255,209,102,.5)}
+.ctastrip-txt{font-size:14.5px;color:#e6ddf7;letter-spacing:.02em}
+.ctastrip-txt b{color:var(--gold)}
+.ctastrip .btn{padding:13px 30px;font-size:15px;flex:0 0 auto}
+
+/* ---------- 下载区：网页版优先 ---------- */
+.dl .card.first{border-color:var(--line2);background:linear-gradient(165deg,rgba(34,211,238,.10),rgba(16,12,32,.86))}
+.mini-badge{font-size:10.5px;padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:2px;
+  background:rgba(74,222,128,.18);border:1px solid rgba(74,222,128,.5);color:#b6f5c8;letter-spacing:.06em}
+
+/* ---------- 手机：吸底主按钮（滚动后出现） ---------- */
+.ctafix{position:fixed;left:12px;right:12px;z-index:105;display:none;align-items:center;gap:12px;
+  bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px) + 10px);
+  padding:13px 18px;border-radius:16px;color:#fff;
+  background:linear-gradient(100deg,#a855f7,#7c3aed 55%,#22d3ee);
+  box-shadow:0 12px 40px rgba(168,85,247,.6),0 0 0 1px rgba(255,255,255,.16) inset;
+  transform:translateY(140%);transition:transform .28s cubic-bezier(.2,.9,.2,1)}
+.ctafix.show{transform:translateY(0)}
+.ctafix-ico{font-size:20px;flex:0 0 auto}
+.ctafix-txt{display:flex;flex-direction:column;line-height:1.25;font-size:15.5px;font-weight:800;letter-spacing:.05em}
+.ctafix-txt small{font-size:11px;font-weight:500;opacity:.9;letter-spacing:.02em}
+.ctafix-txt small b{color:#ffe9b8}
+
+/* 底部标签栏：中间「立即玩」做成凸起主按钮 */
+.tabbar a.play{position:relative;color:#fff;font-weight:800}
+.tabbar a.play .i{width:44px;height:44px;margin-top:-18px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:19px;background:linear-gradient(120deg,#a855f7,#22d3ee);
+  box-shadow:0 6px 22px rgba(168,85,247,.65),0 0 0 3px rgba(8,6,18,.95)}
+.tabbar a.play::after{content:'送10分';position:absolute;top:-24px;left:50%;transform:translateX(-50%);
+  font-size:9px;letter-spacing:.04em;color:#ffe9b8;background:rgba(255,209,102,.18);
+  border:1px solid rgba(255,209,102,.5);border-radius:999px;padding:1px 6px;white-space:nowrap}
+
+@media (max-width:899px){
+  .rw{grid-template-columns:1fr}
+  .rw-goal{grid-template-columns:1fr;gap:16px}
+  .ctastrip{flex-direction:column;align-items:stretch;text-align:center}
+  .btn.cta-main{width:100%;padding:17px 22px;font-size:18px}
+  .btn.cta-main .cta-txt{align-items:center}
+  .btn.cta-gift{width:100%;padding:15px 20px;font-size:14.5px}
+  .hero .acts{gap:10px}
+  .ctafix{display:flex}
+  body{padding-bottom:calc(var(--nav-h) + 78px + env(safe-area-inset-bottom,0px))}
+}
+
+/* ---------- 论坛：积分徽章 + 奖励横幅 ---------- */
+.pts-badge{display:inline-block;margin-left:6px;padding:3px 11px;border-radius:999px;font-size:11.5px;
+  letter-spacing:.04em;color:#ffe9b8;background:rgba(255,209,102,.14);border:1px solid rgba(255,209,102,.45)}
+.rw-banner{display:flex;gap:14px;align-items:center;flex-wrap:wrap;
+  background:linear-gradient(100deg,rgba(255,209,102,.14),rgba(168,85,247,.14));
+  border:1px solid rgba(255,209,102,.42);border-radius:16px;
+  padding:14px 18px;margin-bottom:16px}
+.rw-banner-ico{font-size:26px;flex:0 0 auto;filter:drop-shadow(0 0 12px rgba(255,209,102,.6))}
+.rw-banner-txt{flex:1 1 260px;font-size:13px;line-height:1.9;color:#e8e0ff}
+.rw-banner-txt .gold{color:var(--gold)}
+.rw-banner-sub{margin-top:5px;font-size:11.5px;color:var(--tx3)}
+.rw-banner-sub b{color:var(--gold)}
+.rw-banner .btn{flex:0 0 auto}
+@media (max-width:899px){ .rw-banner .btn{width:100%} }

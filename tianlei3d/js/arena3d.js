@@ -86,9 +86,9 @@ var Ground = {
 /* ---------------- 渲染器 / 场景 / 相机 ---------------- */
 var cv = ATTACH ? null : document.getElementById('cv');
 var renderer = ATTACH ? window.__ATTACH_RENDERER : new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: false, preserveDrawingBuffer: true });
-var LEAN = { reflect: false, spotLights: false, pointLights: false, pixel: 1.0, rain: 450 };   // ★ 移动端性能优先
-if (!ATTACH) renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, LEAN.pixel));
-if (!ATTACH) { renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; }
+var LEAN = { reflect: false, spotLights: false, pointLights: false, pixel: 1.0, rain: 180 };   // ★ pixel 是"乘数"，必须保持 1.0；档位由 Perf.apply 决定
+if (!ATTACH) renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 0.55));   // ★ 首帧最低档
+if (!ATTACH) { renderer.shadowMap.enabled = false; renderer.shadowMap.type = THREE.PCFSoftShadowMap; }   // ★ 默认关阴影
 if (!ATTACH && THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
 if (!ATTACH && THREE.ACESFilmicToneMapping) { renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0; }
 
@@ -252,6 +252,106 @@ function makeGlassEmis() {
 }
 var TEX_STEEL = makeSteel(), TEX_GLASS = makeGlassEmis();
 
+/* ============================================================================
+ * ★★ 房屋细节档 ★★  默认「火柴盒」（便宜、不卡），精致版由用户自己开
+ * ----------------------------------------------------------------------------
+ *   simple（默认）：纯色 box + 四棱锥屋顶，无窗面片、无点光源、不投影
+ *                   → 5 栋房子只有 10 个 draw call，手机上几乎不花钱
+ *   fancy（可选）  ：扫描 PBR 墙/瓦 + 每栋 4 扇自发光窗 + 1 盏真实暖光 + 投影
+ *                   → 好看，但贵；老机型一开就掉帧
+ *   切换：菜单 显示 →「房子:简 / 精」，记在 localStorage 'tl_house'
+ *   为什么不再默认精致：一进游戏就 5 盏点光源 + 20 个透明面片 + 5 份动态阴影，
+ *   中低端机直接 30 帧以下 —— 这是之前"太卡"的主因之一。
+ * ========================================================================== */
+var HOUSES = [[7, 10], [14, 38], [4, 30], [17, 16], [10, 44]];
+var houseGroup = null;
+window.__houseFancy = (function () {
+  try { return localStorage.getItem('tl_house') === 'fancy'; } catch (e) { return false; }
+})();
+
+function buildHouses() {
+  // 重建前先拆干净（几何体/材质一起 dispose，不给 GPU 留垃圾）
+  if (houseGroup) {
+    scene.remove(houseGroup);
+    houseGroup.traverse(function (o) {
+      if (o.geometry) { try { o.geometry.dispose(); } catch (e) {} }
+      if (o.material) {
+        (Array.isArray(o.material) ? o.material : [o.material]).forEach(function (m) {
+          if (m && m._houseMat) { try { m.dispose(); } catch (e) {} }
+        });
+      }
+    });
+  }
+  // 只清"房子自己的" GI 光斑，别人的不动
+  for (var i = GI_EM.length - 1; i >= 0; i--) if (GI_EM[i] && GI_EM[i].house) GI_EM.splice(i, 1);
+
+  var G = new THREE.Group(); G.name = 'houses'; houseGroup = G; scene.add(G);
+  var fancy = !!window.__houseFancy;
+  var wallM, roofM, winM = null;
+
+  if (fancy) {
+    wallM = matTex('planks', { rep: 2, rough: 0.85, emissive: 0x2a1a0c, emInt: 0.45 });
+    roofM = matTex('roof',   { rep: 2, rough: 0.8,  emissive: 0x1c0e08, emInt: 0.35 });
+    winM  = new THREE.MeshBasicMaterial({ color: 0xffd28a });
+  } else {
+    // 火柴盒：纯色 + 一点点自发光 → 夜里不会黑成一团，但不花任何"灯"的钱
+    wallM = new THREE.MeshStandardMaterial({ color: 0x8a6a48, roughness: 0.92, emissive: 0x2a1a0c, emissiveIntensity: 0.38 });
+    roofM = new THREE.MeshStandardMaterial({ color: 0x7d3a2a, roughness: 0.90, emissive: 0x1c0e08, emissiveIntensity: 0.32 });
+    wallM._houseMat = roofM._houseMat = true;
+  }
+
+  // 几何体共用一份：5 栋房子只占 2 份几何
+  var boxG  = new THREE.BoxGeometry(3.4, 2.6, 3.0);
+  var coneG = new THREE.ConeGeometry(3.0, 1.8, 4);
+  var winG  = fancy ? new THREE.PlaneGeometry(0.72, 0.66) : null;
+
+  function emHouse(x, z, y, hex, p, rad) {
+    var c = new THREE.Color(hex);
+    GI_EM.push({ x: x, z: z, y: y, r: c.r, g: c.g, b: c.b, p: p, rad: rad || 26, house: true });
+  }
+
+  for (var h = 0; h < HOUSES.length; h++) {
+    var hx = HOUSES[h][0] * TILE, hz = HOUSES[h][1] * TILE;
+
+    var b = new THREE.Mesh(boxG, wallM);
+    b.position.set(hx, 1.3, hz);
+    b.castShadow = fancy; b.receiveShadow = true;
+    G.add(b);
+
+    var r = new THREE.Mesh(coneG, roofM);
+    r.position.set(hx, 3.5, hz); r.rotation.y = Math.PI / 4;
+    r.castShadow = fancy;
+    G.add(r);
+
+    if (fancy) {
+      // 发光窗（4 面各一扇）—— 夜里"屋里亮着灯"的关键
+      [[0, 0.28], [1, 0], [0, -0.28], [-1, 0]].forEach(function (w, wi) {
+        var wm = new THREE.Mesh(winG, winM);
+        if (w[0] !== 0) {
+          wm.position.set(hx + (w[0] > 0 ? 1.72 : -1.72), 1.45 + (wi % 2) * 0.15, hz + (wi === 1 ? 0.6 : -0.6));
+          wm.rotation.y = w[0] > 0 ? Math.PI / 2 : -Math.PI / 2;
+        } else {
+          wm.position.set(hx, 1.45 + (wi % 2) * 0.15, hz + (w[1] > 0 ? 1.52 : -1.52));
+          wm.rotation.y = w[1] > 0 ? 0 : Math.PI;
+        }
+        G.add(wm);
+      });
+      var pl = new THREE.PointLight(0xffb060, 0.9, 16, 2);
+      pl.position.set(hx, 1.9, hz); G.add(pl);
+    }
+    emHouse(hx, hz, 2.4, 0xffc07a, 1.2, 26);   // GI 暖光保持一致（切档不重烘焙，避免卡一下）
+  }
+}
+
+/* 菜单里切换：window.setHouseFancy(true/false)，立即重建 + 记住 */
+window.setHouseFancy = function (on) {
+  window.__houseFancy = !!on;
+  try { localStorage.setItem('tl_house', on ? 'fancy' : 'simple'); } catch (e) {}
+  buildHouses();
+  try { if (typeof onHouseFancyChanged === 'function') onHouseFancyChanged(!!on); } catch (e) {}
+  return !!on;
+};
+
 /* ---------------- ★ 农村营地（西侧 OFF_U 格，与城市连成一片） ---------------- */
 (function buildCamp() {
   var campW = OFF_U + 2;                     // 营地宽度（格）
@@ -297,27 +397,8 @@ var TEX_STEEL = makeSteel(), TEX_GLASS = makeGlassEmis();
   });
   lims.forEach(function (g2) { g2.im.count = g2.n; g2.im.castShadow = true; scene.add(g2.im); });
   tim.castShadow = true; scene.add(tim);
-  // 木屋（方块体块 + 屋顶）
-  // ★ 木屋：墙用砖(亮) + 屋顶用瓦，并加自发光窗 + 真实暖光（夜景不再死黑）
-  var wallM = matTex('planks', { rep: 2, rough: 0.85, emissive: 0x2a1a0c, emInt: 0.45 });
-  var roofM = matTex('roof',   { rep: 2, rough: 0.8,  emissive: 0x1c0e08, emInt: 0.35 });
-  var winM  = new THREE.MeshBasicMaterial({ color: 0xffd28a });
-  var houses = [[7, 10], [14, 38], [4, 30], [17, 16], [10, 44]];
-  for (var h = 0; h < houses.length; h++) {
-    var hx = houses[h][0] * TILE, hz = houses[h][1] * TILE;
-    var b = new THREE.Mesh(new THREE.BoxGeometry(3.4, 2.6, 3.0), wallM); b.position.set(hx, 1.3, hz); b.castShadow = b.receiveShadow = true; scene.add(b);
-    var r = new THREE.Mesh(new THREE.ConeGeometry(3.0, 1.8, 4), roofM); r.position.set(hx, 3.5, hz); r.rotation.y = Math.PI / 4; r.castShadow = true; scene.add(r);
-    // 发光窗（4 面各一扇）—— 夜里"屋里亮着灯"的关键
-    [[0, 1.51, 0.28, 0], [0.28, 0.28, 1.51, 0], [0, -0.28, 1.51, 0], [-1.51, 0.28, 0, 0]].forEach(function (w, wi) {
-      var wm = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.66), winM);
-      wm.position.set(hx + w[0] * (w[0] === 0 ? 1 : 1), 1.45 + (wi % 2) * 0.15, hz + w[2]);
-      if (w[0] !== 0) { wm.position.x = hx + (w[0] > 0 ? 1.72 : -1.72); wm.position.z = hz + (wi === 1 ? 0.6 : -0.6); wm.rotation.y = w[0] > 0 ? Math.PI / 2 : -Math.PI / 2; }
-      else { wm.position.z = hz + (w[2] > 0 ? 1.52 : -1.52); wm.rotation.y = w[2] > 0 ? 0 : Math.PI; }
-      scene.add(wm);
-    });
-    var pl = new THREE.PointLight(0xffb060, 0.9, 16, 2); pl.position.set(hx, 1.9, hz); scene.add(pl);
-    emAdd(hx, hz, 2.4, 0xffc07a, 1.2, 26, true);             // 屋里暖光（进 GI）
-  }
+  // ★★ 木屋：默认「火柴盒」（便宜、不卡），想要精致版由用户在菜单里自己开 ★★
+  buildHouses();
 
   // 营地入口 · 告示牌（指引箭头）
   var sx = (campW - 1) * TILE, sz = GH * TILE * 0.5;

@@ -1188,12 +1188,15 @@ var P = {
 };
 function resetAmmo() { P.ammo = {}; P.reserve = {}; WEAPONS.forEach(function (w) { P.ammo[w.id] = w.mag; P.reserve[w.id] = w.reserve; }); }
 
-var Cam = { yaw: 0, pitch: -0.30, dist: 4.9, adsDist: 2.6, mode: 'center', autoAim: false, shake: V3(0, 0, 0) };
+var Cam = { yaw: 0, pitch: -0.30, dist: 4.9, adsDist: 2.6, mode: 'center', autoAim: false, shake: V3(0, 0, 0),
+  fp: false, fpEye: 1.62, _bob: 0 };        // ★ 第一人称：相机直接贴在眼睛上（点 1P 按钮切换）
+function pitchLim() { return Cam.fp ? [-1.30, 1.30] : [-1.15, 0.75]; }   // ★ 第一人称允许抬头看天
+function clampPitch(v) { var l = pitchLim(); return clamp(v, l[0], l[1]); }
 var Recoil = { p: 0, y: 0 };   // ★ 后坐力偏移（独立于玩家俯仰 → 瞄准辅助无法抵消它）
 function camDir(out) {
   out = out || V3(0, 0, 0);
   if (A.getCamMode() === 'hd2d') { out.copy(A.CAM_DIR).negate(); return out.normalize(); }   // HD-2D：固定 45°
-  var yaw = Cam.yaw + Recoil.y, pitch = clamp(Cam.pitch + Recoil.p, -1.32, 1.0);
+  var yaw = Cam.yaw + Recoil.y, pitch = clamp(Cam.pitch + Recoil.p, -1.34, Cam.fp ? 1.34 : 1.0);
   var cp = Math.cos(pitch);
   out.set(Math.sin(yaw) * cp, Math.sin(pitch), Math.cos(yaw) * cp);
   return out.normalize();
@@ -1204,6 +1207,24 @@ function updateCamera(dt) {
     var oc = A.orthoCam, D = A.CAM_DIR;
     oc.position.set(P.x + D.x * 220, P.y + D.y * 220 + 1.0, P.z + D.z * 220);
     oc.lookAt(P.x, P.y + 1.0, P.z);
+    return;
+  }
+  /* ★★★ 第一人称：相机 = 眼睛（点 1P 切换）。第三人称那条路径一行不动 ★★★ */
+  if (Cam.fp) {
+    Cam._bob += dt;
+    var eyeY = P.y + (P.crouch ? 1.04 : Cam.fpEye);
+    if (P.alive) eyeY += P.moving ? Math.abs(Math.sin(Cam._bob * 9)) * 0.035 : Math.sin(Cam._bob * 2.2) * 0.012;   // 走路微晃
+    camDir(_cd);                                           // 含后坐力 → 枪口上抬时画面真的会抬
+    var shf = ScreenShake.amt;
+    var fx0 = P.x + rnd(-shf, shf) * 0.06, fy0 = eyeY + rnd(-shf, shf) * 0.06, fz0 = P.z + rnd(-shf, shf) * 0.06;
+    // ★ 头别埋进墙里：眼睛朝后 0.5m 就撞墙（贴着墙站）时把相机往身体里收一点
+    var hb = G.ray(fx0, fy0, fz0, -_cd.x, -_cd.y, -_cd.z, 0.5);
+    if (hb.dist < 0.32) { var kb = 0.32 - hb.dist; fx0 -= _cd.x * kb; fy0 -= _cd.y * kb; fz0 -= _cd.z * kb; }
+    cam().position.set(fx0, fy0, fz0);
+    _cp.set(fx0 + _cd.x, fy0 + _cd.y, fz0 + _cd.z);
+    cam().lookAt(_cp);
+    var fovF = P.ads ? 55 : 78;                            // 第一人称视野略大一点（默认比过肩宽）
+    cam().fov += (fovF - cam().fov) * Math.min(1, dt * 10); cam().updateProjectionMatrix();
     return;
   }
   // ★ 附近有巨物 Boss → 相机自动拉远，保证「巨物 + 渺小玩家」同框（透视压迫感）
@@ -1249,6 +1270,7 @@ function facingDir(x, z, yaw, camPos) {
 }
 function updateHero(dt, t, camYawAz) {
   if (!heroMesh) return;
+  heroMesh.visible = !Cam.fp;                 // ★ 第一人称：把自己藏掉（影子留着，低头有影子才不假）
   heroMesh.position.set(P.x, P.y, P.z);
   heroMesh.rotation.y = billboardYaw(P.x, P.z);
   var d = facingDir(P.x, P.z, P.yaw, cam().position);
@@ -1755,7 +1777,7 @@ var Combat = {
       if (P.ammo[w.id] === 0) { P.reloading = w.reload; Sfx.reload(); }
       HUD.ammo(); return;
     }
-    var eye = V3(P.x, P.y + (P.crouch ? 1.15 : 1.5), P.z);
+    var eye = V3(P.x, P.y + (Cam.fp ? (P.crouch ? 1.04 : Cam.fpEye) : (P.crouch ? 1.15 : 1.5)), P.z);
     var dir;
     if (A.getCamMode() === 'hd2d') {
       // ★ HD-2D：从「屏幕准星」发射正交射线，穿过 3D 空间 → 高度自动命中（不用控俯仰）
@@ -1777,7 +1799,9 @@ var Combat = {
       });
       if (_best) dir.lerp(_best.v, 0.18).normalize();   // 只轻修弹道，绝不改相机
     }
-    var muzzle = V3(P.x, P.y + (P.crouch ? 1.05 : 1.4), P.z).addScaledVector(dir, 0.75);
+    // ★ 第一人称：枪口就是从眼睛往前一点（弹道/枪口焰都在视线正前方，不偏不低）
+    var muzzle = Cam.fp ? eye.clone().addScaledVector(dir, 0.45)
+      : V3(P.x, P.y + (P.crouch ? 1.05 : 1.4), P.z).addScaledVector(dir, 0.75);
     var spread = w.spread + w.moveSpread * (P.moving ? 1 : 0) + (P.onGround ? 0 : 0.02);
     if (P.ads) spread *= 0.5;
     var right = V3(Math.cos(Cam.yaw), 0, -Math.sin(Cam.yaw));
@@ -1809,19 +1833,28 @@ var Combat = {
     Recoil.p += w.recoil * 0.0062;                       // ★ 后坐力：枪口上抬（打巨物时视觉上相对小）
     Recoil.y += rnd(-1, 1) * w.recoil * 0.0026;
     Recoil.p = Math.min(Recoil.p, 0.42); Recoil.y = clamp(Recoil.y, -0.26, 0.26);
-    Cam.pitch = clamp(Cam.pitch, -1.15, 0.75);
+    Cam.pitch = clampPitch(Cam.pitch);
     ScreenShake.add(w.recoil * 0.1); Sfx.gun(w.sfx, 0);
     if (P.ammo[w.id] === 0) { P.reloading = w.reload; Sfx.reload(); }
     HUD.ammo();
   },
   reload: function () { var w = WMAP[P.weapon]; if (P.reloading > 0 || P.ammo[w.id] >= w.mag || P.reserve[w.id] <= 0 || !P.alive) return; P.reloading = w.reload; Sfx.reload(); HUD.ammo(); },
   finishReload: function () { var w = WMAP[P.weapon], need = w.mag - P.ammo[w.id], got = Math.min(need, P.reserve[w.id]); P.ammo[w.id] += got; P.reserve[w.id] -= got; HUD.ammo(); },
-  canUse: function (w) { return !w || !w.req || Ref.count() >= w.req; },
+  canUse: function (w) {
+    if (!w || !w.req) return true;
+    if (Ref.count() >= w.req) return true;                       // 邀请人数达标
+    // ★ 积分也能换：攒到 100 分解锁（官网/论坛发帖、游玩都在攒）
+    try { if (window.TLReward && TLReward.pts() >= 100) return true; } catch (e) {}
+    return false;
+  },
   switchTo: function (i) {
     var w = WEAPONS[i];
     if (!w || w.id === P.weapon) return;
     if (!this.canUse(w)) {                                    // ★ 未解锁 → 提示怎么拿
-      HUD.center('🔒 ' + w.name, '邀请 ' + w.req + ' 位好友即可解锁（当前 ' + Ref.count() + '/' + w.req + '）', 2400);
+      var pts = 0; try { pts = (window.TLReward ? TLReward.pts() : 0); } catch (e) {}
+      HUD.center('🔒 ' + w.name,
+        '两条路随便一条：邀请 ' + w.req + ' 位好友（' + Ref.count() + '/' + w.req + '）　或　积分攒满 100（当前 ' + pts + '/100）',
+        3000);
       Sfx.deny(); return;
     }
     P.weapon = w.id; P.reloading = 0; P.fireCd = Math.max(P.fireCd, 0.25); P.ads = false; HUD.weapon(); Sfx.tick(600, 0.04, 0.1);
@@ -2051,6 +2084,7 @@ function bindInput() {
     if (k >= '1' && k <= '8') Combat.switchTo(parseInt(k, 10) - 1);
     if (k === 'q') Combat.next();
     if (k === 'v') cycleCam();
+    if (k === 'f') toggleFP();          // ★ F = 第一人称
     if (k === 'x') toggleAim();
     if (k === 'y') toggleAssist();
     if (k === 'c') cycleView();
@@ -2066,8 +2100,8 @@ function bindInput() {
   document.addEventListener('pointerlockchange', function () { locked = (document.pointerLockElement === cvEl); });
   var dragging = false;
   document.addEventListener('mousemove', function (e) {
-    if (locked) { Cam.yaw -= e.movementX * 0.0022; Cam.pitch -= e.movementY * 0.0022; Cam.pitch = clamp(Cam.pitch, -1.15, 0.75); return; }
-    if (dragging) { Cam.yaw -= e.movementX * 0.004; Cam.pitch -= e.movementY * 0.004; Cam.pitch = clamp(Cam.pitch, -1.15, 0.75); Input.lookDrag = performance.now(); }
+    if (locked) { Cam.yaw -= e.movementX * 0.0022; Cam.pitch -= e.movementY * 0.0022; Cam.pitch = clampPitch(Cam.pitch); return; }
+    if (dragging) { Cam.yaw -= e.movementX * 0.004; Cam.pitch -= e.movementY * 0.004; Cam.pitch = clampPitch(Cam.pitch); Input.lookDrag = performance.now(); }
   });
   cvEl.addEventListener('mousedown', function (e) { if (e.button === 0) dragging = true; });
   window.addEventListener('mouseup', function () { dragging = false; });
@@ -2139,7 +2173,7 @@ function bindPointer() {
     else if (e.pointerId === lookId && lookLast) {
       var dx = e.clientX - lookLast.x, dy = e.clientY - lookLast.y;
       if (A.look) { A.look(dx * 0.005, dy * 0.005); }               // ★ 单指拖 = 转视角（HD-2D 也能转）
-      else { Cam.yaw -= dx * 0.005; Cam.pitch -= dy * 0.005; Cam.pitch = clamp(Cam.pitch, -1.15, 0.75); }
+      else { Cam.yaw -= dx * 0.005; Cam.pitch -= dy * 0.005; Cam.pitch = clampPitch(Cam.pitch); }
       Input.lookDrag = performance.now();
       lookLast = { x: e.clientX, y: e.clientY }; e.preventDefault();
     }
@@ -2184,7 +2218,7 @@ function bindLook() {
         Input.aimX = clamp((Input.aimX || 0) + dx / 300, -1, 1);     // ★ HD-2D：拖动移动屏幕准星
         Input.aimY = clamp((Input.aimY || 0) - dy / 300, -1, 1);
       } else {
-        Cam.yaw -= dx * 0.005; Cam.pitch -= dy * 0.005; Cam.pitch = clamp(Cam.pitch, -1.15, 0.75);
+        Cam.yaw -= dx * 0.005; Cam.pitch -= dy * 0.005; Cam.pitch = clampPitch(Cam.pitch);
       }
       Input.lookDrag = performance.now();
       mvd += Math.abs(dx) + Math.abs(dy);
@@ -2292,7 +2326,7 @@ function aimAssist() {
     var yawT = Math.atan2(target.x, target.z), pitchT = Math.asin(target.y);
     Cam.yaw += (yawT - Cam.yaw) * 0.25;
     Cam.pitch += (pitchT - Cam.pitch) * 0.25;
-    Cam.pitch = clamp(Cam.pitch, -1.15, 0.75);
+    Cam.pitch = clampPitch(Cam.pitch);
   }
 }
 
@@ -2528,7 +2562,7 @@ function buildMmBase() {
 /* ============================== 主循环 ============================== */
 /* ============================== ★ 性能调速器（保 60 帧：低了自动降画质，够了自动恢复） ============================== */
 var Perf = {
-  fps: 60, lo: 0, hi: 0, level: 2,   // 自适应: 0低 1中 2高(原版三档) ; 手动: 0标清..4顶级3A
+  fps: 60, lo: 0, hi: 0, level: 0,   // ★ 默认最低档(0)，交给自适应往上加；不再一进来就 3A
   cap60: true, _skip: 0, _acc: 0,
   // 自适应=原版三档(0.55/0.75/1.0)；手动=5 档像素比
   PR: null, MANUAL: 0,                        // MANUAL>0 时手动锁定档位，不再自动调
@@ -2553,6 +2587,22 @@ var Perf = {
       try { if (A.scene && A.scene.fog) A.scene.fog.density = [0.014, 0.010, 0.0082][lv]; } catch (e) {}
     }
     window.__perfLevel = this.level;
+    // ★ 阴影也跟档位：最低档直接关（手机上最吃性能的就是这个），中档以上才开
+    this.shadow(this.MANUAL ? this.level : Math.min(this.level, 2));
+  },
+  shadow: function (lv) {
+    var on = lv >= 1;
+    if (this._sh === on) return;
+    this._sh = on;
+    try {
+      A.renderer.shadowMap.enabled = on;
+      A.renderer.shadowMap.needsUpdate = true;
+      A.scene.traverse(function (o) {
+        if (!o.material) return;
+        var ms = Array.isArray(o.material) ? o.material : [o.material];
+        for (var i = 0; i < ms.length; i++) if (ms[i]) ms[i].needsUpdate = true;
+      });
+    } catch (e) {}
   },
   tick: function (f) {                       // 每秒调用一次
     this.fps = f;
@@ -2565,7 +2615,8 @@ var Perf = {
   },
   // ★ 手动档位：0标清 1高清 2超清 3极高 4顶级3A
   setLevel: function (lv) { this.level = Math.max(0, Math.min(4, lv)); this.MANUAL = 1; this.apply(); return this.level; },
-  auto: function () { this.MANUAL = 0; this.level = 2; this.apply(); return '自适应'; },
+  // ★ 自适应：永远从最低档起步（首帧最省），帧率够就自己往上爬
+  auto: function () { this.MANUAL = 0; this.level = 0; this.apply(); return '自适应'; },
   name: function () { return this.MANUAL ? ['标清', '高清', '超清', '极高', '顶级3A'][this.level] : '自适应'; },
   tips: ['最省电 · 老机型', '清晰与流畅平衡', '高画质', '很高画质 · 旗舰', '顶级3A · 拉满'],
   // 60 帧上限（显示刷新率 >60 时省电/省热；掉帧时不限，保证能跑到 60）
@@ -3157,11 +3208,44 @@ function setMode(sandbox) {
 function sync3DBtn() {
   var n = (A.getCamMode() === 'persp') ? 'on' : '';
   var b = $('b3D'); if (b) b.className = n;
+  var bf = $('bFP'); if (bf) bf.className = Cam.fp ? 'on' : '';          // ★ 1P 按钮跟着相机状态亮
   var vb = $('bView'); if (vb) vb.textContent = '视角:' + (A.getCamMode() === 'hd2d' ? 'HD-2D' : '透视');
 }
+/* ★★★ 第一人称开关（点右上角 1P / 按 V）★★★
+   只动相机这一层：相机贴到眼睛、藏掉自己的立绘、弹道从视线出。
+   第三人称（居中/过肩）和 HD-2D 全部原样保留，随时切回。 */
+function setFP(on) {
+  on = !!on;
+  var was = Cam.fp;
+  Cam.fp = on;
+  save('tl_fp', on ? '1' : '0');
+  if (on) {
+    CamIntro.on = false;                                  // 开局运镜会抢相机，先掐掉
+    if (A.getCamMode() === 'hd2d') {                      // 正交 45° 没有"眼"，第一人称必须透视
+      A.setCamMode('persp'); save('tl_view', 'persp');
+      setCamDist(Cam.distV || 9); setCamHW(Cam.hwV || 0); sync3DBtn();
+      var b3 = $('b3D'); if (b3) b3.className = 'on';
+      HUD.tip3DHide();
+    }
+    Cam.pitch = clamp(Cam.pitch, -0.45, 0.45);            // 从俯视切过来别一头栽到地上
+    Input.aimX = 0; Input.aimY = 0;
+  }
+  if (heroMesh) heroMesh.visible = !on;
+  var bf = $('bFP'); if (bf) { bf.className = on ? 'on' : ''; bf.textContent = on ? '1P' : '1P'; }
+  var bf2 = $('bFP2'); if (bf2) { bf2.className = on ? 'on' : ''; bf2.textContent = on ? '👁 第一人称:开' : '👁 第一人称'; }
+  sync3DBtn();
+  if (was !== on) {
+    HUD.center(on ? '👁 第一人称' : '🎥 第三人称',
+      on ? '拖动/移动鼠标转视角 · 点 1P 或按 V 切回' : '回到居中/过肩机位', 1600);
+    Sfx.ui();
+  }
+}
+function toggleFP() { setFP(!Cam.fp); }
+
 function toggle3D() {
   Sfx.resume();
   var n = (A.getCamMode() === 'hd2d') ? 'persp' : 'hd2d';
+  if (n === 'hd2d' && Cam.fp) setFP(false);      // ★ 正交 45° 没有第一人称 → 切回 HD-2D 时自动退出 1P
   CamIntro.on = false;
   A.setCamMode(n); save('tl_view', n);
   setCamDist(Cam.distV || 9); setCamHW(Cam.hwV || 0);
@@ -3272,6 +3356,8 @@ function bindUI() {
     this.textContent = BUILD;
   });
   _on('b3D', 'click', toggle3D);
+  _on('bFP', 'click', toggleFP);
+  if ($('bFP2')) _on('bFP2', 'click', toggleFP);
   // ★ 关键修复：面板必须开在 ☰ 按钮"下方"，而不是写死 top:52px。
   //   顶栏按钮一多就会换行，☰ 掉到第二行时，写死的面板正好盖住它 → 展开后关不掉。
   // ★ 统一关闭所有「右上浮层」（菜单 + 子面板），避免"菜单关了子面板还留着"
@@ -3371,6 +3457,16 @@ function bindUI() {
     }
   });
   _on('interactTip', 'click', function () { if (Piano.near) Piano.play(); });
+  _on('bHouse', 'click', function () {
+    var on = !window.__houseFancy;
+    try { if (window.setHouseFancy) window.setHouseFancy(on); } catch (e) {}
+    this.textContent = '房子:' + (on ? '精' : '简');
+    this.className = on ? 'on' : '';
+    save('tl_house', on ? 'fancy' : 'simple');
+    HUD.center('房子 · ' + (on ? '精致版' : '火柴盒'),
+      on ? '扫描材质 + 发光窗 + 暖光（更好看，更吃性能）' : '纯色方块 + 尖顶，最省性能 · 不卡', 2200);
+    Sfx.ui();
+  });
   _on('bQual', 'click', function () {
     var order = ['auto', 0, 1, 2, 3, 4], cur = (Perf.MANUAL ? Perf.level : 'auto');
     var i = order.indexOf(cur); var nx = order[(i + 1) % order.length];
@@ -3379,6 +3475,15 @@ function bindUI() {
     this.className = Perf.MANUAL ? 'on' : '';
     save('tl_qual', Perf.MANUAL ? ('m' + Perf.level) : 'auto');
     HUD.center('画质 · ' + Perf.name(), Perf.MANUAL ? Perf.tips[Perf.level] : '按帧率自动升降档（当前 ' + ['标清', '高清', '超清', '极高', '顶级3A'][Perf.level] + '）', 1800);
+    Sfx.ui();
+  });
+  /* ★ 积分 chip：点一下看进度（神器解锁还差多少） */
+  _on('ptsChip', 'click', function () {
+    var p = 0, t = 0, g = null;
+    try { p = TLReward.pts(); t = TLReward.todayGain(); g = TLReward.nextGoal(); } catch (e) {}
+    HUD.center('🎁 我的积分 ' + p + ' · 今日 +' + t,
+      g ? ('再攒 ' + (g.at - p) + ' 分解锁「' + g.name + '」（' + g.desc + '）')
+        : '全部奖励已解锁 —— 谢谢你在玩！', 3200);
     Sfx.ui();
   });
   /* ★★ 开车：靠近车 → 按 E / 点提示 上车；再按 E 下车 ★★ */
@@ -3468,6 +3573,10 @@ function restorePrefs() {
   var r = load('tl_rain', '1') === '1'; A.setRain(r); $('bRain').textContent = '下雨' + (r ? '' : '(关)'); $('bRain').className = r ? 'on' : '';
   var sp = load('tl_spot', '1') === '1'; A.setSpot(sp); $('bSL').textContent = '探照灯' + (sp ? '' : '(关)'); $('bSL').className = sp ? 'on' : '';
   Cam.mode = load('tl_cam', 'center'); $('bCam').textContent = '机位:' + (Cam.mode === 'center' ? '居中' : '过肩');
+  // ★ 第一人称偏好：上次开着就继续开（?fp=1 强制开 / ?fp=0 强制关）
+  var _fpQ = (location.search.match(/[?&]fp=([01])/) || [])[1];
+  var _fp = (_fpQ !== undefined) ? (_fpQ === '1') : (load('tl_fp', '0') === '1');
+  if (_fp) setTimeout(function () { try { setFP(true); } catch (e) {} }, 60);
   var _cd = +load('tl_camdist', '9'); if (window.__zoomQ) _cd = +window.__zoomQ; if ($('camDist')) $('camDist').value = _cd; setCamDist(_cd);
   var _hwx = +load('tl_camhw', '0'); Cam.hwV = _hwx; if ($('camHW')) $('camHW').value = _hwx; setCamHW(_hwx);
   var _vm = load('tl_view', 'hd2d');
@@ -3486,6 +3595,9 @@ function restorePrefs() {
     if (q === 'auto') Perf.auto();
     else if (/^m[0-4]$/.test(q)) Perf.setLevel(parseInt(q.slice(1), 10));
     var b = $('bQual'); if (b) b.textContent = '画质:' + Perf.name();
+    // ★ 房子细节档（默认火柴盒）
+    var bh = $('bHouse');
+    if (bh) { bh.textContent = '房子:' + (window.__houseFancy ? '精' : '简'); bh.className = window.__houseFancy ? 'on' : ''; }
   })();
   Sfx.on = load('tl_sfx', '1') !== '0';
   Sfx.volIdx = Math.max(0, Math.min(3, parseInt(load('tl_vol', '1'), 10) || 0));

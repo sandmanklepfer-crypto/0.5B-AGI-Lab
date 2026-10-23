@@ -60,11 +60,23 @@
   <p class="sec-sub">晒建筑 · 约人开黑 · 反馈建议 —— <b>免注册，起个名字就能发</b></p>
 
   <div class="forum-top">
-    <div class="who">当前身份：<b id="who" style="color:var(--neon)">未设置</b> &nbsp;<a id="btnName" style="color:var(--tx3);cursor:pointer;text-decoration:underline">改名字</a></div>
+    <div class="who">当前身份：<b id="who" style="color:var(--neon)">未设置</b> &nbsp;<a id="btnName" style="color:var(--tx3);cursor:pointer;text-decoration:underline">改名字</a>
+      &nbsp;<span class="pts-badge" id="ptsBadge">积分 0 · 旅人</span></div>
     <div style="display:flex;gap:14px;align-items:center">
       <span id="stat"></span>
       <span style="font-size:12.5px;color:var(--tx3)">共 <b id="pcount">0</b> 帖</span>
     </div>
+  </div>
+
+  <!-- ★ 发帖/回复奖励（真积分，发完立即到账） -->
+  <div class="rw-banner">
+    <div class="rw-banner-ico">🎁</div>
+    <div class="rw-banner-txt">
+      <b>在这儿说话也算分。</b>发一帖 <b class="gold">+10</b>、回一条 <b class="gold">+5</b>、点个赞 <b class="gold">+1</b>；
+      每天发帖上限 30 分。<b class="gold">100 分</b> = 游戏内神器「天泪 · 虚空之刃」。
+      <div class="rw-banner-sub">积分按设备指纹记，换浏览器不丢 · 今日已得 <b id="ptsToday">0</b> 分 · <span id="ptsNext">再攒 100 分解锁</span></div>
+    </div>
+    <a class="btn sm" href="../index.html">▶ 进游戏再拿 10 分</a>
   </div>
 
   <div class="warn">
@@ -75,7 +87,7 @@
   <div class="card composer" style="margin-bottom:20px">
     <textarea id="text" maxlength="1200" placeholder="说点什么…（Ctrl/⌘ + Enter 发送）&#10;例如：我在东边城墙外搭了个观景台，坐标 78,120，欢迎来玩"></textarea>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:12px;flex-wrap:wrap">
-      <span style="font-size:12px;color:var(--tx3)">文字限 1200 字 · 请文明交流</span>
+      <span style="font-size:12px;color:var(--tx3)">文字限 1200 字 · <b style="color:var(--gold)">发布即 +10 分</b></span>
       <button class="btn" id="btnPost" style="flex:0 0 auto;padding:12px 30px">发布</button>
     </div>
   </div>
@@ -127,5 +139,7 @@
 <script src="js/forum.js"></script>
 <!-- ★ 访客留痕（fp.js 自动读 body[data-track]） -->
 <script src="../js/fp.js"></script>
+<!-- ★ 积分（发帖/回复到账） -->
+<script src="js/rewards.js?v=1"></script>
 </body>
 </html>

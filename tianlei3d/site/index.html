@@ -41,14 +41,66 @@
       <span class="tag">多人同屏</span>
       <span class="tag">建筑全服共享</span>
     </div>
+
+    <!-- ★ 实时人气（真数据：玩家心跳 + 今日访客留痕） -->
+    <div class="live" id="liveChip"><i class="dot"></i>正在读取世界状态…</div>
+
+    <!-- ★ 主 CTA：全站最显眼的东西 -->
     <div class="acts">
-      <a class="btn" href="../index.html">▶ &nbsp;立即开始游玩</a>
-      <a class="btn ghost" href="#download">⬇ &nbsp;下载安卓版</a>
-      <a class="btn ghost" href="forum.html">💬 &nbsp;玩家社区</a>
+      <a class="btn cta-main" href="../index.html">
+        <span class="cta-ico">▶</span>
+        <span class="cta-txt">立即游玩<small>免安装 · 3 秒进服 · 进去就送 10 分</small></span>
+      </a>
+      <a class="btn cta-gift" href="#rewards">🎁 玩就有奖 · 点看福利</a>
+    </div>
+    <div class="acts-sub">
+      <a href="#download">⬇ 下载安卓版</a>
+      <a href="forum.html">💬 玩家社区（发帖 +10 分）</a>
     </div>
   </div>
   <div class="scroll">向下滚动</div>
 </header>
+
+<!-- ================= 福利（真积分，不是文案） ================= -->
+<section class="sec wrap" id="rewards">
+  <h2 class="sec-title">玩 就 有 奖</h2>
+  <p class="sec-sub">不注册、不充值、没内购 —— <b>进去就送，玩着就涨，说话也给</b></p>
+
+  <div class="rw">
+    <div class="rw-card">
+      <div class="ic">⚡</div>
+      <h3>进去就送 <em>10</em> 分</h3>
+      <p>每天第一次进世界 <b>+10 分</b>。<br>打开就算，不用打怪、不用签到。</p>
+      <span class="rw-tag">每日一次</span>
+    </div>
+    <div class="rw-card">
+      <div class="ic">⏱</div>
+      <h3>玩着就涨 <em>2</em> 分/分钟</h3>
+      <p>人在世界里就自动计分。<br>每天最多 20 分钟（<b>40 分</b>）封顶。</p>
+      <span class="rw-tag">自动到账</span>
+    </div>
+    <div class="rw-card">
+      <div class="ic">💬</div>
+      <h3>发帖 <em>+10</em> · 回复 +5</h3>
+      <p>晒建筑、约人开黑、提建议都算。<br>发帖每天上限 30 分，回复 30 分。</p>
+      <span class="rw-tag">论坛内计分</span>
+    </div>
+  </div>
+
+  <div class="rw-goal card">
+    <div class="rw-goal-txt">
+      <h3>🎯 攒到 100 分 → 直接拿神器「天泪 · 虚空之刃」</h3>
+      <p>这把枪原本只给「邀请 3 位好友」的人。现在<b>自己玩也能拿</b> ——
+        进一次游戏 10 分，玩 20 分钟 40 分，再发两帖 20 分，<b>两天就够</b>。</p>
+      <div class="rw-rule">积分按设备指纹记 · 换浏览器不丢 · 每天 0 点重置当日上限 · 300 分再加「建筑师」称号</div>
+    </div>
+    <div class="rw-prog">
+      <div class="rw-bar"><i id="ptsBar"></i></div>
+      <div class="rw-pts">我的积分 <b id="ptsNow">0</b> / 100 &nbsp;<span id="ptsNext" class="rw-next"></span></div>
+      <a class="btn sm" href="../index.html" style="margin-top:12px">▶ 现在去攒</a>
+    </div>
+  </div>
+</section>
 
 <!-- ================= 特色 ================= -->
 <section class="sec wrap">
@@ -119,6 +171,12 @@
     <img src="img/shot1.jpg" alt="建造与多人">
   </div>
 </section>
+
+<!-- ================= 中段 CTA 条 ================= -->
+<div class="wrap"><div class="ctastrip">
+  <div class="ctastrip-txt">别看介绍了，<b>三十秒就能站在城里</b>。不用下载、不用注册。</div>
+  <a class="btn" href="../index.html">▶ 立即游玩</a>
+</div></div>
 
 <!-- ================= 实机展示（自动播放 · 图片轮播演示） ================= -->
 <section class="sec wrap" id="media">
@@ -192,6 +250,12 @@
   </div>
 </section>
 
+<!-- ================= 中段 CTA 条 2 ================= -->
+<div class="wrap"><div class="ctastrip hot">
+  <div class="ctastrip-txt">🎁 进游戏 = <b>+10 分</b>，玩 20 分钟 = <b>+40 分</b>，100 分换神器。</div>
+  <a class="btn" href="../index.html">▶ 去拿分</a>
+</div></div>
+
 <!-- ================= 怎么玩 ================= -->
 <section class="sec wrap" id="play">
   <h2 class="sec-title">怎 么 玩</h2>
@@ -224,10 +288,10 @@
   <h2 class="sec-title">开 始 游 玩</h2>
   <p class="sec-sub">三条路，随便挑一条</p>
   <div class="dl">
-    <div class="card">
+    <div class="card first">
       <div class="ico">🎮</div>
-      <h4>网页版 · 免安装</h4>
-      <p>点开就玩，手机电脑都行<br>推荐用系统浏览器打开（微信里语音受限）</p>
+      <h4>网页版 · 免安装 <span class="mini-badge">最省事</span></h4>
+      <p>点开就玩，手机电脑都行<br>进去就送 <b style="color:var(--gold)">10 分</b>（微信里语音受限，建议系统浏览器）</p>
       <a class="btn" href="../index.html">▶ 立即游玩</a>
     </div>
     <div class="card">
@@ -248,12 +312,13 @@
 <!-- ================= 社区 ================= -->
 <section class="sec wrap">
   <h2 class="sec-title">玩 家 社 区</h2>
-  <p class="sec-sub">发帖、晒建筑、约人开黑——<b>不需要注册，起个名字就能发</b></p>
+  <p class="sec-sub">发帖、晒建筑、约人开黑——<b>不需要注册，起个名字就能发</b>，发帖 <b>+10 分</b> / 回复 <b>+5 分</b></p>
   <div class="card" style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;justify-content:space-between">
     <div>
       <h3 style="margin:0 0 8px;font-size:18px">💬 天泪论坛</h3>
       <p style="margin:0;color:var(--tx2);font-size:13.5px;line-height:1.9">
-        帖子保存在公共实时通道上，<b>换设备也在</b>。说说你造了什么，或者喊人一起打怪。
+        帖子保存在公共实时通道上，<b>换设备也在</b>。说说你造了什么，或者喊人一起打怪。<br>
+        <span style="color:var(--gold)">每发一帖 +10 分、回复 +5 分，分能换神器。</span>
       </p>
     </div>
     <a class="btn" href="forum.html" style="flex:0 0 auto">进入社区 →</a>
@@ -272,11 +337,17 @@
 <!-- ================= 手机底部标签栏 ================= -->
 <nav class="tabbar">
   <a href="index.html" class="on"><span class="i">🏠</span>首页</a>
-  <a href="#media"><span class="i">🖼</span>实机</a>
-  <a href="../index.html"><span class="i">▶</span>开玩</a>
+  <a href="#rewards"><span class="i">🎁</span>福利</a>
+  <a href="../index.html" class="play"><span class="i">▶</span>立即玩</a>
   <a href="forum.html"><span class="i">💬</span>社区</a>
   <a href="#download"><span class="i">⬇</span>下载</a>
 </nav>
+
+<!-- ★ 手机滚动时吸底的主按钮（进首屏后出现） -->
+<a class="ctafix" id="ctaFix" href="../index.html">
+  <span class="ctafix-ico">▶</span>
+  <span class="ctafix-txt">立即游玩 · 免安装<small>进去就送 10 分 · 我的积分 <b id="ptsNowFix">0</b></small></span>
+</a>
 
 <script>
 (function () {
@@ -345,5 +416,20 @@
 <!-- ★ 访客留痕（fp.js 自动读 body[data-track]） -->
 <script src="../js/mqtt.js"></script>
 <script src="../js/fp.js"></script>
+<!-- ★ 积分 / 福利 / 实时人气 -->
+<script src="js/rewards.js?v=1"></script>
+<script>
+(function () {
+  'use strict';
+  /* 吸底主按钮：过了首屏才出现，避免挡住 KV 上的大按钮 */
+  var fix = document.getElementById('ctaFix'), hero = document.getElementById('home');
+  function onScroll() {
+    if (!fix) return;
+    var past = window.scrollY > (hero ? hero.offsetHeight - 140 : 300);
+    fix.classList.toggle('show', past);
+  }
+  addEventListener('scroll', onScroll, { passive: true }); onScroll();
+})();
+</script>
 </body>
 </html>
