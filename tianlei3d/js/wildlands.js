@@ -56,6 +56,13 @@
       mountain: 0.010,
       moisture: 0.0026,
 
+      /* 画质档：low / mid / high（植被密度与网格密度随之切换） */
+      quality: 'mid',
+
+      /* 植被密度（0 = 关，手机卡就调低） */
+      vegDensity: 0.45,
+      treeDensity: 0.12,
+
       /* 昼夜 */
       daySpeed: 0.0035,       // 一圈约 285 秒；0 则静止
       startTime: 0.53,        // 0.25=正午 0.5=地平线 0.75=午夜 → 0.53 是「刚入夜的黄昏」
@@ -225,64 +232,101 @@
       this._skyMesh = mesh;
     },
 
-    /* ---- 水面（三角函数波 + 菲涅尔 + 高光）---- */
+    /* ---- 水面：3 波 + 海床深度感知 + 岸边泡沫 + SSS（移植 world3d）---- */
     _initWater: function () {
       var C = this.cfg;
-      var geo = new THREE.PlaneGeometry(9000, 9000, 1, 1);
+      var sb = this._buildSeabed();
+
+      var geo = new THREE.PlaneGeometry(9000, 9000, 48, 48);
       geo.rotateX(-Math.PI / 2);
 
       var mat = new THREE.ShaderMaterial({
-        transparent: true, depthWrite: false,
+        transparent: true,
         uniforms: {
           time: { value: 0 },
-          deep: { value: new THREE.Color(0.02, 0.07, 0.13) },
-          shallow: { value: new THREE.Color(0.10, 0.30, 0.36) },
+          deep: { value: new THREE.Color(0.012, 0.055, 0.115) },
+          shallow: { value: new THREE.Color(0.06, 0.34, 0.40) },
           foam: { value: new THREE.Color(0.95, 0.94, 0.92) },
+          sss: { value: new THREE.Color(0.10, 0.78, 0.68) },
           skyTop: { value: new THREE.Color(0.18, 0.34, 0.62) },
           skyBot: { value: new THREE.Color(0.72, 0.82, 0.92) },
           sunDir: { value: new THREE.Vector3(0.4, 0.7, 0.3) },
-          seaLevel: { value: C.seaLevel },
-          waveH: { value: 0.11 },
-          waveSpeed: { value: 0.22 }
+          camPos: { value: new THREE.Vector3() },
+          dayFactor: { value: 0.8 },
+          seabedTex: { value: sb.tex },
+          seaParams: { value: new THREE.Vector4(sb.R, sb.minH, sb.maxH, C.seaLevel) },
+          waveH: { value: 0.34 },
+          waveS: { value: 0.28 }
         },
         vertexShader: [
-          'varying vec3 vWPos;',
-          'uniform float time, waveH, waveSpeed, seaLevel;',
+          'uniform float time, waveH, waveS;',
+          'varying vec3 vWPos; varying vec3 vNrm; varying float vWave;',
+          'float wave(vec2 q, float t){',
+          '  return sin(q.x*0.055 + t)*0.5 + sin(q.y*0.047 - t*0.8)*0.5 + sin((q.x+q.y)*0.11 + t*1.3)*0.45;',
+          '}',
           'void main(){',
           '  vec3 p = position;',
+          '  float t = time * waveS;',
+          '  float h = wave(p.xz, t) * waveH;',
+          '  float hx = wave(p.xz + vec2(1.4, 0.0), t) * waveH;',
+          '  float hz = wave(p.xz + vec2(0.0, 1.4), t) * waveH;',
+          '  vNrm = normalize(vec3(-(hx - h)*0.55, 1.0, -(hz - h)*0.55));',
+          '  vWave = h;',
+          '  p.y += h;',
           '  vec4 wp = modelMatrix * vec4(p, 1.0);',
-          '  float w = sin(wp.x*0.035 + time*waveSpeed) * cos(wp.z*0.031 + time*waveSpeed*1.3);',
-          '  w += sin(wp.x*0.087 - time*waveSpeed*1.7) * 0.4;',
-          '  wp.y = seaLevel + w * waveH * 3.0;',
           '  vWPos = wp.xyz;',
           '  gl_Position = projectionMatrix * viewMatrix * wp;',
           '}'
         ].join('\n'),
         fragmentShader: [
-          'varying vec3 vWPos;',
-          'uniform vec3 deep, shallow, foam, skyTop, skyBot, sunDir;',
-          'uniform float time, seaLevel;',
+          'precision highp float;',
+          'varying vec3 vWPos; varying vec3 vNrm; varying float vWave;',
+          'uniform vec3 deep, shallow, foam, sss, skyTop, skyBot, sunDir, camPos;',
+          'uniform float time, dayFactor;',
+          'uniform sampler2D seabedTex;',
+          'uniform vec4 seaParams;',
+          'float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }',
+          'float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);',
+          '  return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),f.x), mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),f.x), f.y); }',
+          'float waterDepth(vec2 wxz){',
+          '  vec2 uv = (wxz + seaParams.x) / (2.0 * seaParams.x);',
+          '  uv = clamp(uv, 0.0, 1.0);',
+          '  float t = texture2D(seabedTex, uv).r;',
+          '  float hb = seaParams.y + t * (seaParams.z - seaParams.y);',
+          '  return seaParams.w - hb;',
+          '}',
           'void main(){',
-          '  vec3 V = normalize(cameraPosition - vWPos);',
-          '  float fres = pow(1.0 - max(V.y, 0.0), 3.0);',
-          '  vec3 col = mix(deep, shallow, 0.5);',
+          '  vec3 n = normalize(vNrm);',
+          '  vec3 V = normalize(camPos - vWPos);',
+          '  vec3 L = normalize(sunDir);',
+          '  float wd = max(waterDepth(vWPos.xz), 0.0);',
+          '  float depthF = clamp(wd / 16.0, 0.0, 1.0);',
+          '  vec3 col = mix(shallow, deep, depthF);',
+          '  float sssF = (1.0 - depthF) * max(dot(n, L), 0.0);',
+          '  col += sss * sssF * 0.55 * dayFactor;',
+          '  float fres = pow(1.0 - clamp(dot(n, V), 0.0, 1.0), 4.0);',
           '  vec3 skyRefl = mix(skyBot, skyTop, 0.5);',
-          '  col = mix(col, skyRefl, fres * 0.7);',
-          '  float spec = pow(max(dot(reflect(-normalize(sunDir), vec3(0.0,1.0,0.0)), V), 0.0), 60.0);',
-          '  col += vec3(1.0,0.92,0.8) * spec * 1.4;',
-          '  float n = sin(vWPos.x*0.7 + time*0.9) * cos(vWPos.z*0.63 - time*0.75);',
-          '  col += foam * max(0.0, n) * 0.05;',
-          '  gl_FragColor = vec4(col, 0.86);',
+          '  col = mix(col, skyRefl, fres * 0.75);',
+          '  float spec = pow(max(dot(reflect(-L, n), V), 0.0), 160.0);',
+          '  col += vec3(1.0, 0.97, 0.90) * spec * 2.2 * dayFactor;',
+          '  float shore = 1.0 - smoothstep(0.0, 0.9, wd);',
+          '  float fnoise = noise(vWPos.xz * 0.35 + vec2(time*0.5, -time*0.35));',
+          '  float foamF = clamp(shore * (0.35 + fnoise * 0.65), 0.0, 1.0);',
+          '  col = mix(col, foam, foamF * 0.85);',
+          '  float alpha = mix(0.22, 0.96, depthF);',
+          '  gl_FragColor = vec4(col, clamp(alpha, 0.05, 0.98));',
           '}'
         ].join('\n')
       });
+
       var mesh = new THREE.Mesh(geo, mat);
       mesh.position.y = C.seaLevel;
       mesh.frustumCulled = false;
-      mesh.renderOrder = -500;
+      mesh.renderOrder = 2;
       this.group.add(mesh);
       this.water = mesh;
     },
+
 
     /* ---- 光照：只加一个方向光 + 半球光（原来城里的灯不动）---- */
     _initLights: function () {
@@ -297,61 +341,144 @@
       this._hemi = hemi;
     },
 
+    /* 画质档：low 关植被省性能，mid/high 按密度开 */
+    setQuality: function (q) {
+      this.cfg.quality = q;
+      if (q === 'low') {
+        this.cfg.vegDensity = 0;
+        this.cfg.treeDensity = 0;
+        this.cfg.segments = 32;
+      } else if (q === 'high') {
+        this.cfg.vegDensity = 0.75;
+        this.cfg.treeDensity = 0.22;
+        this.cfg.segments = 56;
+      } else {
+        this.cfg.vegDensity = 0.45;
+        this.cfg.treeDensity = 0.12;
+        this.cfg.segments = 44;
+      }
+      // 重建已有区块（尺寸变了）
+      var keys = Object.keys(this.chunks);
+      for (var i = 0; i < keys.length; i++) {
+        var g = this.chunks[keys[i]];
+        if (g) {
+          try {
+            var veg = g.userData && g.userData.veg;
+            if (veg) { veg.traverse(function (o) { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); this.group.remove(veg); }
+            this.group.remove(g); g.geometry.dispose();
+          } catch (e) {}
+        }
+        delete this.chunks[keys[i]];
+      }
+      this._budget = 4;
+      return q;
+    },
+
     /* ------------------------------------------------------------------ */
-    /*  地形区块                                                           */
+    /*  地形材质：真 GLSL（多尺度噪声分色 + 高度/坡度混合 + 距离雾）      */
+    /*  移植自 world3d.js 的 _terrainMaterial，替换掉原来的顶点色方案     */
     /* ------------------------------------------------------------------ */
     _terrainMat: null,
     _terrainMaterial: function () {
       if (this._terrainMat) return this._terrainMat;
-      var mat = new THREE.MeshStandardMaterial({
-        vertexColors: true,
-        roughness: 0.95,
-        metalness: 0.02
+      var C = this.cfg;
+
+      var mat = new THREE.ShaderMaterial({
+        uniforms: {
+          sunDir: { value: new THREE.Vector3(0.4, 0.7, 0.3) },
+          snowLine: { value: C.mountainLevel + 30 },
+          treeLine: { value: C.treeLine },
+          beachLine: { value: C.beachLine },
+          dayFactor: { value: 0.8 },
+          fogColor: { value: new THREE.Color(0.16, 0.18, 0.24) },
+          time: { value: 0 }
+        },
+        vertexShader: [
+          'varying vec3 vWPos; varying vec3 vWNor; varying float vHeight;',
+          'void main(){',
+          '  vec4 wp = modelMatrix * vec4(position, 1.0);',
+          '  vWPos = wp.xyz; vHeight = position.y;',
+          '  vWNor = normalize(mat3(modelMatrix) * normal);',
+          '  gl_Position = projectionMatrix * viewMatrix * wp;',
+          '}'
+        ].join('\n'),
+        fragmentShader: [
+          'precision highp float;',
+          'varying vec3 vWPos; varying vec3 vWNor; varying float vHeight;',
+          'uniform vec3 sunDir; uniform float snowLine, treeLine, beachLine, dayFactor, time;',
+          'uniform vec3 fogColor;',
+          'float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }',
+          'float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);',
+          '  float a=hash(i),b=hash(i+vec2(1.0,0.0)),c=hash(i+vec2(0.0,1.0)),d=hash(i+vec2(1.0,1.0));',
+          '  return mix(mix(a,b,f.x),mix(c,d,f.x),f.y); }',
+          'float fbm(vec2 p){ float s=0.0,a=0.5; for(int i=0;i<5;i++){ s+=a*noise(p); p*=2.03; a*=0.5;} return s; }',
+          'void main(){',
+          '  vec3 n = normalize(vWNor);',
+          '  float sl = 1.0 - clamp(n.y, 0.0, 1.0);',
+          '  float macro = fbm(vWPos.xz*0.0026);',
+          '  float mid   = fbm(vWPos.xz*0.011 + 31.7);',
+          '  float fine  = fbm(vWPos.xz*0.085);',
+          '  vec3 cSand  = vec3(0.72, 0.66, 0.48);',
+          '  vec3 cGreen = vec3(0.17, 0.30, 0.12);',
+          '  vec3 cStraw = vec3(0.45, 0.40, 0.20);',
+          '  vec3 cDry   = vec3(0.36, 0.31, 0.17);',
+          '  vec3 cRock  = vec3(0.30, 0.27, 0.25);',
+          '  vec3 cRockD = vec3(0.18, 0.16, 0.15);',
+          '  vec3 cSnow  = vec3(0.92, 0.94, 0.98);',
+          '  vec3 grass = mix(cGreen, cStraw, smoothstep(0.34, 0.72, mid));',
+          '  grass = mix(grass, cDry, smoothstep(0.52, 0.86, macro));',
+          '  grass *= mix(0.82, 1.18, fine);',
+          '  vec3 rock = mix(cRock, cRockD, smoothstep(0.3, 0.9, fine));',
+          '  float rockW = smoothstep(0.34, 0.62, sl + (fine-0.5)*0.25);',
+          '  vec3 albedo = mix(grass, rock, rockW);',
+          '  float snowW = smoothstep(snowLine, snowLine + 34.0, vHeight) * (1.0 - sl*0.55);',
+          '  albedo = mix(albedo, cSnow, snowW);',
+          '  float beachW = smoothstep(beachLine + 1.6, beachLine - 0.6, vHeight);',
+          '  albedo = mix(albedo, cSand, beachW * (1.0 - rockW*0.6));',
+          '  float wet = smoothstep(0.8, -1.8, vHeight);',
+          '  albedo = mix(albedo, vec3(0.30, 0.34, 0.37), wet * 0.42);',
+          '  vec3 L = normalize(sunDir);',
+          '  float ndl = max(dot(n, L), 0.0);',
+          '  float sky = clamp(n.y*0.5+0.5, 0.0, 1.0);',
+          '  vec3 col = albedo * (ndl*1.25*dayFactor + sky*(0.35+0.35*dayFactor) + 0.06);',
+          '  col = mix(col, col * vec3(1.22, 1.00, 0.74), ndl * 0.55 * (1.0-dayFactor*0.5));',
+          '  float dist = length(cameraPosition - vWPos);',
+          '  float fog = 1.0 - exp(-dist*0.0011);',
+          '  col = mix(col, fogColor, clamp(fog, 0.0, 0.9));',
+          '  gl_FragColor = vec4(col, 1.0);',
+          '}'
+        ].join('\n')
       });
-      try {
-        if (root.ARENA && ARENA.matTex) {
-          var m2 = ARENA.matTex('grass', { rep: 60, rough: 0.95 });
-          if (m2 && m2.map) { mat.map = m2.map; }
-        }
-      } catch (e) {}
-      mat.needsUpdate = true;
       this._terrainMat = mat;
       return mat;
     },
 
-    _COL: {
-      sand: [0.76, 0.70, 0.52],
-      grass: [0.28, 0.42, 0.22],
-      rock: [0.38, 0.36, 0.34],
-      snow: [0.92, 0.94, 0.97]
-    },
-
-    _colorAt: function (h, slope) {
-      var C = this.cfg, K = this._COL;
-      var t;
-      if (h < C.beachLine) return K.sand;
-      if (h > C.mountainLevel + 30) return K.snow;
-      if (h > C.mountainLevel || slope > 0.55) {
-        t = Math.min(1, (h - C.treeLine) / 40);
-        return [
-          K.rock[0] + (K.snow[0] - K.rock[0]) * t * 0.55,
-          K.rock[1] + (K.snow[1] - K.rock[1]) * t * 0.55,
-          K.rock[2] + (K.snow[2] - K.rock[2]) * t * 0.55
-        ];
+    /* 海床高度图：给水面做"水深感知"（不用深度纹理，手机上便宜得多） */
+    _buildSeabed: function () {
+      if (this.seabed) return this.seabed;
+      var N = 128, R = 2600, minH = -30, maxH = 40;
+      var data = new Uint8Array(N * N * 4);
+      for (var iz = 0; iz < N; iz++) {
+        for (var ix = 0; ix < N; ix++) {
+          var wx = -R + (ix + 0.5) / N * 2 * R;
+          var wz = -R + (iz + 0.5) / N * 2 * R;
+          var h = this.heightAt(wx, wz);
+          var v = Math.max(0, Math.min(255, Math.round((h - minH) / (maxH - minH) * 255)));
+          var i = (iz * N + ix) * 4;
+          data[i] = v; data[i + 1] = v; data[i + 2] = v; data[i + 3] = 255;
+        }
       }
-      t = Math.min(1, (h - C.beachLine) / 8);
-      return [
-        K.sand[0] + (K.grass[0] - K.sand[0]) * t,
-        K.sand[1] + (K.grass[1] - K.sand[1]) * t,
-        K.sand[2] + (K.grass[2] - K.sand[2]) * t
-      ];
+      var tex = new THREE.DataTexture(data, N, N, THREE.RGBAFormat);
+      tex.minFilter = THREE.LinearFilter; tex.magFilter = THREE.LinearFilter;
+      tex.needsUpdate = true;
+      this.seabed = { tex: tex, R: R, minH: minH, maxH: maxH };
+      return this.seabed;
     },
 
     _makeChunk: function (cx, cz) {
       var C = this.cfg, seg = C.segments, cs = C.chunkSize;
       var ox = cx * cs, oz = cz * cs;
 
-      // 整块都在城里 → 不生成（省性能，也避免和地面打架）
       if (ox > C.cityMinX - cs && ox < C.cityMaxX + cs &&
           oz > C.cityMinZ - cs && oz < C.cityMaxZ + cs) {
         this.chunks[cx + ',' + cz] = null;
@@ -361,33 +488,100 @@
       var geo = new THREE.PlaneGeometry(cs, cs, seg, seg);
       geo.rotateX(-Math.PI / 2);
       var pos = geo.attributes.position;
-      var colArr = new Float32Array(pos.count * 3);
-
       for (var i = 0; i < pos.count; i++) {
         var x = pos.getX(i) + ox;
         var z = pos.getZ(i) + oz;
-        var h = this.heightAt(x, z);
-        pos.setY(i, h);
-
-        var hx = this.heightAt(x + 2, z) - this.heightAt(x - 2, z);
-        var hz = this.heightAt(x, z + 2) - this.heightAt(x, z - 2);
-        var slope = Math.min(1, Math.sqrt(hx * hx + hz * hz) / 8);
-
-        var c = this._colorAt(h, slope);
-        colArr[i * 3] = c[0]; colArr[i * 3 + 1] = c[1]; colArr[i * 3 + 2] = c[2];
+        pos.setY(i, this.heightAt(x, z));
       }
-      geo.setAttribute('color', new THREE.BufferAttribute(colArr, 3));
       geo.computeVertexNormals();
 
       var mesh = new THREE.Mesh(geo, this._terrainMaterial());
       mesh.position.set(ox, 0, oz);
-      mesh.receiveShadow = false;
       mesh.frustumCulled = true;
-
       this.group.add(mesh);
       this.chunks[cx + ',' + cz] = mesh;
       this._built++;
+
+      /* 植被：InstancedMesh，一次 draw call 出上千棵 */
+      var veg = this._makeVegetation(ox, oz, cs);
+      if (veg) {
+        if (!mesh.userData) mesh.userData = {};
+        mesh.userData.veg = veg;
+      }
     },
+
+    /* 植被：草丛 + 树（照搬 world3d 的做法） */
+    _makeVegetation: function (ox, oz, cs) {
+      if (this.cfg.vegDensity <= 0) return null;
+      var C = this.cfg, TH = root.THREE;
+
+      var spots = [], N = 12;
+      for (var i = 0; i < N; i++) {
+        for (var j = 0; j < N; j++) {
+          var lx = (i / N) * cs + (Math.random() - 0.5) * (cs / N);
+          var lz = (j / N) * cs + (Math.random() - 0.5) * (cs / N);
+          var wx = ox + lx, wz = oz + lz;
+          var h = this.heightAt(wx, wz);
+          if (h < C.beachLine + 1 || h > C.treeLine) continue;
+          var moist = this._fbm(wx * C.moisture, wz * C.moisture, 2);
+          if (moist < 0.30) continue;
+          spots.push([lx, h, lz, moist]);
+        }
+      }
+      if (!spots.length) return null;
+
+      var group = new TH.Group();
+
+      var grassGeo = new TH.ConeGeometry(0.07, 0.55, 3, 1, true);
+      grassGeo.translate(0, 0.5, 0);
+      var grassMat = new TH.MeshStandardMaterial({ color: 0x4d7c2a, roughness: 1.0, side: TH.DoubleSide });
+      var gn = Math.min(spots.length, Math.floor(spots.length * C.vegDensity));
+      if (gn > 0) {
+        var grass = new TH.InstancedMesh(grassGeo, grassMat, gn);
+        var m4 = new TH.Matrix4(), q = new TH.Quaternion(), sc = new TH.Vector3(), tp = new TH.Vector3();
+        for (var k = 0; k < gn; k++) {
+          var s = spots[k % spots.length];
+          var sz = 0.7 + Math.random() * 1.1;
+          tp.set(s[0], s[1], s[2]);
+          q.setFromEuler(new TH.Euler(0, Math.random() * Math.PI * 2, (Math.random() - 0.5) * 0.25));
+          sc.set(sz, sz * (0.9 + Math.random() * 0.6), sz);
+          m4.compose(tp, q, sc);
+          grass.setMatrixAt(k, m4);
+        }
+        grass.frustumCulled = false;
+        group.add(grass);
+      }
+
+      var treeN = Math.min(Math.floor(spots.length * C.treeDensity), 20);
+      if (treeN > 0) {
+        var trunkGeo = new TH.CylinderGeometry(0.17, 0.26, 3.4, 6);
+        trunkGeo.translate(0, 1.7, 0);
+        var crownGeo = new TH.ConeGeometry(1.7, 5.2, 8);
+        crownGeo.translate(0, 5.2, 0);
+        var trunkMat = new TH.MeshStandardMaterial({ color: 0x3a2a1a, roughness: 1 });
+        var crownMat = new TH.MeshStandardMaterial({ color: 0x2f5c22, roughness: 1 });
+        var trunks = new TH.InstancedMesh(trunkGeo, trunkMat, treeN);
+        var crowns = new TH.InstancedMesh(crownGeo, crownMat, treeN);
+        var m42 = new TH.Matrix4(), q2 = new TH.Quaternion(), sc2 = new TH.Vector3(), tp2 = new TH.Vector3();
+        for (var t = 0; t < treeN; t++) {
+          var sp = spots[Math.floor(Math.random() * spots.length)];
+          var s2 = 0.75 + Math.random() * 0.8;
+          tp2.set(sp[0], sp[1], sp[2]);
+          q2.setFromEuler(new TH.Euler(0, Math.random() * Math.PI * 2, 0));
+          sc2.set(s2, s2, s2);
+          m42.compose(tp2, q2, sc2);
+          trunks.setMatrixAt(t, m42);
+          crowns.setMatrixAt(t, m42);
+        }
+        trunks.frustumCulled = false; crowns.frustumCulled = false;
+        group.add(trunks); group.add(crowns);
+      }
+
+      this.group.add(group);
+      return group;
+    },
+
+
 
     /* 以玩家为中心流式加载/卸载 */
     updateChunks: function (px, pz, budget) {
@@ -408,6 +602,17 @@
         if (Math.abs(+p[0] - ccx) > vc + 1 || Math.abs(+p[1] - ccz) > vc + 1) {
           var g = this.chunks[kk];
           if (g) {
+            // 先拆植被子组（InstancedMesh 也要 dispose，否则显存泄漏）
+            try {
+              var veg = g.userData && g.userData.veg;
+              if (veg) {
+                veg.traverse(function (o) {
+                  if (o.geometry) o.geometry.dispose();
+                  if (o.material) o.material.dispose();
+                });
+                this.group.remove(veg);
+              }
+            } catch (e) {}
             this.group.remove(g);
             try { g.geometry.dispose(); } catch (e) {}
           }
@@ -457,10 +662,35 @@
         this._skyMesh.position.set(px || 0, 0, pz || 0);
       }
 
+      /* ★ 把昼夜参数同步给地形材质（日落镀金 / 岩石明暗） */
+      try {
+        if (this._terrainMat && this._terrainMat.uniforms) {
+          var tu = this._terrainMat.uniforms;
+          tu.sunDir.value.copy(dir);
+          tu.time.value += dt;
+          var dayT = Math.max(0, sy);
+          tu.dayFactor.value = 0.10 + dayT * 0.90;
+          // 雾色跟着天色：夜偏蓝黑，黄昏偏暖
+          var duskT = 1 - Math.min(1, dayT * 2.2);
+          tu.fogColor.value.setRGB(
+            0.05 + dayT * 0.12 + duskT * 0.09,
+            0.06 + dayT * 0.14 + duskT * 0.04,
+            0.11 + dayT * 0.17 - duskT * 0.02
+          );
+        }
+      } catch (e) {}
+
       if (this.water) {
         var wu = this.water.material.uniforms;
         wu.time.value += dt;
         wu.sunDir.value.copy(dir);
+        var dayW = Math.max(0, sy);
+        wu.dayFactor.value = 0.12 + dayW * 0.88;
+        // 相机位置：水的菲涅尔/高光需要
+        try {
+          var cam = root.ARENA && ARENA.camera;
+          if (cam && cam.position) wu.camPos.value.copy(cam.position);
+        } catch (e) {}
         if (this._skyMesh) {
           wu.skyTop.value.copy(this._skyMesh.material.uniforms.topColor.value);
           wu.skyBot.value.copy(this._skyMesh.material.uniforms.botColor.value);

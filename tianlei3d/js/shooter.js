@@ -3395,6 +3395,18 @@ function bindUI() {
     }
     Sfx.ui();
   });
+  /* ★ 植被画质：低/中/高（低端机关掉植被能省不少） */
+  _on('bVeg', 'click', function () {
+    var W = window.Wildlands; if (!W || !W.inited) { HUD.center('远景未就绪', '', 1200); return; }
+    var order = ['low', 'mid', 'high'], names = { low: '低', mid: '中', high: '高' };
+    var cur = W.cfg.quality || 'mid';
+    var nx = order[(order.indexOf(cur) + 1) % 3];
+    W.setQuality(nx);
+    this.textContent = '植被:' + names[nx];
+    this.className = nx === 'mid' ? 'on' : '';
+    HUD.center('植被画质 · ' + names[nx], nx === 'low' ? '已关植被（省性能）' : (nx === 'high' ? '最密（吃性能）' : '平衡'), 1800);
+    Sfx.ui();
+  });
   _on('bFx', 'click', function () {
     if (HOST && window.__OCTO && window.__OCTO.setFx) { var v = !window.__OCTO.getFx(); window.__OCTO.setFx(v); this.textContent = '后处理' + (v ? '' : '(关)'); this.className = v ? 'on' : ''; return; }
     FXp.on = !FXp.on; this.textContent = '后处理' + (FXp.on ? '' : '(关)'); this.className = FXp.on ? 'on' : '';
