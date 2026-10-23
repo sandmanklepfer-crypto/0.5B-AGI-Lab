@@ -364,3 +364,71 @@ button{font-family:inherit}
   .inv-vs{transform:rotate(90deg);padding:4px 0}
   .inv-tiers{grid-template-columns:repeat(2,1fr)}
 }
+
+/* ==========================================================================
+   ★ 世界数据板块（2026-10）—— 公开的访问统计 / 趋势 / 地区 / 访客墙
+   原则：只展示昵称和地区，绝不显示 IP；数字都来自 stats/*.json 真实归档
+   ========================================================================== */
+.st-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.st-kpi{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+  padding:17px 12px;text-align:center}
+.st-kpi .n{font-size:clamp(26px,4vw,34px);font-weight:900;line-height:1.05;
+  background:linear-gradient(96deg,#fff,#c084fc 55%,#22d3ee);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.st-kpi.gold .n{background:linear-gradient(96deg,#fff,#ffd166 55%,#ff9d5c);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.st-kpi .l{font-size:11.5px;color:var(--tx3);margin-top:7px;letter-spacing:.05em}
+
+.st-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;margin-bottom:16px}
+.st-card{position:relative}
+.st-card h3{margin:0 0 14px;font-size:14px;letter-spacing:.04em;color:#ddd2f5;font-weight:700}
+.st-card h3 .st-wall-sub{font-size:11px;color:var(--tx3);font-weight:400;letter-spacing:0}
+
+/* 柱状图 */
+.st-chart{display:flex;align-items:flex-end;gap:5px;height:150px}
+.st-chart .b{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  gap:4px;min-width:0}
+.st-chart .b .v{font-size:10.5px;color:var(--tx2);font-weight:700}
+.st-chart .b .bar{width:100%;max-width:44px;border-radius:5px 5px 2px 2px;
+  background:linear-gradient(180deg,#c084fc,#7c3aed);box-shadow:0 0 12px rgba(168,85,247,.35)}
+.st-chart .b.today .bar{background:linear-gradient(180deg,#22d3ee,#0891b2);
+  box-shadow:0 0 16px rgba(34,211,238,.6)}
+.st-chart .b .d{font-size:9.5px;color:var(--tx3);white-space:nowrap}
+.st-note{margin-top:11px;font-size:11px;color:var(--tx3);line-height:1.7}
+.st-empty{color:var(--tx3);font-size:13px;padding:26px 0;text-align:center;line-height:1.9}
+
+/* 地区条 */
+.st-reg{display:flex;align-items:center;gap:9px;margin:8px 0}
+.st-reg .name{width:132px;font-size:12px;color:#d9cff0;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.st-reg .track{flex:1;height:9px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden}
+.st-reg .track i{display:block;height:100%;border-radius:999px;
+  background:linear-gradient(90deg,#c084fc,#22d3ee)}
+.st-reg .num{width:24px;text-align:right;font-size:12px;font-weight:700;color:var(--gold)}
+
+/* 访客墙 */
+.st-wall-card{margin-bottom:16px}
+.st-wall{display:flex;flex-wrap:wrap;gap:9px}
+.st-av{display:flex;align-items:center;gap:9px;padding:8px 13px 8px 9px;border-radius:999px;
+  background:rgba(30,20,50,.72);border:1px solid rgba(168,85,247,.28);
+  transition:transform .18s,border-color .18s}
+.st-av:hover{transform:translateY(-2px);border-color:var(--neon)}
+.st-av .face{width:28px;height:28px;border-radius:50%;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;font-size:14px;
+  background:linear-gradient(135deg,rgba(168,85,247,.55),rgba(34,211,238,.4));
+  border:1px solid rgba(255,255,255,.18)}
+.st-av .info{min-width:0;line-height:1.32}
+.st-av .nm{font-size:12.5px;color:#fff;font-weight:600;white-space:nowrap}
+.st-av .rg{font-size:10px;color:var(--tx3);white-space:nowrap}
+.st-av.new{border-color:rgba(74,222,128,.5);background:rgba(74,222,128,.10)}
+.st-av.new .rg::after{content:' · 今天刚来';color:#a7f3c0}
+
+.st-more{text-align:center;margin-top:6px}
+.st-more .btn{font-size:14px;padding:13px 28px}
+
+@media (max-width:899px){
+  .st-kpis{grid-template-columns:repeat(2,1fr)}
+  .st-grid{grid-template-columns:1fr}
+  .st-chart{height:118px}
+  .st-reg .name{width:104px;font-size:11.5px}
+}

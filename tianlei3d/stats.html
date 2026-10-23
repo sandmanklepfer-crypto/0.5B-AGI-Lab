@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#06050d">
+<title>访问数据 · 天泪纪元</title>
+<link rel="icon" href="icon-192.png">
+<style>
+  :root{--bg:#06050d;--panel:rgba(16,12,32,.84);--line:rgba(168,85,247,.30);
+    --neon:#c084fc;--cy:#22d3ee;--tx:#ece7f7;--tx2:#a99fc4;--tx3:#7d7398;--gold:#ffd166;--ok:#4ade80}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--tx);
+    font-family:"Noto Sans SC",system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  body{min-height:100vh;padding:22px 14px 60px;
+    background:radial-gradient(1000px 560px at 50% -10%,rgba(168,85,247,.18),transparent 70%)}
+  .wrap{max-width:1080px;margin:0 auto}
+  h1{margin:0 0 4px;font-size:21px;letter-spacing:.05em}
+  .sub{margin:0 0 22px;font-size:12.5px;color:var(--tx3);line-height:1.9}
+  .sub b{color:var(--gold)}
+  /* 概览四格 */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 14px;text-align:center}
+  .kpi .n{font-size:31px;font-weight:900;line-height:1.1;
+    background:linear-gradient(96deg,#fff,#c084fc 60%,#22d3ee);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .kpi .l{font-size:11.5px;color:var(--tx3);margin-top:6px;letter-spacing:.05em}
+  .kpi.gold .n{background:linear-gradient(96deg,#fff,#ffd166 60%,#ff9d5c);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  /* 图表 */
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:16px}
+  .card h2{margin:0 0 14px;font-size:14px;letter-spacing:.08em;color:#d9cff0;font-weight:700}
+  .chart{display:flex;align-items:flex-end;gap:6px;height:170px;padding-top:8px}
+  .bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+    gap:5px;min-width:0;cursor:default;position:relative}
+  .bar .v{font-size:11px;color:var(--tx2);font-weight:700}
+  .bar .b{width:100%;max-width:52px;border-radius:6px 6px 3px 3px;
+    background:linear-gradient(180deg,#c084fc,#7c3aed);transition:opacity .15s;
+    box-shadow:0 0 14px rgba(168,85,247,.4)}
+  .bar.today .b{background:linear-gradient(180deg,#22d3ee,#0891b2);
+    box-shadow:0 0 18px rgba(34,211,238,.6)}
+  .bar .d{font-size:10px;color:var(--tx3);white-space:nowrap}
+  .bar:hover .b{opacity:.8}
+  /* 表格 */
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;font-weight:600;color:var(--tx3);font-size:11px;letter-spacing:.06em;
+    padding:7px 8px;border-bottom:1px solid var(--line)}
+  td{padding:8px;border-bottom:1px solid rgba(255,255,255,.045);color:var(--tx2)}
+  td b{color:#fff;font-weight:600}
+  tr:last-child td{border-bottom:0}
+  .tag-s{font-size:10px;padding:2px 7px;border-radius:999px;background:rgba(168,85,247,.2);
+    border:1px solid rgba(168,85,247,.4);color:#d9c8ff;margin-left:5px}
+  .tag-w{background:rgba(248,113,113,.18);border-color:rgba(248,113,113,.45);color:#fca5a5}
+  .tag-g{background:rgba(74,222,128,.16);border-color:rgba(74,222,128,.45);color:#a7f3c0}
+  .tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .tabs button{padding:9px 18px;border-radius:11px;border:1px solid var(--line);
+    background:rgba(30,20,50,.7);color:var(--tx2);font-family:inherit;font-size:13px;cursor:pointer}
+  .tabs button.on{background:rgba(168,85,247,.4);border-color:var(--neon);color:#fff;font-weight:700}
+  .empty{text-align:center;color:var(--tx3);padding:30px 0;font-size:13px;line-height:2}
+  .foot{margin-top:22px;font-size:11.5px;color:var(--tx3);line-height:1.9;text-align:center}
+  @media(max-width:760px){
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .chart{height:130px}
+  }
+</style>
+</head>
+<body data-track="stats">
+<div class="wrap">
+  <h1>📊 访问数据</h1>
+  <p class="sub" id="sub">正在读取 stats/history.json …</p>
+
+  <div class="kpis">
+    <div class="kpi"><div class="n" id="kToday">—</div><div class="l">今日真人</div></div>
+    <div class="kpi"><div class="n" id="kNew">—</div><div class="l">今日新访客</div></div>
+    <div class="kpi gold"><div class="n" id="kAll">—</div><div class="l">累计真人</div></div>
+    <div class="kpi"><div class="n" id="kInv">—</div><div class="l">累计邀请</div></div>
+  </div>
+
+  <div class="card">
+    <h2>每日到访（真人，已排除机房 IP）</h2>
+    <div class="chart" id="chart"></div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button data-t="today" class="on">今日明细</button>
+    <button data-t="regions">地区分布</button>
+    <button data-t="invites">邀请排行</button>
+  </div>
+
+  <div class="card" id="panel"></div>
+
+  <div class="foot">
+    数据每天北京时间 23:40 自动归档（00:30 兜底）<br>
+    「真人」已剔除机房 / 代理 IP · 同 IP 多设备单独标注，不合并
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (s) { return document.querySelector(s); };
+  var H = null, CUR = 'today';
+
+  function fmtTime(ms) {
+    if (!ms) return '—';
+    var d = new Date(ms);
+    var p = function (n) { return n < 10 ? '0' + n : n; };
+    return p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+  function dayStr(d) {
+    var p = function (n) { return n < 10 ? '0' + n : n; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+
+  function load() {
+    return fetch('stats/history.json', { cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (j) { H = j; render(); })
+      .catch(function (e) {
+        $('#sub').innerHTML = '读取失败：' + esc(e.message) +
+          '<br><span style="color:#7d7398">（第一次快照还没跑过？可以在仓库 Actions 里手动触发「访客快照」）</span>';
+        $('#chart').innerHTML = '<div class="empty">暂无数据</div>';
+      });
+  }
+
+  function render() {
+    var daily = H.daily || {};
+    var today = dayStr(new Date());
+    var t = daily[today] || null;
+
+    var allReal = (H.summary && H.summary.allReal) || 0;
+    var inv = (H.summary && H.summary.totalInvites) || 0;
+
+    $('#kToday').textContent = t ? t.real : 0;
+    $('#kNew').textContent = t ? t.new : 0;
+    $('#kAll').textContent = allReal;
+    $('#kInv').textContent = inv;
+    $('#sub').innerHTML = '累计 <b>' + ((H.summary && H.summary.allPeople) || 0) +
+      '</b> 条记录 / <b>' + ((H.summary && H.summary.days) || 0) + '</b> 天 · 最后更新 ' +
+      (H.updatedAt ? new Date(H.updatedAt).toLocaleString('zh-CN') : '—');
+
+    /* 近 14 天柱状图 */
+    var days = Object.keys(daily).sort().slice(-14);
+    if (!days.length) { $('#chart').innerHTML = '<div class="empty">暂无数据</div>'; }
+    else {
+      var max = Math.max.apply(null, days.map(function (d) { return daily[d].real || 0; }).concat([1]));
+      $('#chart').innerHTML = days.map(function (d) {
+        var v = daily[d].real || 0, h = Math.max(3, v / max * 130);
+        var isT = (d === today);
+        return '<div class="bar' + (isT ? ' today' : '') + '" title="' + d + '：' + v + ' 人">' +
+          '<div class="v">' + v + '</div>' +
+          '<div class="b" style="height:' + h + 'px"></div>' +
+          '<div class="d">' + d.slice(5) + '</div></div>';
+      }).join('');
+    }
+    paintPanel();
+  }
+
+  function paintPanel() {
+    var daily = H.daily || {}, today = dayStr(new Date());
+    if (CUR === 'today') {
+      var doc = (window.__dayCache && window.__dayCache[today]) || null;
+      if (!doc) {
+        fetch('stats/' + today + '.json', { cache: 'no-store' })
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            window.__dayCache = window.__dayCache || {};
+            window.__dayCache[today] = j;
+            paintPanel();
+          })
+          .catch(function () {
+            $('#panel').innerHTML = '<div class="empty">今天的快照还没生成<br>（每晚 23:40 自动跑，也可在 Actions 手动触发）</div>';
+          });
+        $('#panel').innerHTML = '<div class="empty">读取今日明细…</div>';
+        return;
+      }
+      var vs = (doc.visitors || []);
+      if (!vs.length) { $('#panel').innerHTML = '<div class="empty">今天还没有人进来</div>'; return; }
+      $('#panel').innerHTML =
+        '<h2>今日明细（' + today + ' · ' + doc.totals.records + ' 条 / 真人 ' + doc.totals.real + '）</h2>' +
+        '<table><thead><tr><th>时间</th><th>名字</th><th>新/回</th><th>设备</th><th>地区</th><th>看过</th></tr></thead><tbody>' +
+        vs.map(function (x) {
+          var pages = Object.keys(x.pages || {}).filter(function (k) { return x.pages[k]; });
+          return '<tr><td>' + fmtTime(x.lastAt) + '</td>' +
+            '<td><b>' + esc(x.name || '(未起名)') + '</b>' +
+            (x.suspect ? '<span class="tag-s tag-w">机房</span>' : '') + '</td>' +
+            '<td>' + (x.isNew ? '<span class="tag-s tag-g">新</span>' : '<span class="tag-s">回</span>') + '</td>' +
+            '<td>' + esc((x.plat || '') + ' ' + (x.cores ? x.cores + '核' : '')) + '</td>' +
+            '<td>' + esc(x.geo || '未知') + '</td>' +
+            '<td>' + esc(pages.join('/') || '—') + '</td></tr>';
+        }).join('') + '</tbody></table>';
+      return;
+    }
+
+    if (CUR === 'regions') {
+      var doc2 = (window.__dayCache && window.__dayCache[today]) || null;
+      if (!doc2) {
+        fetch('stats/' + today + '.json', { cache: 'no-store' }).then(function (r) { return r.json(); })
+          .then(function (j) { window.__dayCache = window.__dayCache || {}; window.__dayCache[today] = j; paintPanel(); })
+          .catch(function () { $('#panel').innerHTML = '<div class="empty">今日快照未生成</div>'; });
+        $('#panel').innerHTML = '<div class="empty">读取中…</div>';
+        return;
+      }
+      var regs = doc2.regions || {};
+      var ks = Object.keys(regs).sort(function (a, b) { return regs[b] - regs[a]; });
+      if (!ks.length) { $('#panel').innerHTML = '<div class="empty">今天还没有真人访客</div>'; return; }
+      var mx = regs[ks[0]] || 1;
+      $('#panel').innerHTML = '<h2>今日地区分布（真人 ' + doc2.totals.real + ' 人）</h2>' +
+        ks.map(function (k) {
+          return '<div style="display:flex;align-items:center;gap:10px;margin:9px 0">' +
+            '<span style="width:150px;font-size:12.5px;color:#d9cff0">' + esc(k) + '</span>' +
+            '<span style="flex:1;height:10px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden">' +
+            '<i style="display:block;height:100%;width:' + (regs[k] / mx * 100) + '%;border-radius:999px;' +
+            'background:linear-gradient(90deg,#c084fc,#22d3ee)"></i></span>' +
+            '<b style="width:28px;text-align:right;color:#ffd166">' + regs[k] + '</b></div>';
+        }).join('');
+      return;
+    }
+
+    /* 邀请排行 */
+    var inv = H.invites || {};
+    var rows = Object.keys(inv).map(function (k) {
+      return { uid: k, n: Object.keys(inv[k] || {}).length };
+    }).sort(function (a, b) { return b.n - a.n; });
+    if (!rows.length) {
+      $('#panel').innerHTML = '<div class="empty">还没有人通过邀请进来<br>' +
+        '<span style="font-size:12px">发一张带邀请码的海报就能开始统计</span></div>';
+      return;
+    }
+    $('#panel').innerHTML = '<h2>邀请排行（谁最会拉人）</h2><table><thead><tr>' +
+      '<th>#</th><th>邀请人</th><th>拉来人数</th><th>应得积分</th><th>称号</th></tr></thead><tbody>' +
+      rows.map(function (r, i) {
+        var n = r.n, pts = n * 30 + (n >= 20 ? 800 : n >= 10 ? 300 : n >= 5 ? 100 : 0);
+        var title = n >= 20 ? '筑城之魂' : n >= 10 ? '开城者' : n >= 5 ? '引路人' : (n >= 3 ? '神器持有者' : '旅人');
+        return '<tr><td>' + (i + 1) + '</td><td><b>' + esc(r.uid) + '</b></td>' +
+          '<td><b style="color:#ffd166">' + n + '</b></td><td>' + pts + '</td><td>' + title + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+
+  $('#tabs').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    [].forEach.call(this.children, function (x) { x.classList.remove('on'); });
+    b.classList.add('on');
+    CUR = b.dataset.t;
+    paintPanel();
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>

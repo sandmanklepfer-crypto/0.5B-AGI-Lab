@@ -21,6 +21,7 @@
     <a href="#media">实机</a>
     <a href="#play">怎么玩</a>
     <a href="#download">下载</a>
+    <a href="#stats">世界数据</a>
     <a href="forum.html">玩家社区</a>
     <a class="btn sm" href="../index.html" style="padding:9px 20px;font-size:13.5px">立即游玩</a>
   </div>
@@ -371,10 +372,62 @@
   </div>
 </section>
 
+<!-- ================= ★ 世界数据（公开：累计/趋势/地区/访客墙） ================= -->
+<section class="sec wrap" id="stats">
+  <h2 class="sec-title">世 界 数 据</h2>
+  <p class="sec-sub">全部真实统计 · 不含水分 —— <b>每天自动归档，历史不会丢</b></p>
+
+  <div class="st-kpis">
+    <div class="st-kpi">
+      <div class="n" id="stAll">—</div>
+      <div class="l">累计来过的真人</div>
+    </div>
+    <div class="st-kpi">
+      <div class="n" id="stToday">—</div>
+      <div class="l">今天来了几个</div>
+    </div>
+    <div class="st-kpi gold">
+      <div class="n" id="stNew">—</div>
+      <div class="l">今天新面孔</div>
+    </div>
+    <div class="st-kpi">
+      <div class="n" id="stDays">—</div>
+      <div class="l">已记录天数</div>
+    </div>
+  </div>
+
+  <div class="st-grid">
+    <!-- 左：历史趋势 -->
+    <div class="card st-card">
+      <h3>📈 每天有多少人进来</h3>
+      <div class="st-chart" id="stChart"><div class="st-empty">读取中…</div></div>
+      <div class="st-note">柱高＝当天真人访客数（已剔除机房/代理 IP）</div>
+    </div>
+
+    <!-- 右：地区分布 -->
+    <div class="card st-card">
+      <h3>🗺 他们都从哪儿来</h3>
+      <div id="stRegion"><div class="st-empty">读取中…</div></div>
+      <div class="st-note">按今日真人访客的城市归属统计</div>
+    </div>
+  </div>
+
+  <!-- 访客墙 -->
+  <div class="card st-card st-wall-card">
+    <h3>👣 来过的旅人 <span class="st-wall-sub">最近 12 位（只显示昵称和地区，不显示任何 IP）</span></h3>
+    <div class="st-wall" id="stWall"><div class="st-empty">读取中…</div></div>
+  </div>
+
+  <div class="st-more">
+    <a class="btn ghost" href="../stats.html">📊 查看完整数据看板（含邀请排行）</a>
+  </div>
+</section>
+
 <footer class="foot">
   <div class="wrap">
     天泪纪元 · 官方站 &nbsp;|&nbsp; <a href="forum.html">玩家社区</a> &nbsp;|&nbsp;
-    <a href="../index.html">开始游玩</a> &nbsp;|&nbsp; <a href="../hub.html">下载 / 邀请</a><br>
+    <a href="../index.html">开始游玩</a> &nbsp;|&nbsp; <a href="../hub.html">下载 / 邀请</a> &nbsp;|&nbsp;
+    <a href="../poster/gallery.html">海报</a> &nbsp;|&nbsp; <a href="../stats.html">数据</a><br>
     免费 · 免注册 · 联机走公共实时通道，不依赖自建服务器<br>
     <span style="opacity:.6">建议在网络良好环境下游玩 · 未成年人请在监护人指导下使用</span>
   </div>
@@ -464,6 +517,7 @@
 <script src="../js/fp.js"></script>
 <!-- ★ 积分 / 福利 / 实时人气 -->
 <script src="js/rewards.js?v=1792761000"></script>
+<script src="js/live-stats.js?v=1792761000"></script>
 <script>
 (function () {
   'use strict';
