@@ -48,6 +48,25 @@
   .flash.on{opacity:1;transform:translate(-50%,0)}
   .inv{font-size:12px;color:var(--tx3);margin-top:8px;word-break:break-all;line-height:1.7}
   .inv b{color:var(--cy)}
+  /* ★ 分享奖励说明 */
+  .reward{margin-top:14px;padding:14px;border-radius:14px;
+    background:linear-gradient(120deg,rgba(255,209,102,.12),rgba(168,85,247,.12));
+    border:1px solid rgba(255,209,102,.40)}
+  .reward-h{font-size:13px;font-weight:800;color:#ffe9b8;margin-bottom:11px;letter-spacing:.03em}
+  .reward-row{display:flex;gap:10px;margin-bottom:11px}
+  .reward-row>div{flex:1;background:rgba(10,8,22,.6);border:1px solid rgba(255,209,102,.28);
+    border-radius:11px;padding:9px 6px;text-align:center}
+  .reward-row b{display:block;font-size:23px;font-weight:900;line-height:1.1;
+    background:linear-gradient(96deg,#fff,#ffd166 60%,#ff9d5c);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .reward-row span{font-size:10.5px;color:var(--tx3)}
+  .reward-mile{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:10px}
+  .reward-mile span{font-size:10px;text-align:center;color:var(--tx3);
+    background:rgba(30,20,50,.7);border:1px solid rgba(168,85,247,.28);
+    border-radius:8px;padding:5px 2px;line-height:1.4}
+  .reward-mile b{display:block;color:var(--gold);font-size:11.5px}
+  .reward-now{font-size:11.5px;color:var(--tx2);text-align:center}
+  .reward-now b{color:var(--gold);font-size:14px}
 </style>
 </head>
 <body data-track="poster">
@@ -94,6 +113,24 @@
 
     <div class="inv">你的专属链接：<b id="invUrl">—</b></div>
 
+    <!-- ★ 分享奖励说明书（这是别人愿意转发的理由） -->
+    <div class="reward">
+      <div class="reward-h">🎁 转发这张海报，两边都有奖</div>
+      <div class="reward-row">
+        <div><b>+50</b><span>新玩家见面礼</span></div>
+        <div><b>+30</b><span>你每拉一人</span></div>
+      </div>
+      <div class="reward-mile">
+        <span><b>3 人</b> 神器</span>
+        <span><b>5 人</b> 引路人</span>
+        <span><b>10 人</b> 开城者</span>
+        <span><b>20 人</b> 筑城之魂</span>
+      </div>
+      <div class="reward-now">我已拉来 <b id="invCount">0</b> 人 · 累计 <b id="invReward">0</b> 分
+        <span id="invMile" style="display:block;color:var(--tx3);font-size:11px;margin-top:4px"></span>
+      </div>
+    </div>
+
     <div class="hint">
       · 二维码用的是<b>你的邀请链接</b>，别人扫码进来直接进同一个世界、落在你身边。<br>
       · 想让更多人点进来：把人名/群名写进「一句话」里，转化会明显更高。<br>
@@ -106,6 +143,8 @@
 
 <script src="js/vendor/qrcode.js"></script>
 <script src="js/fp.js"></script>
+<!-- ★ 积分与邀请（填 invCount / invReward / invMile / invBy） -->
+<script src="site/js/rewards.js?v=1792761000"></script>
 <script>
 (function () {
   'use strict';

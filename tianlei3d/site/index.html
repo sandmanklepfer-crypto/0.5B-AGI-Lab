@@ -8,7 +8,7 @@
 <meta name="description" content="点链接就能一起玩的多人沙盒 · 免注册 · 安卓 / 网页都能玩">
 <link rel="icon" href="img/icon.png">
 <link rel="apple-touch-icon" href="img/icon.png">
-<link rel="stylesheet" href="css/site.css?v=1792753200">
+<link rel="stylesheet" href="css/site.css?v=1792761000">
 </head>
 <body data-track="site">
 
@@ -99,6 +99,50 @@
       <div class="rw-bar"><i id="ptsBar"></i></div>
       <div class="rw-pts">我的积分 <b id="ptsNow">0</b> / 100 &nbsp;<span id="ptsNext" class="rw-next"></span></div>
       <a class="btn sm" href="../index.html" style="margin-top:12px">▶ 现在去攒</a>
+    </div>
+  </div>
+
+  <!-- ★★ 邀请裂变：双向重奖 ★★ -->
+  <div class="inv-by" id="invBy" style="display:none">
+    🎁 你是被好友邀请来的 —— <b>见面礼 50 分</b>已经到账，现在换你发海报了
+  </div>
+
+  <div class="inv-wrap">
+    <div class="inv-head">
+      <h3>🔥 拉一个朋友，两边都有重奖</h3>
+      <p>生成你的专属海报发出去。对方点开就进服，<b>他得 50 分，你得 30 分</b>，人越多奖越狠。</p>
+    </div>
+
+    <div class="inv-duo">
+      <div class="inv-side">
+        <div class="inv-tag">新玩家（被邀请进来）</div>
+        <div class="inv-big">+50 <small>分</small></div>
+        <p>比自然搜进来多 <b>5 倍</b>的见面礼，直接等于玩两天。</p>
+      </div>
+      <div class="inv-vs">⇄</div>
+      <div class="inv-side">
+        <div class="inv-tag">老玩家（发海报的人）</div>
+        <div class="inv-big">+30 <small>分/人</small></div>
+        <p>不设上限，天天累加。3 人直接开神器。</p>
+      </div>
+    </div>
+
+    <div class="inv-mile">
+      <div class="inv-mile-top">
+        <span>我已拉来 <b id="invCount">0</b> 人 · 累计奖励 <b id="invReward">0</b> 分 · 当前称号 <b id="invTitle">旅人</b></span>
+        <span class="inv-next" id="invMile"></span>
+      </div>
+      <div class="rw-bar"><i id="invBar"></i></div>
+      <div class="inv-tiers">
+        <div class="tier"><b>3 人</b><span>神器「虚空之刃」</span></div>
+        <div class="tier"><b>5 人</b><span>称号·引路人 +100 分</span></div>
+        <div class="tier"><b>10 人</b><span>称号·开城者 +300 分</span></div>
+        <div class="tier"><b>20 人</b><span>称号·筑城之魂 +800 分</span></div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
+        <a class="btn" href="../poster.html">🖼 生成我的专属海报</a>
+        <a class="btn ghost" href="../index.html">▶ 先进去玩一把</a>
+      </div>
     </div>
   </div>
 </section>
@@ -419,7 +463,7 @@
 <script src="../js/mqtt.js"></script>
 <script src="../js/fp.js"></script>
 <!-- ★ 积分 / 福利 / 实时人气 -->
-<script src="js/rewards.js?v=1792753200"></script>
+<script src="js/rewards.js?v=1792761000"></script>
 <script>
 (function () {
   'use strict';

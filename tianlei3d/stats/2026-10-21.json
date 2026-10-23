@@ -1,0 +1,47 @@
+{
+ "date": "2026-10-21",
+ "generatedAt": 1792760002651,
+ "broker": "broker.hivemq.com",
+ "totals": {
+  "records": 1,
+  "unique": 1,
+  "real": 1,
+  "suspect": 0,
+  "new": 0,
+  "returning": 1,
+  "site": 1,
+  "game": 1,
+  "forum": 1,
+  "poster": 0
+ },
+ "regions": {
+  "中国 湖南 青园": 1
+ },
+ "sameIpGroups": {},
+ "visitors": [
+  {
+   "uid": "um4gv3f15sh8t",
+   "name": "旅人264",
+   "firstAt": 1792201120356,
+   "lastAt": 1792572579825,
+   "isNew": false,
+   "visits": 5,
+   "pages": {
+    "site": 1,
+    "game": 2,
+    "forum": 2
+   },
+   "ip": "106.34.9.117",
+   "geo": "中国 湖南 青园",
+   "isp": "Chinanet",
+   "suspect": false,
+   "plat": "Linux aarch64",
+   "cores": 8,
+   "scr": "394x853@24",
+   "tz": "Asia/Shanghai",
+   "mobile": 1
+  }
+ ],
+ "invites": {},
+ "cumulativeVisitorsInBroker": 19
+}

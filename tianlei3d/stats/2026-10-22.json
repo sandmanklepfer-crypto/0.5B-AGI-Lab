@@ -1,0 +1,171 @@
+{
+ "date": "2026-10-22",
+ "generatedAt": 1792760002651,
+ "broker": "broker.hivemq.com",
+ "totals": {
+  "records": 7,
+  "unique": 7,
+  "real": 5,
+  "suspect": 2,
+  "new": 7,
+  "returning": 0,
+  "site": 5,
+  "game": 3,
+  "forum": 1,
+  "poster": 0
+ },
+ "regions": {
+  "中国 山东 济南市": 1,
+  "中国 河北省 保定市": 1,
+  "中国 广东 深圳": 1,
+  "中国 吉林 双阳": 1,
+  "中国 北京市 北京": 1
+ },
+ "sameIpGroups": {},
+ "visitors": [
+  {
+   "uid": "u17jniuzoqya2",
+   "name": "",
+   "firstAt": 1792681042759,
+   "lastAt": 1792681045339,
+   "isNew": true,
+   "visits": 1,
+   "pages": {
+    "site": 1
+   },
+   "ip": "112.8.101.47",
+   "geo": "中国 山东 济南市",
+   "isp": "China Mobile communications corporation",
+   "suspect": false,
+   "plat": "Linux armv7l",
+   "cores": 90,
+   "scr": "393x852@24",
+   "tz": "Asia/Shanghai",
+   "mobile": 1
+  },
+  {
+   "uid": "u1xdorbdghiw6",
+   "name": "旅人990",
+   "firstAt": 1792679418509,
+   "lastAt": 1792679565521,
+   "isNew": true,
+   "visits": 3,
+   "pages": {
+    "game": 3
+   },
+   "ip": "119.29.229.168",
+   "geo": "中国 广东 广州市",
+   "isp": "Shenzhen Tencent Computer Systems Company Limited",
+   "suspect": true,
+   "plat": "Linux armv8l",
+   "cores": 4,
+   "scr": "640x360@24",
+   "tz": "Asia/Shanghai",
+   "mobile": 1
+  },
+  {
+   "uid": "u1dco2l3eyflt",
+   "name": "",
+   "firstAt": 1792679155179,
+   "lastAt": 1792679157640,
+   "isNew": true,
+   "visits": 1,
+   "pages": {
+    "game": 1
+   },
+   "ip": "154.17.238.79",
+   "geo": "美国 加州 洛杉矶",
+   "isp": "DMIT Cloud Services",
+   "suspect": true,
+   "plat": "Linux aarch64",
+   "cores": 8,
+   "scr": "782x360@24",
+   "tz": "Asia/Shanghai",
+   "mobile": 1
+  },
+  {
+   "uid": "u1n9b5ju1asrc",
+   "name": "",
+   "firstAt": 1792658816894,
+   "lastAt": 1792658817610,
+   "isNew": true,
+   "visits": 1,
+   "pages": {
+    "site": 1
+   },
+   "ip": "183.198.28.2",
+   "geo": "中国 河北省 保定市",
+   "isp": "China Mobile communications corporation",
+   "suspect": false,
+   "plat": "Linux aarch64",
+   "cores": 8,
+   "scr": "358x792@24",
+   "tz": "Asia/Shanghai",
+   "mobile": 1
+  },
+  {
+   "uid": "u181ci911wp1d",
+   "name": "旅人434",
+   "firstAt": 1792657975191,
+   "lastAt": 1792658684374,
+   "isNew": true,
+   "visits": 6,
+   "pages": {
+    "site": 3,
+    "forum": 2,
+    "game": 1
+   },
+   "ip": "219.134.151.216",
+   "geo": "中国 广东 深圳",
+   "isp": "Chinanet",
+   "suspect": false,
+   "plat": "Win32",
+   "cores": 20,
+   "scr": "1366x768@24",
+   "tz": "Etc/GMT-8",
+   "mobile": 0
+  },
+  {
+   "uid": "uwwfjhw1iwyve",
+   "name": "",
+   "firstAt": 1792658238904,
+   "lastAt": 1792658239720,
+   "isNew": true,
+   "visits": 1,
+   "pages": {
+    "site": 1
+   },
+   "ip": "139.214.247.29",
+   "geo": "中国 吉林 双阳",
+   "isp": "China Unicom Jilin Province Network",
+   "suspect": false,
+   "plat": "Linux aarch64",
+   "cores": 8,
+   "scr": "400x897@24",
+   "tz": "Asia/Shanghai",
+   "mobile": 1
+  },
+  {
+   "uid": "uhnmkhv71bqb7",
+   "name": "",
+   "firstAt": 1792658180962,
+   "lastAt": 1792658181721,
+   "isNew": true,
+   "visits": 1,
+   "pages": {
+    "site": 1
+   },
+   "ip": "36.112.193.44",
+   "geo": "中国 北京市 北京",
+   "isp": "China Networks Inter-Exchange",
+   "suspect": false,
+   "plat": "iPhone",
+   "cores": 4,
+   "scr": "428x926@24",
+   "tz": "Asia/Shanghai",
+   "mobile": 1
+  }
+ ],
+ "invites": {},
+ "cumulativeVisitorsInBroker": 19
+}

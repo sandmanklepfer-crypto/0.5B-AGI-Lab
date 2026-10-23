@@ -1,0 +1,50 @@
+name: 访客快照
+
+# 为什么需要它
+#   公共 MQTT broker 只保留"每人最新一条"消息 —— 某人明天再来，今天的记录就被覆盖，
+#   "今天几个人"这个事实一天后就永久消失。这个 workflow 每天把全量保留消息抓下来，
+#   按数据里真实的日期分组落盘，并把历史永久存进仓库。
+#
+# 时间说明
+#   排在 UTC 15:40 与 16:30（北京时间 23:40 / 次日 00:30）各跑一次。
+#   · 23:40 那次：当天数据完整归档
+#   · 00:30 那次：兜底（GitHub cron 常延迟，若第一次被跳过，这里还能补最后一天）
+#   脚本本身按"数据里真实日期"分桶，跨 0 点也不会算错，两次互为保险。
+
+on:
+  schedule:
+    - cron: '40 15 * * *'      # 北京 23:40
+    - cron: '30 16 * * *'      # 北京 次日 00:30（兜底）
+  workflow_dispatch:            # 也支持手动触发
+
+permissions:
+  contents: write
+
+concurrency:
+  group: snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 取出代码
+        uses: actions/checkout@v4
+
+      - name: 装依赖
+        run: pip install --quiet paho-mqtt
+
+      - name: 抓取并归档
+        run: python3 tianlei3d/tools/snapshot.py --wait 14 --report
+
+      - name: 提交数据
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add tianlei3d/stats
+          if git diff --cached --quiet; then
+            echo "没有变化，跳过提交"
+          else
+            git commit -m "stats: 访客快照 $(date -u -d '+8 hours' +%Y-%m-%d)"
+            git push
+          fi

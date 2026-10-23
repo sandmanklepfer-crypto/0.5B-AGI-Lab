@@ -1,0 +1,262 @@
+{
+ "date": "2026-10-23",
+ "generatedAt": 1792760002652,
+ "broker": "broker.hivemq.com",
+ "totals": {
+  "records": 11,
+  "unique": 11,
+  "real": 10,
+  "suspect": 1,
+  "new": 9,
+  "returning": 2,
+  "site": 10,
+  "game": 4,
+  "forum": 1,
+  "poster": 0
+ },
+ "regions": {
+  "中国 湖南 青园": 2,
+  "中国 江苏 南京": 1,
+  "中国 广东 广州市": 1,
+  "中国 广东 甲子": 1,
+  "中華人民共和國 江西省 南昌市": 1,
+  "中国 宁夏 银川市": 1,
+  "中国 浙江 杭州": 1,
+  "中国 广东 深圳": 1,
+  "香港 九龍城區 尖沙咀": 1
+ },
+ "sameIpGroups": {
+  "106.33.188.144": [
+   "undxcq0av2fu",
+   "ulzerj71bnr6p"
+  ]
+ },
+ "visitors": [
+  {
+   "uid": "u1xongl793hxs",
+   "name": "旅人121",
+   "firstAt": 1792758883241,
+   "lastAt": 1792758911465,
+   "isNew": true,
+   "visits": 2,
+   "pages": {
+    "site": 1,
+    "game": 1
+   },
+   "ip": "50.7.253.170",
+   "geo": "新加坡 Central Singapore 新加坡",
+   "isp": "FDCservers.net",
+   "suspect": true,
+   "plat": "iPhone",
+   "cores": 4,
+   "scr": "440x956@24",
+   "tz": "Asia/Shanghai",
+   "mobile": 1
+  },
+  {
+   "uid": "undxcq0av2fu",
+   "name": "旅人538",
+   "firstAt": 1792064143138,
+   "lastAt": 1792754322140,
+   "isNew": false,
+   "visits": 32,
+   "pages": {
+    "site": 16,
+    "game": 10,
+    "forum": 6
+   },
+   "ip": "106.33.188.144",
+   "geo": "中国 湖南 青园",
+   "isp": "Chinanet",
+   "suspect": false,
+   "plat": "Linux aarch64",
+   "cores": 8,
+   "scr": "394x853@24",
+   "tz": "Asia/Shanghai",
+   "mobile": 1
+  },
+  {
+   "uid": "uyzl74g1k5e92",
+   "name": "",
+   "firstAt": 1792751846403,
+   "lastAt": 1792751852409,
+   "isNew": true,
+   "visits": 1,
+   "pages": {
+    "site": 1
+   },
+   "ip": "153.99.85.42",
+   "geo": "中国 江苏 南京",
+   "isp": "CHINA UNICOM China169 Backbone",
+   "suspect": false,
+   "plat": "Linux aarch64",
+   "cores": 8,
+   "scr": "400x889@24",
+   "tz": "Asia/Shanghai",
+   "mobile": 1
+  },
+  {
+   "uid": "u1llojdy1vxnr",
+   "name": "",
+   "firstAt": 1792751780771,
+   "lastAt": 1792751781696,
+   "isNew": true,
+   "visits": 1,
+   "pages": {
+    "site": 1
+   },
+   "ip": "111.49.39.100",
+   "geo": "中国 广东 广州市",
+   "isp": "China Mobile communications corporation",
+   "suspect": false,
+   "plat": "Win32",
+   "cores": 12,
+   "scr": "1475x922@24",
+   "tz": "Asia/Shanghai",
+   "mobile": 0
+  },
+  {
+   "uid": "uynbbgh10tizo",
+   "name": "",
+   "firstAt": 1792751723360,
+   "lastAt": 1792751724425,
+   "isNew": true,
+   "visits": 1,
+   "pages": {
+    "site": 1
+   },
+   "ip": "112.97.79.197",
+   "geo": "中国 广东 甲子",
+   "isp": "China Unicom CHINA169 Guangdong Province Network",
+   "suspect": false,
+   "plat": "Linux aarch64",
+   "cores": 8,
+   "scr": "400x883@24",
+   "tz": "Asia/Shanghai",
+   "mobile": 1
+  },
+  {
+   "uid": "uzh9dcy1afdc6",
+   "name": "",
+   "firstAt": 1792751292096,
+   "lastAt": 1792751293209,
+   "isNew": true,
+   "visits": 1,
+   "pages": {
+    "site": 1
+   },
+   "ip": "113.194.152.76",
+   "geo": "中華人民共和國 江西省 南昌市",
+   "isp": "China Unicom CHINA169 Network",
+   "suspect": false,
+   "plat": "Linux aarch64",
+   "cores": 8,
+   "scr": "360x792@24",
+   "tz": "Asia/Shanghai",
+   "mobile": 1
+  },
+  {
+   "uid": "u1f042ceew0m5",
+   "name": "",
+   "firstAt": 1792751185207,
+   "lastAt": 1792751186207,
+   "isNew": true,
+   "visits": 1,
+   "pages": {
+    "site": 1
+   },
+   "ip": "119.60.168.153",
+   "geo": "中国 宁夏 银川市",
+   "isp": "Chinanet",
+   "suspect": false,
+   "plat": "Win32",
+   "cores": 12,
+   "scr": "1920x1080@24",
+   "tz": "Asia/Shanghai",
+   "mobile": 0
+  },
+  {
+   "uid": "u1ujpprfhs9z1",
+   "name": "",
+   "firstAt": 1792751145303,
+   "lastAt": 1792751146888,
+   "isNew": true,
+   "visits": 1,
+   "pages": {
+    "site": 1
+   },
+   "ip": "101.71.52.126",
+   "geo": "中国 浙江 杭州",
+   "isp": "China Unicom Zhejiang Province Network",
+   "suspect": false,
+   "plat": "Linux aarch64",
+   "cores": 8,
+   "scr": "400x889@24",
+   "tz": "Asia/Shanghai",
+   "mobile": 1
+  },
+  {
+   "uid": "uztsbneomwcqm",
+   "name": "",
+   "firstAt": 1792751076779,
+   "lastAt": 1792751077493,
+   "isNew": true,
+   "visits": 1,
+   "pages": {
+    "site": 1
+   },
+   "ip": "223.104.85.111",
+   "geo": "中国 广东 深圳",
+   "isp": "China Mobile communications corporation",
+   "suspect": false,
+   "plat": "Linux aarch64",
+   "cores": 8,
+   "scr": "400x894@24",
+   "tz": "Asia/Shanghai",
+   "mobile": 1
+  },
+  {
+   "uid": "u1qmq8q31wgir",
+   "name": "旅人319",
+   "firstAt": 1792732991422,
+   "lastAt": 1792733009121,
+   "isNew": true,
+   "visits": 2,
+   "pages": {
+    "site": 1,
+    "game": 1
+   },
+   "ip": "203.145.41.65",
+   "geo": "香港 九龍城區 尖沙咀",
+   "isp": "Coninet Communication Service Co",
+   "suspect": false,
+   "plat": "Win32",
+   "cores": 20,
+   "scr": "1536x960@24",
+   "tz": "Asia/Shanghai",
+   "mobile": 0
+  },
+  {
+   "uid": "ulzerj71bnr6p",
+   "name": "旅人538",
+   "firstAt": 1792066902794,
+   "lastAt": 1792730714236,
+   "isNew": false,
+   "visits": 54,
+   "pages": {
+    "game": 54
+   },
+   "ip": "106.33.188.144",
+   "geo": "中国 湖南 青园",
+   "isp": "Chinanet",
+   "suspect": false,
+   "plat": "Linux aarch64",
+   "cores": 8,
+   "scr": "394x853@24",
+   "tz": "Asia/Shanghai",
+   "mobile": 1
+  }
+ ],
+ "invites": {},
+ "cumulativeVisitorsInBroker": 19
+}

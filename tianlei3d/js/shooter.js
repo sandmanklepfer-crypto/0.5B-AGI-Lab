@@ -1843,17 +1843,22 @@ var Combat = {
   canUse: function (w) {
     if (!w || !w.req) return true;
     if (Ref.count() >= w.req) return true;                       // 邀请人数达标
-    // ★ 积分也能换：攒到 100 分解锁（官网/论坛发帖、游玩都在攒）
+    // ★ 两条路都能拿：① 直接邀请够人数 ② 积分攒到 100（官网/论坛/游玩都在攒）
     try { if (window.TLReward && TLReward.pts() >= 100) return true; } catch (e) {}
+    // ★ 新邀请系统也计数（旧版 ref/ + 新版 inv/ 都算，避免老玩家的邀请白拉）
+    try { if (window.TLReward && TLReward.invite && TLReward.invite.count() >= w.req) return true; } catch (e) {}
     return false;
   },
   switchTo: function (i) {
     var w = WEAPONS[i];
     if (!w || w.id === P.weapon) return;
     if (!this.canUse(w)) {                                    // ★ 未解锁 → 提示怎么拿
-      var pts = 0; try { pts = (window.TLReward ? TLReward.pts() : 0); } catch (e) {}
+      var pts = 0, inv = 0;
+      try { pts = (window.TLReward ? TLReward.pts() : 0); } catch (e) {}
+      try { inv = (window.TLReward && TLReward.invite) ? TLReward.invite.count() : 0; } catch (e) {}
+      var n = Math.max(Ref.count(), inv);
       HUD.center('🔒 ' + w.name,
-        '两条路随便一条：邀请 ' + w.req + ' 位好友（' + Ref.count() + '/' + w.req + '）　或　积分攒满 100（当前 ' + pts + '/100）',
+        '两条路任选：邀请 ' + w.req + ' 位好友（' + n + '/' + w.req + '）　或　积分攒满 100（当前 ' + pts + '/100）',
         3000);
       Sfx.deny(); return;
     }
@@ -3505,10 +3510,22 @@ function bindUI() {
   _on('bInv', 'click', function () { openTree(false); HUD.invite(); });
   _on('bShare', 'click', function () {
     openTree(false);
-    var n = Ref.count();
+    var n = Ref.count(), ni = 0, bonus = 0;
+    try {
+      if (window.TLReward && TLReward.invite) {
+        ni = TLReward.invite.count();
+        bonus = ni * TLReward.invite.rules.perFriend;
+      }
+    } catch (e) {}
+    n = Math.max(n, ni);
     HUD.qr(Net.inviteLink());
-    HUD.center('分享领神器 · ' + n + '/' + Ref.need,
-      n >= Ref.need ? '已解锁！按 8 切出虚空之刃' : '每成功邀请 1 位好友进世界，进度 +1', 3200);
+    HUD.center('拉好友 · 已来 ' + n + ' 人' + (bonus ? '（+' + bonus + ' 分）' : ''),
+      n >= Ref.need
+        ? '神器已解锁！按 8 切出虚空之刃 · 继续拉还有称号和分'
+        : ('再来 ' + (Ref.need - n) + ' 人开神器 · 每拉 1 人 +' +
+           (window.TLReward && TLReward.invite ? TLReward.invite.rules.perFriend : 30) +
+           ' 分，对方 +' + (window.TLReward && TLReward.invite ? TLReward.invite.rules.newbieGift : 50) + ' 分'),
+      4200);
     Sfx.ui();
   });
   _on('qrCopy', 'click', function () {

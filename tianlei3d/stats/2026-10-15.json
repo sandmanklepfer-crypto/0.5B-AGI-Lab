@@ -1,0 +1,72 @@
+{
+ "date": "2026-10-15",
+ "generatedAt": 1792760002645,
+ "broker": "broker.hivemq.com",
+ "totals": {
+  "records": 2,
+  "unique": 2,
+  "real": 2,
+  "suspect": 0,
+  "new": 2,
+  "returning": 0,
+  "site": 1,
+  "game": 2,
+  "forum": 1,
+  "poster": 0
+ },
+ "regions": {
+  "中国 湖南 青园": 2
+ },
+ "sameIpGroups": {
+  "106.33.188.144": [
+   "undxcq0av2fu",
+   "ulzerj71bnr6p"
+  ]
+ },
+ "visitors": [
+  {
+   "uid": "undxcq0av2fu",
+   "name": "旅人538",
+   "firstAt": 1792064143138,
+   "lastAt": 1792754322140,
+   "isNew": true,
+   "visits": 32,
+   "pages": {
+    "site": 16,
+    "game": 10,
+    "forum": 6
+   },
+   "ip": "106.33.188.144",
+   "geo": "中国 湖南 青园",
+   "isp": "Chinanet",
+   "suspect": false,
+   "plat": "Linux aarch64",
+   "cores": 8,
+   "scr": "394x853@24",
+   "tz": "Asia/Shanghai",
+   "mobile": 1
+  },
+  {
+   "uid": "ulzerj71bnr6p",
+   "name": "旅人538",
+   "firstAt": 1792066902794,
+   "lastAt": 1792730714236,
+   "isNew": true,
+   "visits": 54,
+   "pages": {
+    "game": 54
+   },
+   "ip": "106.33.188.144",
+   "geo": "中国 湖南 青园",
+   "isp": "Chinanet",
+   "suspect": false,
+   "plat": "Linux aarch64",
+   "cores": 8,
+   "scr": "394x853@24",
+   "tz": "Asia/Shanghai",
+   "mobile": 1
+  }
+ ],
+ "invites": {},
+ "cumulativeVisitorsInBroker": 19
+}
