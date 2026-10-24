@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#06050d">
 <title>玩家社区 · 天泪纪元</title>
 <link rel="icon" href="img/icon.png">
-<link rel="stylesheet" href="css/site.css?v=1792772000">
+<link rel="stylesheet" href="css/site.css?v=1792840000">
 <style>
   /* ---- 论坛专用 ---- */
   .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#666;margin-right:7px;vertical-align:middle}
@@ -109,10 +109,63 @@
 
 <footer class="foot">
   <div class="wrap">
+    <!-- ★★ 联系方式 ★★ -->
+    <div class="contact">
+      <div class="ct-h">
+        <h3>💬 找到我们</h3>
+        <p>扫码加好友 / 进官方群</p>
+      </div>
+      <div class="ct-card">
+        <img class="qr" src="img/wechat.png" alt="微信二维码" loading="lazy">
+        <div class="ct-t">加我微信</div>
+        <p class="ct-d">反馈 / 建议 / 合作</p>
+        <span class="ct-tag">百月 · hs2025tl</span>
+        <div class="wx" id="wxBox">
+          <span class="wx-ico">📋</span>
+          <span class="wx-lbl">点这里复制</span>
+          <span class="wx-id" id="wxId" data-id="hs2025tl">hs2025tl</span>
+          <span class="wx-btn" id="wxCopy">复制</span>
+        </div>
+      </div>
+      <div class="ct-card">
+        <img class="qr" src="img/wxgroup.png" alt="官方群二维码" loading="lazy">
+        <div class="ct-t">进官方群</div>
+        <p class="ct-d">约人开黑 / 晒建筑</p>
+        <span class="ct-tag">扫码进群</span>
+      </div>
+    </div>
+
     天泪纪元 · 玩家社区 &nbsp;|&nbsp; 帖子保存在公共实时通道上，换设备也在<br>
     <span style="opacity:.6">请勿发布隐私信息 · 文明发言</span>
   </div>
 </footer>
+
+<script>
+(function () {
+  var box = document.getElementById('wxBox');
+  var idEl = document.getElementById('wxId');
+  var btn = document.getElementById('wxCopy');
+  if (!box || !idEl) return;
+  var WX = idEl.getAttribute('data-id') || 'hs2025tl';
+  function copy() {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(WX).then(done, fallback);
+    } else { fallback(); }
+  }
+  function done() {
+    if (btn) btn.textContent = '已复制 ✓';
+    setTimeout(function () { if (btn) btn.textContent = '复制'; }, 1800);
+  }
+  function fallback() {
+    try {
+      var r = document.createRange(); r.selectNodeContents(idEl);
+      var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      document.execCommand('copy'); done();
+    } catch (e) { try { window.prompt('复制微信号，去微信里搜索添加', WX); } catch (_) {} }
+  }
+  box.addEventListener('click', function (e) { e.preventDefault(); copy(); });
+})();
+</script>
 
 <nav class="tabbar">
   <a href="index.html"><span class="i">🏠</span>首页</a>
