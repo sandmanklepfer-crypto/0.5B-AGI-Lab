@@ -852,7 +852,22 @@ var Net = {
 
   sendState: function (p, extra) {
     if (!this.connected) return;
-    var now = performance.now(); if (now - this._st < 120) return; this._st = now;
+
+    /* ★ 静止时不发包：位置/朝向/血量都没变，就没必要发。
+       远处的人本来就在插值，少几包看不出；站着不动的人流量归零。
+       只要有任何一个"会变"的量动了，就照常发。 */
+    try {
+      var sig = [Math.round(p.x * 10), Math.round(p.z * 10), Math.round(p.y * 10),
+                 Math.round(p.yaw * 10), Math.round(p.hp), p.weapon,
+                 p.alive ? 1 : 0, p.score, p.kills, p.deaths].join(',');
+      var now0 = performance.now();
+      if (sig === this._lastSig && !extra && (now0 - (this._lastSigAt || 0)) < 3000) return;
+      this._lastSig = sig; this._lastSigAt = now0;
+    } catch (e) {}
+    /* ★ 从 120ms 改 250ms：这个链路的真实延迟是 4~5 秒，
+       8Hz 的频率完全是浪费（每秒 8 包 × 200B = 1.6KB/s）。
+       降到 4Hz 后流量减半，而观感没有任何区别（延迟本来就几百毫秒起步）。 */
+    var now = performance.now(); if (now - this._st < 250) return; this._st = now;
     var o = { id: this.id, name: this.name, x: +p.x.toFixed(2), z: +p.z.toFixed(2), y: +p.y.toFixed(2),
       yaw: +p.yaw.toFixed(1), hp: Math.round(p.hp), mx: Math.round(p.maxHp), wp: p.weapon,
       sc: p.score, kl: p.kills, dt: p.deaths, al: p.alive ? 1 : 0, tm: p.team, at: Date.now() };
