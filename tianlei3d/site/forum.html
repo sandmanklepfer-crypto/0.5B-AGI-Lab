@@ -6,7 +6,14 @@
 <meta name="theme-color" content="#06050d">
 <title>玩家社区 · 天泪纪元</title>
 <link rel="icon" href="img/icon.png">
-<link rel="stylesheet" href="css/site.css?v=1792841000">
+<!-- ★ PWA：可安装到桌面 -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#06050d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="天泪纪元">
+<link rel="apple-touch-icon" href="../pwa-apple-180.png">
+<link rel="stylesheet" href="css/site.css?v=1792870000">
 <style>
   /* ---- 论坛专用 ---- */
   .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#666;margin-right:7px;vertical-align:middle}
@@ -226,5 +233,7 @@
 <script src="../js/fp.js?v=1792830000"></script>
 <!-- ★ 积分（发帖/回复到账） -->
 <script src="js/rewards.js?v=1792766000"></script>
+<!-- ★ PWA 共用脚本 -->
+<script src="../pwa.js?v=1792870000" data-sw="../sw.js" data-scope="../" defer></script>
 </body>
 </html>

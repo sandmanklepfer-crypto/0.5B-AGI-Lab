@@ -37,7 +37,7 @@ MUST=(
   site/js/rewards.js site/js/live-stats.js site/js/forum.js
   site/css/site.css
   poster.html stats.html download.html
-  manifest.webmanifest sw.js
+  manifest.webmanifest sw.js pwa.js site/manifest.webmanifest
   pwa-192.png pwa-512.png pwa-maskable-192.png pwa-maskable-512.png pwa-apple-180.png
   hub.html arena.html
   assets/fonts/NotoSerifSC-Bold.woff2

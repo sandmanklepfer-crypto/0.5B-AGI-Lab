@@ -7,8 +7,16 @@
 <title>天泪纪元 · 官方站</title>
 <meta name="description" content="点链接就能一起玩的多人沙盒 · 免注册 · 安卓 / 网页都能玩">
 <link rel="icon" href="img/icon.png">
+<!-- ★ PWA：可安装到桌面 -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#06050d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="天泪纪元">
+<link rel="apple-touch-icon" href="../pwa-apple-180.png">
 <link rel="apple-touch-icon" href="img/icon.png">
-<link rel="stylesheet" href="css/site.css?v=1792841000">
+<link rel="stylesheet" href="css/site.css?v=1792870000">
 </head>
 <body data-track="site">
 
@@ -59,6 +67,11 @@
       <a href="#download">⬇ 下载安卓版</a>
       <a href="forum.html">💬 玩家社区（发帖 +10 分）</a>
       <a href="../poster.html">🖼 生成我的海报</a>
+    </div>
+
+    <!-- ★ 装到桌面（PWA）：ios/安卓都能用，不用下 APK -->
+    <div class="pwa-entry" id="pwaEntry">
+      <span>📲</span><span>装到桌面，像 App 一样玩</span>
     </div>
   </div>
   <div class="scroll">向下滚动</div>
@@ -718,6 +731,16 @@
   }
   addEventListener('scroll', onScroll, { passive: true }); onScroll();
 })();
+</script>
+<!-- ★ PWA 共用脚本（SW 在上级目录） -->
+<script src="../pwa.js?v=1792870000" data-sw="../sw.js" data-scope="../" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var e = document.getElementById('pwaEntry');
+  if (e) e.addEventListener('click', function () {
+    if (window.PWA && PWA.install) PWA.install();
+  });
+});
 </script>
 </body>
 </html>

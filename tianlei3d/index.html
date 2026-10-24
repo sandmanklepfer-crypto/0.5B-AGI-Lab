@@ -311,6 +311,24 @@
   @media (orientation:portrait) and (max-width:900px){
     #htPanel{left:6px;right:6px;width:auto;top:calc(54px + env(safe-area-inset-top,0px))}
   }
+
+  /* ===== PWA 底部安装条 ===== */
+  #pwaBanner{position:fixed;left:12px;right:12px;z-index:130;display:flex;align-items:center;gap:10px;
+    bottom:calc(var(--nav-h) + 78px + env(safe-area-inset-bottom,0px));
+    padding:11px 13px;border-radius:14px;
+    background:linear-gradient(100deg,rgba(34,211,238,.96),rgba(74,222,128,.94));
+    box-shadow:0 12px 40px rgba(0,0,0,.6);
+    transform:translateY(160%);transition:transform .32s cubic-bezier(.2,.9,.2,1)}
+  #pwaBanner.on{transform:translateY(0)}
+  #pwaBanner .pb-ico{font-size:20px;flex:0 0 auto}
+  #pwaBanner .pb-txt{flex:1;min-width:0;display:flex;flex-direction:column;
+    line-height:1.3;font-size:13.5px;font-weight:800;color:#04191f}
+  #pwaBanner .pb-txt small{font-size:10.5px;font-weight:500;opacity:.78}
+  #pwaBanner .pb-go{flex:0 0 auto;padding:8px 16px;border:0;border-radius:999px;cursor:pointer;
+    font-family:inherit;font-size:13px;font-weight:800;color:#fff;background:#0b3b46}
+  #pwaBanner .pb-x{flex:0 0 auto;width:26px;height:26px;border:0;border-radius:50%;cursor:pointer;
+    background:rgba(0,0,0,.14);color:#0b3b46;font-size:13px;line-height:1}
+  @media (min-width:900px){ #pwaBanner{left:auto;right:20px;bottom:20px;max-width:400px} }
 </style></head><body data-track="game">
 <canvas id="cv"></canvas>
 <div id="log"></div>
@@ -1967,7 +1985,7 @@ window.__ATTACH_SCENE = window.__OCTO.scene;
 <!-- ★ 积分（进游戏 +10、每分钟 +2，100 分解锁神器） -->
 <script src="site/js/rewards.js?v=1792763000"></script>
 <script src="js/hd2d_arena.js?v=1792145440"></script>
-<script src="js/shooter.js?v=1792860000"></script>
+<script src="js/shooter.js?v=1792870000"></script>
 <!-- ★ 守夜灯：离线发育 + 留存钩子 -->
 <script src="js/hearth.js?v=1792763000"></script>
 <!-- ★ 世界之外：无限远景地形 + 水域 + 昼夜（移植自 _frozen_3d/world3d.js） -->
@@ -1976,79 +1994,6 @@ window.__ATTACH_SCENE = window.__OCTO.scene;
 <script src="js/sky.js?v=1792772000"></script>
 <script src="js/racestrip.js?v=1792763000"></script>
 <script src="js/kernel.js?v=1792145440"></script>
-<!-- ★★ PWA：注册 Service Worker + 安装提示（放最后，不阻塞游戏）★★ -->
-<script>
-(function () {
-  'use strict';
-
-  /* ---- 1) 注册 Service Worker（http/https 才有效，file:// 跳过）---- */
-  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-    window.addEventListener('load', function () {
-      navigator.serviceWorker.register('sw.js', { scope: './' }).then(function (reg) {
-        /* 新版本装好后立刻接管，避免用户锁死在旧版 */
-        reg.addEventListener('updatefound', function () {
-          var nw = reg.installing; if (!nw) return;
-          nw.addEventListener('statechange', function () {
-            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-              try { nw.postMessage('skip-waiting'); } catch (e) {}
-            }
-          });
-        });
-      }).catch(function () { /* 静默失败，不影响游戏 */ });
-    });
-  }
-
-  /* ---- 2) 安装提示 ---- */
-  var deferred = null;
-  window.addEventListener('beforeinstallprompt', function (e) {
-    e.preventDefault(); deferred = e;
-    var b = document.getElementById('bInstall');
-    if (b) { b.textContent = '📲 添加到桌面'; b.className = 'on'; }
-  });
-
-  function say(t, s, ms) {
-    try { if (window.HUD && HUD.center) { HUD.center(t, s, ms); return; } } catch (e) {}
-    try { alert(t + (s ? '\n' + s : '')); } catch (e) {}
-  }
-
-  function doInstall() {
-    if (!deferred) {
-      var ua = navigator.userAgent;
-      var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua));
-      var isWX = /MicroMessenger/i.test(ua);
-      if (isWX) {
-        say('微信里装不了', '点右上角「···」→ 在浏览器打开，再用浏览器菜单「添加到主屏幕」', 6500);
-      } else if (isIOS) {
-        say('iPhone 安装方法', 'Safari 底部「分享」→「添加到主屏幕」→ 完成', 6500);
-      } else {
-        say('安装方法', '浏览器右上角菜单 →「安装应用 / 添加到主屏幕」', 6500);
-      }
-      return;
-    }
-    deferred.prompt();
-    deferred.userChoice.then(function (r) {
-      var ok2 = r && r.outcome === 'accepted';
-      say(ok2 ? '✅ 已添加到桌面' : '已取消', ok2 ? '以后从桌面图标直接打开，全屏无地址栏' : '', 3200);
-      deferred = null;
-      var b = document.getElementById('bInstall');
-      if (b) { b.textContent = '📲 添加到桌面'; b.className = ''; }
-    });
-  }
-  window.__pwaInstall = doInstall;
-
-  /* 菜单按钮（shooter.js 若没绑定，这里兜底） */
-  document.addEventListener('click', function (e) {
-    if (e.target && e.target.id === 'bInstall') doInstall();
-  }, true);
-
-  /* ---- 3) 已经是独立窗口（已安装）就不显示安装按钮 ---- */
-  window.addEventListener('load', function () {
-    var sa = window.matchMedia('(display-mode: standalone)').matches ||
-             window.matchMedia('(display-mode: fullscreen)').matches ||
-             navigator.standalone === true;
-    if (sa) { var b = document.getElementById('bInstall'); if (b) b.style.display = 'none'; }
-  });
-})();
-</script>
-
+<!-- ★★ PWA：可安装到桌面（共用脚本，官网/论坛同一份）★★ -->
+<script src="pwa.js?v=1792870000" data-sw="sw.js" data-scope="./" defer></script>
 </body></html>
