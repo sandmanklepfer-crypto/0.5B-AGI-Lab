@@ -8,7 +8,7 @@
 <meta name="description" content="点链接就能一起玩的多人沙盒 · 免注册 · 安卓 / 网页都能玩">
 <link rel="icon" href="img/icon.png">
 <link rel="apple-touch-icon" href="img/icon.png">
-<link rel="stylesheet" href="css/site.css?v=1792840000">
+<link rel="stylesheet" href="css/site.css?v=1792841000">
 </head>
 <body data-track="site">
 
@@ -524,7 +524,14 @@
         <img class="qr" src="img/wxgroup.png" alt="天泪纪元官方群 二维码" loading="lazy">
         <div class="ct-t">进官方群</div>
         <p class="ct-d">天泪纪元官方群 001<br>约人开黑 / 晒建筑 / 抢先看更新</p>
-        <span class="ct-tag">扫码进群</span>
+        <span class="ct-tag" id="qrExpire">扫码进群</span>
+
+        <!-- ★ 群码 7 天过期 → 引导加个人微信（永不过期） -->
+        <div class="qr-hint" id="qrHint">
+          <b>群码过期了？</b>
+          <span>微信群码 7 天就失效。<br>加左边微信，我拉你进群。</span>
+          <button class="qr-hint-btn" id="qrGotoWx">👈 复制微信号</button>
+        </div>
       </div>
     </div>
 
@@ -566,6 +573,51 @@
     }
   }
   box.addEventListener('click', function (e) { e.preventDefault(); copy(); });
+
+  /* ★ 群码过期处理：微信个人群码通常 7 天失效
+     这里用一个可配置的"生成日期"，到期后自动把卡片变成灰色提示，
+     并引导去加个人微信（个人码不过期）。 */
+  (function () {
+    var MADE = '2026-10-24';          // 群码生成日期（换码时改这里）
+    var TTL = 7;                       // 微信默认有效期（天）
+    var tag = document.getElementById('qrExpire');
+    var hint = document.getElementById('qrHint');
+    var go = document.getElementById('qrGotoWx');
+    var img = document.querySelector('img[src="img/wxgroup.png"]');
+    if (!tag) return;
+
+    /* 剩余天数 */
+    var made = new Date(MADE + 'T00:00:00');
+    var nowD = new Date();
+    var ageDay = Math.floor((nowD - made) / 86400000);
+    var left = TTL - ageDay;
+
+    if (left <= 0) {
+      /* 已过期：整卡变暗 + 强调引导 */
+      tag.textContent = '⚠ 群码已过期';
+      tag.style.background = 'rgba(248,113,113,.16)';
+      tag.style.borderColor = 'rgba(248,113,113,.5)';
+      tag.style.color = '#fca5a5';
+      if (img) img.style.filter = 'grayscale(1) opacity(.35)';
+      if (hint) hint.classList.add('warn');
+    } else if (left <= 2) {
+      tag.textContent = '群码 ' + left + ' 天后过期';
+      tag.style.background = 'rgba(255,209,102,.16)';
+      tag.style.borderColor = 'rgba(255,209,102,.5)';
+      tag.style.color = '#ffe9b8';
+    } else {
+      tag.textContent = '扫码进群 · 剩 ' + left + ' 天';
+    }
+
+    /* 点"复制微信号" → 滚到左边的微信卡并复制 */
+    if (go) go.addEventListener('click', function () {
+      var wx = document.getElementById('wxBox');
+      if (wx) {
+        wx.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(copy, 420);
+      } else copy();
+    });
+  })();
 })();
 </script>
 

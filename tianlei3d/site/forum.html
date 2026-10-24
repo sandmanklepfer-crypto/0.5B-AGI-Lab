@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#06050d">
 <title>玩家社区 · 天泪纪元</title>
 <link rel="icon" href="img/icon.png">
-<link rel="stylesheet" href="css/site.css?v=1792840000">
+<link rel="stylesheet" href="css/site.css?v=1792841000">
 <style>
   /* ---- 论坛专用 ---- */
   .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#666;margin-right:7px;vertical-align:middle}
@@ -131,7 +131,12 @@
         <img class="qr" src="img/wxgroup.png" alt="官方群二维码" loading="lazy">
         <div class="ct-t">进官方群</div>
         <p class="ct-d">约人开黑 / 晒建筑</p>
-        <span class="ct-tag">扫码进群</span>
+        <span class="ct-tag" id="qrExpire">扫码进群</span>
+        <div class="qr-hint" id="qrHint">
+          <b>群码过期了？</b>
+          <span>微信群码 7 天就失效。<br>加左边微信，我拉你进群。</span>
+          <button class="qr-hint-btn" id="qrGotoWx">👈 复制微信号</button>
+        </div>
       </div>
     </div>
 
@@ -164,6 +169,33 @@
     } catch (e) { try { window.prompt('复制微信号，去微信里搜索添加', WX); } catch (_) {} }
   }
   box.addEventListener('click', function (e) { e.preventDefault(); copy(); });
+
+  /* ★ 群码到期提示（同首页逻辑） */
+  (function () {
+    var MADE = '2026-10-24', TTL = 7;
+    var tag = document.getElementById('qrExpire');
+    var hint = document.getElementById('qrHint');
+    var go = document.getElementById('qrGotoWx');
+    var img = document.querySelector('img[src="img/wxgroup.png"]');
+    if (!tag) return;
+    var left = TTL - Math.floor((new Date() - new Date(MADE + 'T00:00:00')) / 86400000);
+    if (left <= 0) {
+      tag.textContent = '⚠ 群码已过期';
+      tag.style.cssText = 'background:rgba(248,113,113,.16);border-color:rgba(248,113,113,.5);color:#fca5a5';
+      if (img) img.style.filter = 'grayscale(1) opacity(.35)';
+      if (hint) hint.classList.add('warn');
+    } else if (left <= 2) {
+      tag.textContent = '群码 ' + left + ' 天后过期';
+      tag.style.cssText = 'background:rgba(255,209,102,.16);border-color:rgba(255,209,102,.5);color:#ffe9b8';
+    } else {
+      tag.textContent = '扫码进群 · 剩 ' + left + ' 天';
+    }
+    if (go) go.addEventListener('click', function () {
+      var wx = document.getElementById('wxBox');
+      if (wx) { wx.scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(copy, 420); }
+      else copy();
+    });
+  })();
 })();
 </script>
 
