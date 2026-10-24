@@ -3316,11 +3316,23 @@ function bindUI() {
     var hint = $('rotateHint');
     var isTouch = /Mobi|Android|iPhone|iPad|HarmonyOS|MiuiBrowser|XiaoMi/i.test(navigator.userAgent) || (navigator.maxTouchPoints || 0) > 1;
     function portrait() { return window.innerHeight > window.innerWidth; }
+    /* ★★ 修正：以前 "先这样玩" 会永久写 localStorage，导致再也看不到横屏提示，
+       也就再也没有机会一键全屏了。现在改成：
+         · 跳过只记"本次会话"（sessionStorage），关掉页面就忘
+         · 另外记录"已经全屏过"的标记，全屏成功后不再打扰
+         · 任何时候都能从 菜单 → 全屏横屏 手动开启 */
+    function skippedNow() {
+      try { return sessionStorage.getItem('tl_rotate_skip') === '1'; } catch (e) { return false; }
+    }
+    /* 清掉旧版留下的永久跳过标记（老用户不再被卡死） */
+    try { localStorage.removeItem('tl_rotate_skip'); } catch (e) {}
+    function isFullscreen() {
+      return !!(document.fullscreenElement || document.webkitFullscreenElement);
+    }
     function upd() {
       if (!hint || !isTouch) return;
-      var skipped = false;
-      try { skipped = localStorage.getItem('tl_rotate_skip') === '1'; } catch (e) {}
-      hint.classList.toggle('on', portrait() && !skipped);
+      if (isFullscreen()) { hint.classList.remove('on'); return; }   // 已全屏就不打扰
+      hint.classList.toggle('on', portrait() && !skippedNow());
     }
     upd();
     addEventListener('resize', upd);
@@ -3348,7 +3360,8 @@ function bindUI() {
     }
     var skip = $('rhSkip');
     if (skip) skip.addEventListener('click', function () {
-      try { localStorage.setItem('tl_rotate_skip', '1'); } catch (e) {}
+      /* 只跳过本次会话（sessionStorage），下次打开还会提示 */
+      try { sessionStorage.setItem('tl_rotate_skip', '1'); } catch (e) {}
       hint.classList.remove('on');
     });
 
@@ -3382,6 +3395,46 @@ function bindUI() {
   _on('chatSend', 'click', sendChat);
   _on('chatInput', 'keydown', function (e) { if (e.key === 'Enter') { sendChat(); e.stopPropagation(); } });
   /* ★ 天空开关 */
+  /* ★ 手动全屏 + 横屏（任何时候都能用，不依赖那个提示） */
+  _on('bFull', 'click', function () {
+    openTree(false);
+    var el = document.documentElement;
+    var fs = document.fullscreenElement || document.webkitFullscreenElement;
+    if (fs) {
+      try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) {}
+      this.textContent = '⛶ 全屏横屏';
+      this.className = '';
+      HUD.center('已退出全屏', '', 1400);
+      Sfx.ui();
+      return;
+    }
+    try {
+      var pr = el.requestFullscreen ? el.requestFullscreen() : (el.webkitRequestFullscreen && el.webkitRequestFullscreen());
+      var done = function () {
+        try {
+          if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(function () {});
+        } catch (e) {}
+        setTimeout(function () { try { A.resize(); resizeFX(); } catch (e) {} }, 320);
+      };
+      if (pr && pr.then) pr.then(done, done); else setTimeout(done, 220);
+      this.textContent = '⛶ 退出全屏';
+      this.className = 'on';
+      HUD.center('全屏 · 横屏', '浏览器不允许锁横屏的话，把手机转过来即可', 2200);
+    } catch (e) {
+      HUD.center('无法全屏', '当前浏览器可能不支持，试试系统浏览器而不是微信', 2600);
+    }
+    Sfx.ui();
+  });
+  /* 全屏状态变化时同步按钮文案 */
+  ['fullscreenchange', 'webkitfullscreenchange'].forEach(function (ev) {
+    document.addEventListener(ev, function () {
+      var b = $('bFull'); if (!b) return;
+      var fs = document.fullscreenElement || document.webkitFullscreenElement;
+      b.textContent = fs ? '⛶ 退出全屏' : '⛶ 全屏横屏';
+      b.className = fs ? 'on' : '';
+    });
+  });
+
   _on('bSky', 'click', function () {
     var K = window.Sky; if (!K || !K.inited) { HUD.center('天空未就绪', '', 1200); return; }
     var on = K.setEnabled(!K.enabled);

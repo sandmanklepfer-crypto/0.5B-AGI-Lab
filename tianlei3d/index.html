@@ -3,8 +3,19 @@
 <meta charset="utf-8">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>天泪纪元 · HD-2D 3D环境</title>
+
+<!-- ================= PWA：可安装到桌面，像 App 一样独立运行 ================= -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#06050d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="天泪纪元">
+<link rel="apple-touch-icon" href="pwa-apple-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="pwa-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="pwa-512.png">
 <style>
   html,body{margin:0;background:#05060a;overflow:hidden;font-family:"Noto Serif SC",serif;color:#e8e0f0;
     -webkit-user-select:none;user-select:none;touch-action:none}
@@ -1755,6 +1766,7 @@ window.__OCTO = {
     <div class="tgrp">显 示</div>
     <div class="tleaf"><button id="bQual">画质:自动</button><button id="bHouse">房子:简</button><button id="bHz">帧率:60</button></div>
     <div class="tleaf"><button id="bSky" class="on">天空:开</button><button id="bCycle">昼夜:走</button><button id="bTime">时间:12:00</button></div>
+    <div class="tleaf"><button id="bFull">⛶ 全屏横屏</button><button id="bInstall">📲 添加到桌面</button></div>
     <div class="tleaf"><button id="bFx">后处理</button><button id="bFog">薄雾</button></div>
     <div class="tleaf"><button id="bRain" class="on">下雨</button><button id="bSL" class="on">探照灯</button></div>
     <div class="tleaf"><button id="bGround">地面</button><button id="bView">视角:HD-2D</button></div>
@@ -1955,7 +1967,7 @@ window.__ATTACH_SCENE = window.__OCTO.scene;
 <!-- ★ 积分（进游戏 +10、每分钟 +2，100 分解锁神器） -->
 <script src="site/js/rewards.js?v=1792763000"></script>
 <script src="js/hd2d_arena.js?v=1792145440"></script>
-<script src="js/shooter.js?v=1792850000"></script>
+<script src="js/shooter.js?v=1792860000"></script>
 <!-- ★ 守夜灯：离线发育 + 留存钩子 -->
 <script src="js/hearth.js?v=1792763000"></script>
 <!-- ★ 世界之外：无限远景地形 + 水域 + 昼夜（移植自 _frozen_3d/world3d.js） -->
@@ -1964,4 +1976,79 @@ window.__ATTACH_SCENE = window.__OCTO.scene;
 <script src="js/sky.js?v=1792772000"></script>
 <script src="js/racestrip.js?v=1792763000"></script>
 <script src="js/kernel.js?v=1792145440"></script>
+<!-- ★★ PWA：注册 Service Worker + 安装提示（放最后，不阻塞游戏）★★ -->
+<script>
+(function () {
+  'use strict';
+
+  /* ---- 1) 注册 Service Worker（http/https 才有效，file:// 跳过）---- */
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js', { scope: './' }).then(function (reg) {
+        /* 新版本装好后立刻接管，避免用户锁死在旧版 */
+        reg.addEventListener('updatefound', function () {
+          var nw = reg.installing; if (!nw) return;
+          nw.addEventListener('statechange', function () {
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+              try { nw.postMessage('skip-waiting'); } catch (e) {}
+            }
+          });
+        });
+      }).catch(function () { /* 静默失败，不影响游戏 */ });
+    });
+  }
+
+  /* ---- 2) 安装提示 ---- */
+  var deferred = null;
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault(); deferred = e;
+    var b = document.getElementById('bInstall');
+    if (b) { b.textContent = '📲 添加到桌面'; b.className = 'on'; }
+  });
+
+  function say(t, s, ms) {
+    try { if (window.HUD && HUD.center) { HUD.center(t, s, ms); return; } } catch (e) {}
+    try { alert(t + (s ? '\n' + s : '')); } catch (e) {}
+  }
+
+  function doInstall() {
+    if (!deferred) {
+      var ua = navigator.userAgent;
+      var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua));
+      var isWX = /MicroMessenger/i.test(ua);
+      if (isWX) {
+        say('微信里装不了', '点右上角「···」→ 在浏览器打开，再用浏览器菜单「添加到主屏幕」', 6500);
+      } else if (isIOS) {
+        say('iPhone 安装方法', 'Safari 底部「分享」→「添加到主屏幕」→ 完成', 6500);
+      } else {
+        say('安装方法', '浏览器右上角菜单 →「安装应用 / 添加到主屏幕」', 6500);
+      }
+      return;
+    }
+    deferred.prompt();
+    deferred.userChoice.then(function (r) {
+      var ok2 = r && r.outcome === 'accepted';
+      say(ok2 ? '✅ 已添加到桌面' : '已取消', ok2 ? '以后从桌面图标直接打开，全屏无地址栏' : '', 3200);
+      deferred = null;
+      var b = document.getElementById('bInstall');
+      if (b) { b.textContent = '📲 添加到桌面'; b.className = ''; }
+    });
+  }
+  window.__pwaInstall = doInstall;
+
+  /* 菜单按钮（shooter.js 若没绑定，这里兜底） */
+  document.addEventListener('click', function (e) {
+    if (e.target && e.target.id === 'bInstall') doInstall();
+  }, true);
+
+  /* ---- 3) 已经是独立窗口（已安装）就不显示安装按钮 ---- */
+  window.addEventListener('load', function () {
+    var sa = window.matchMedia('(display-mode: standalone)').matches ||
+             window.matchMedia('(display-mode: fullscreen)').matches ||
+             navigator.standalone === true;
+    if (sa) { var b = document.getElementById('bInstall'); if (b) b.style.display = 'none'; }
+  });
+})();
+</script>
+
 </body></html>

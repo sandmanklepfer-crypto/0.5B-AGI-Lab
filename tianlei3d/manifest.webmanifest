@@ -1,0 +1,56 @@
+{
+  "name": "天泪纪元",
+  "short_name": "天泪",
+  "description": "雨夜之城 · 与人共建 —— 免注册、点链接就进的多人沙盒",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone", "minimal-ui"],
+  "orientation": "landscape",
+  "background_color": "#06050d",
+  "theme_color": "#06050d",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "categories": ["games", "entertainment"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "pwa-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "pwa-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "pwa-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "pwa-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "立即游玩",
+      "short_name": "开玩",
+      "url": "./index.html?auto=1",
+      "icons": [{ "src": "pwa-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "玩家社区",
+      "short_name": "社区",
+      "url": "./site/forum.html",
+      "icons": [{ "src": "pwa-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
