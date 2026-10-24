@@ -118,7 +118,8 @@
     e.preventDefault();
     PWA.deferred = e;
     PWA.installable = true;
-    showBanner();
+    PWA.reason = '';
+    showBanner(true);        /* true = 有原生安装框，按钮写"安装" */
     var b = document.getElementById('bInstall');
     if (b) { b.textContent = '📲 添加到桌面'; b.className = 'on'; }
   });
@@ -147,35 +148,124 @@
       });
       return;
     }
-
-    /* 没有原生安装框 → 给对应平台的手动指引 */
-    var msg;
-    if (isWeChat()) {
-      msg = '微信里不能安装。点右上角「···」→「在浏览器打开」，再用浏览器菜单「添加到主屏幕」';
-    } else if (isIOS()) {
-      msg = 'iPhone：点 Safari 底部「分享」按钮 →「添加到主屏幕」→ 右上角「添加」';
-    } else if (!isSecure()) {
-      msg = '当前不是 https 环境，无法安装';
-    } else if (!PWA.registered) {
-      msg = 'Service Worker 未就绪：' + (PWA.reason || '可能刚打开，请刷新一次再试');
-    } else {
-      msg = '点浏览器右上角菜单 →「安装应用 / 添加到主屏幕」';
-    }
-    say('📲 添加到桌面', msg, 8000);
+    /* 没有原生安装框 → 弹出图文步骤面板（不是一闪而过的 toast） */
+    showHelp();
   };
+
+  /* ---------------- 帮助面板样式（注入，不用改各页 CSS）---------------- */
+  function injectCSS() {
+    if (document.getElementById('pwaCSS')) return;
+    var st = document.createElement('style');
+    st.id = 'pwaCSS';
+    st.textContent = [
+      '#pwaHelp{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center}',
+      '#pwaHelp .ph-mask{position:absolute;inset:0;background:rgba(3,3,8,.82);backdrop-filter:blur(4px)}',
+      '#pwaHelp .ph-box{position:relative;width:min(90vw,380px);max-height:82vh;overflow:auto;',
+      '  background:rgba(16,12,32,.99);border:1px solid rgba(168,85,247,.55);border-radius:18px;',
+      '  padding:20px;box-shadow:0 24px 80px rgba(0,0,0,.8);color:#ece7f7;',
+      '  font-family:"Noto Sans SC",system-ui,-apple-system,sans-serif}',
+      '#pwaHelp .ph-h{display:flex;justify-content:space-between;align-items:center;',
+      '  font-size:16px;font-weight:800;margin-bottom:14px;color:#e9d5ff}',
+      '#pwaHelp .ph-x{cursor:pointer;color:#a78bfa;font-size:17px;padding:0 6px}',
+      '#pwaHelp .ph-li{font-size:14px;line-height:2.05;color:#ddd2f5}',
+      '#pwaHelp .ph-li b{color:#ffd166}',
+      '#pwaHelp .ph-note{margin-top:12px;padding:9px 12px;border-radius:10px;font-size:11.5px;line-height:1.8;',
+      '  background:rgba(255,209,102,.1);border:1px solid rgba(255,209,102,.4);color:#ffe9b8}',
+      '#pwaHelp .ph-diag{margin-top:12px;font-size:11.5px;color:#9b93b3}',
+      '#pwaHelp .ph-ok{margin-top:16px;width:100%;padding:12px;border:0;border-radius:11px;cursor:pointer;',
+      '  font-family:inherit;font-size:14.5px;font-weight:800;color:#fff;',
+      '  background:linear-gradient(100deg,#a855f7,#22d3ee)}'
+    ].join('');
+    document.head.appendChild(st);
+  }
+
+  /* ---------------- 安装帮助面板 ---------------- */
+  function helpSteps() {
+    var ua = navigator.userAgent;
+    if (isWeChat()) {
+      return {
+        title: '微信里装不了，先换浏览器',
+        steps: [
+          '1. 点右上角「···」',
+          '2. 选「在浏览器打开」',
+          '3. 在浏览器里再点「装到桌面」'
+        ],
+        note: '微信内置浏览器禁止安装 PWA，这是微信的限制'
+      };
+    }
+    if (isIOS()) {
+      return {
+        title: 'iPhone / iPad 安装方法',
+        steps: [
+          '1. 必须用 <b>Safari</b> 打开（Chrome 不行）',
+          '2. 点底部中间「分享」按钮 ⬆️',
+          '3. 往下滑，选「添加到主屏幕」',
+          '4. 右上角点「添加」'
+        ],
+        note: 'iOS 不支持自动弹安装框，只能手动添加'
+      };
+    }
+    return {
+      title: '安装到桌面',
+      steps: [
+        '1. 点浏览器右上角「⋮」或「≡」菜单',
+        '2. 找「安装应用」/「添加到主屏幕」/「添加到桌面」',
+        '3. 点确认',
+        '',
+        '<span style="opacity:.7">如果菜单里没有这一项，说明当前浏览器不支持，建议换 Chrome / Edge / 三星浏览器</span>'
+      ],
+      note: ''
+    };
+  }
+
+  function showHelp() {
+    if (document.getElementById('pwaHelp')) return;
+    injectCSS();
+    var h = helpSteps();
+    var d = document.createElement('div');
+    d.id = 'pwaHelp';
+    d.innerHTML =
+      '<div class="ph-mask"></div>' +
+      '<div class="ph-box">' +
+        '<div class="ph-h">📲 ' + h.title + '<span class="ph-x" id="phX">✕</span></div>' +
+        '<div class="ph-body">' + h.steps.map(function (s) {
+          return s ? '<div class="ph-li">' + s + '</div>' : '<div style="height:6px"></div>';
+        }).join('') + '</div>' +
+        (h.note ? '<div class="ph-note">' + h.note + '</div>' : '') +
+        '<div class="ph-diag" id="phDiag">' +
+          (PWA.registered ? '✅ 页面已就绪（可安装）' : '⚠️ Service Worker 未就绪，可能影响安装') +
+        '</div>' +
+        '<button class="ph-ok" id="phOk">知道了</button>' +
+      '</div>';
+    document.body.appendChild(d);
+
+    function close() { if (d && d.parentNode) d.parentNode.removeChild(d); }
+    var x = document.getElementById('phX'), ok = document.getElementById('phOk');
+    var mask = d.querySelector('.ph-mask');
+    if (x) x.onclick = close;
+    if (ok) ok.onclick = close;
+    if (mask) mask.onclick = close;
+  }
+  PWA.help = showHelp;
 
   /* ---------------- 底部安装条 ---------------- */
   var banner = null;
-  function showBanner() {
+  /* native = 有 beforeinstallprompt（能弹原生框）
+     ★ 关键：没有 native 事件时也要显示，改成"看安装方法" */
+  function showBanner(native) {
     if (!WANT_BANNER || isStandalone() || banner) return;
-    if (sessionStorage && sessionStorage.getItem('pwa_banner_off') === '1') return;
+    if (isFile()) return;
+    try { if (sessionStorage && sessionStorage.getItem('pwa_banner_off') === '1') return; } catch (e) { }
+    if (document.getElementById('pwaBanner')) return;
 
+    var isN = !!native || !!PWA.deferred;
     banner = document.createElement('div');
     banner.id = 'pwaBanner';
     banner.innerHTML =
       '<span class="pb-ico">📲</span>' +
-      '<span class="pb-txt">装到桌面，像 App 一样玩<small>全屏 · 无地址栏 · 桌面图标</small></span>' +
-      '<button class="pb-go" id="pbGo">安装</button>' +
+      '<span class="pb-txt">装到桌面，像 App 一样玩' +
+      '<small>' + (isN ? '全屏 · 无地址栏 · 桌面图标' : '看这里 → 怎么装（安卓/iOS 不同）') + '</small></span>' +
+      '<button class="pb-go" id="pbGo">' + (isN ? '安装' : '怎么装') + '</button>' +
       '<button class="pb-x" id="pbX" aria-label="关闭">✕</button>';
     document.body.appendChild(banner);
 
@@ -187,6 +277,20 @@
       hideBanner();
     };
     setTimeout(function () { if (banner) banner.classList.add('on'); }, 900);
+  }
+
+  /* ★ 无条件在 2.5 秒后显示安装条。
+     不管 beforeinstallprompt 有没有来，用户都得能看到入口。
+     （以前只在事件里 showBanner()，事件不来就一片空白 —— 这就是"哪里都看不到"的原因） */
+  function autoBanner() {
+    if (isStandalone()) return;
+    if (PWA.deferred) { showBanner(true); return; }
+    showBanner(false);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(autoBanner, 2500); });
+  } else {
+    setTimeout(autoBanner, 2500);
   }
   function hideBanner() {
     if (!banner) return;
