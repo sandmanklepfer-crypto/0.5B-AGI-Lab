@@ -207,6 +207,160 @@
       return p;
     },
 
+    /* ==================================================================
+       ★★★ 停留时长埋点（dwell）★★★
+       ------------------------------------------------------------------
+       为什么要单独做：
+         原来只有 at/visits/pages，能知道"来过几次"，但不知道"待了多久"。
+         site:1 既可能是"看 30 秒就关"，也可能是"看了 10 分钟"，分不清。
+
+       怎么记：
+         · 进页面记 t0，每 15 秒发一次心跳（累计秒数）
+         · 页面隐藏/关闭时发一条 final（带总时长 + 是否真实可见）
+         · ★ 只累计"页面可见"的时间：切后台不算
+         · ★ 主题独立：zhz/tianlei/dwell/<uid>，不污染原有 stats/v/
+         · 一条保留消息只存"今天累计"和"最近一次会话"，不会无限膨胀
+
+       注意：
+         浏览器关闭时发出的最后一条消息不保证送达（fetch/WS 可能被中断）。
+         所以还有 15 秒一次的心跳兜底 —— 即使 final 丢了，也能拿到近似值。
+       ================================================================== */
+    DW: 'zhz/tianlei/dwell/',
+
+    _dw: null,   // 当前会话状态
+
+    /* 开始一次会话（页面加载时调用） */
+    dwellStart: function (page) {
+      if (this._dw) return this._dw;
+      var now = Date.now();
+      this._dw = {
+        page: page || '',
+        t0: now,          // 会话开始（真实时间）
+        visAcc: 0,        // 可见累计毫秒
+        visT0: (typeof document !== 'undefined' && !document.hidden) ? now : 0,
+        sent: 0,
+        maxScroll: 0,
+        clicks: 0,
+        alive: true
+      };
+
+      var self = this;
+
+      /* 可见性切换：切走时结算，切回来重新计时 */
+      try {
+        document.addEventListener('visibilitychange', function () {
+          var t = Date.now();
+          if (document.hidden) {
+            if (self._dw && self._dw.visT0) {
+              self._dw.visAcc += t - self._dw.visT0;
+              self._dw.visT0 = 0;
+            }
+          } else {
+            if (self._dw) self._dw.visT0 = t;
+          }
+          if (document.hidden) self.dwellFlush('hide');
+        });
+      } catch (e) {}
+
+      /* 滚动深度 + 点击（判断"真在看"还是"挂着"） */
+      try {
+        addEventListener('scroll', function () {
+          if (!self._dw) return;
+          var d = document.documentElement;
+          var pct = (scrollY + innerHeight) / Math.max(1, d.scrollHeight);
+          if (pct > self._dw.maxScroll) self._dw.maxScroll = Math.min(1, pct);
+        }, { passive: true });
+        addEventListener('pointerdown', function () {
+          if (self._dw) self._dw.clicks++;
+        }, { passive: true });
+      } catch (e) {}
+
+      /* 15 秒心跳（兜底：即使关页面的 final 丢了也有数据） */
+      this._dwTimer = setInterval(function () { self.dwellFlush('beat'); }, 15000);
+
+      /* 关闭页面时尽力发一次 final */
+      try {
+        addEventListener('pagehide', function () { self.dwellFlush('bye'); });
+        addEventListener('beforeunload', function () { self.dwellFlush('bye'); });
+      } catch (e) {}
+
+      return this._dw;
+    },
+
+    /* 当前可见累计毫秒 */
+    _dwVisible: function () {
+      var w = this._dw; if (!w) return 0;
+      var acc = w.visAcc;
+      if (w.visT0) acc += Date.now() - w.visT0;
+      return acc;
+    },
+
+    /* 发送一次停留快照 */
+    dwellFlush: function (why) {
+      var w = this._dw;
+      if (!w || !w.alive) return;
+      if (typeof root.MiniMqtt === 'undefined') return;
+
+      var now = Date.now();
+      var sec = Math.round(this._dwVisible() / 1000);
+      if (sec <= 0) return;
+      /* 同一秒内不重复发 */
+      if (why === 'beat' && sec === w.sent) return;
+      w.sent = sec;
+
+      var self = this;
+      var body = {
+        uid: this.uid(),
+        page: w.page,
+        sec: sec,                       // ★ 本次会话可见停留秒数
+        wall: Math.round((now - w.t0) / 1000),   // 墙上时间（含后台）
+        scroll: +(w.maxScroll || 0).toFixed(2),
+        clicks: w.clicks || 0,
+        why: why,
+        at: now
+      };
+      try { body.name = (this.profile().name || ''); } catch (e) {}
+      try { body.tz = (this.device().tz || ''); } catch (e) {}
+      try { body.mobile = (this.device().mobile || 0); } catch (e) {}
+      try { body.scr = (this.device().scr || ''); } catch (e) {}
+
+      /* 用一个专用连接发（不走主 Net，避免干扰游戏联机）
+         ★ 修过的坑：原来"没连上就 mq.on('connect') 等一次"，
+           但 on 是累加的 —— 每次 flush 都挂一个新 handler，
+           而且切后台时若从未连上，那条消息就永远发不出去。
+         现在改成：连上后统一补发"最新一条待发"，只保留最后一次（保序、不堆积）。 */
+      var self2 = this;
+      var payload = JSON.stringify(body);
+      var topic = this.DW + this.uid();
+      this._dwPending = { topic: topic, payload: payload };
+
+      try {
+        if (!this._dwMq) {
+          this._dwMq = root.MiniMqtt.createClient({ clientId: 'tldw' + this.uid().slice(-6) });
+          /* 只注册一次 connect：连上就把最新的待发补出去 */
+          this._dwMq.on('connect', function () {
+            var p2 = self2._dwPending;
+            if (!p2) return;
+            try { self2._dwMq.publish(p2.topic, p2.payload, true); } catch (e) {}
+            self2._dwPending = null;
+          });
+        }
+        var mq = this._dwMq;
+        if (mq.connected) {
+          mq.publish(topic, payload, true);
+          this._dwPending = null;
+        }
+        /* 若未连上：不额外挂 handler，等那次唯一的 connect 来补发 */
+      } catch (e) {}
+    },
+
+    /* 结束会话（读最终值后停掉心跳） */
+    dwellEnd: function () {
+      this.dwellFlush('end');
+      if (this._dwTimer) { clearInterval(this._dwTimer); this._dwTimer = null; }
+      if (this._dw) this._dw.alive = false;
+    },
+
     /* —— ★ 清游戏数据：只删 tianlei_save，人物记录/UID 一律不动 —— */
     wipeGame: function () {
       var ls = this.ls(), removed = [];
@@ -227,7 +381,10 @@
         try {
           var b = document.body;
           var pg = b && b.getAttribute && b.getAttribute('data-track');
-          if (pg) Fp.track(pg, null, { own: true });
+          if (pg) {
+            Fp.track(pg, null, { own: true });
+            Fp.dwellStart(pg);          // ★ 停留时长埋点
+          }
         } catch (e) {}
       };
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', auto);
