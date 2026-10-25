@@ -38,7 +38,12 @@
       cycle: true,
       clouds: 0.75,          // 云量 0~1
       stars: 1.0,            // 星空强度
-      sunSize: 220.0         // 太阳光斑锐度（越大越小）
+      sunSize: 220.0,        // 太阳光斑锐度（越大越小）
+      /* ★ 关键：默认不额外打光。
+         主城本来就有一套精心调的夜景光（arena3d: 紫调 hemi 0.34 + 暖月光 0.70），
+         sky.js 再叠一层会把雨夜氛围冲淡、画面变平。
+         想要"天空管昼夜光照"时把这里改 true（或 Sky.setLighting(true)）。 */
+      lighting: false
     },
 
     inited: false,
@@ -276,13 +281,17 @@
       var warm = Math.max(0, 1 - Math.abs(pal.day) * 2.6);
       u.uSunTint.value.setRGB(1.0, 0.98 - warm * 0.30, 0.92 - warm * 0.55);
 
+      /* ★ 只有 lighting=true 才真的影响场景光照，默认 false（不干扰原有夜景） */
+      var lit = !!this.cfg.lighting;
       if (this.sunLight) {
+        this.sunLight.visible = lit;
         this.sunLight.position.copy(dir).multiplyScalar(600);
-        this.sunLight.intensity = 0.08 + Math.max(0, pal.day) * 1.15;
+        this.sunLight.intensity = lit ? (0.08 + Math.max(0, pal.day) * 1.15) : 0;
         this.sunLight.color.setRGB(1.0, 0.97 - warm * 0.22, 0.92 - warm * 0.42);
       }
       if (this.hemi) {
-        this.hemi.intensity = 0.16 + Math.max(0, pal.day) * 0.62;
+        this.hemi.visible = lit;
+        this.hemi.intensity = lit ? (0.16 + Math.max(0, pal.day) * 0.62) : 0;
         this.hemi.color.setRGB(
           0.30 + pal.day * 0.42,
           0.36 + pal.day * 0.42,
@@ -327,6 +336,11 @@
     setCycle: function (on) {
       this.cfg.cycle = !!on;
       return this.cfg.cycle;
+    },
+    setLighting: function (on) {
+      this.cfg.lighting = !!on;
+      this.apply();
+      return this.cfg.lighting;
     },
     setClouds: function (v) {
       this.cfg.clouds = Math.max(0, Math.min(1, v));

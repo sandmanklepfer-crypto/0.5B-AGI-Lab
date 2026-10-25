@@ -2583,7 +2583,7 @@ function buildMmBase() {
 /* ============================== 主循环 ============================== */
 /* ============================== ★ 性能调速器（保 60 帧：低了自动降画质，够了自动恢复） ============================== */
 var Perf = {
-  fps: 60, lo: 0, hi: 0, level: 0,   // ★ 默认最低档(0)，交给自适应往上加；不再一进来就 3A
+  fps: 60, lo: 0, hi: 0, level: 1,   // ★ 从中间档起步：既不糊，也不会一进来就 3A
   cap60: true, _skip: 0, _acc: 0,
   // 自适应=原版三档(0.55/0.75/1.0)；手动=5 档像素比
   PR: null, MANUAL: 0,                        // MANUAL>0 时手动锁定档位，不再自动调
@@ -2600,12 +2600,21 @@ var Perf = {
       try { if (A.scene && A.scene.fog) A.scene.fog.density = [0.016, 0.013, 0.010, 0.0082, 0.0068][this.level]; } catch (e) {}
     } else {
       /* ★★ 自适应 = 原版限流器，一模一样（0.55/0.75/1.0，三档，会掉到模糊） */
-      var lv = Math.min(this.level, 2);
-      try { A.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, [0.55, 0.75, 1.0][lv] * (A.LEAN ? A.LEAN.pixel : 1))); A.resize(); } catch (e) {}
-      MobRender.range = [22, 34, 46][lv];
-      try { A.setLean && A.setLean({ rain: [180, 320, 450][lv], reflect: false, spotLights: false, pointLights: false }); } catch (e) {}
-      if (FXp) FXp.on = lv >= 1;
-      try { if (A.scene && A.scene.fog) A.scene.fog.density = [0.014, 0.010, 0.0082][lv]; } catch (e) {}
+      /* ★ 自适应 5 档（原来只有 3 档，且最低档 0.55 糊得厉害）
+         0: 0.75 省电（老机型）
+         1: 1.00 清晰（默认起步）
+         2: 1.25 很清晰
+         3: 1.50 高画质
+         4: 2.00 拉满（旗舰机） */
+      var lv = Math.min(this.level, 4);
+      var PRS = U ? [0.9, 1.25, 1.6, 2.0, 2.6] : [0.75, 1.0, 1.25, 1.5, 2.0];
+      try { A.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, PRS[lv])); A.resize(); } catch (e) {}
+      MobRender.range = [24, 34, 46, 58, 72][lv];
+      try { A.setLean && A.setLean({ rain: [200, 320, 450, 520, 600][lv], reflect: false, spotLights: false, pointLights: false }); } catch (e) {}
+      if (FXp) FXp.on = lv >= 2;                 // 后处理从第 3 档才开（很吃性能）
+      try { if (A.scene && A.scene.fog) A.scene.fog.density = [0.014, 0.012, 0.010, 0.0086, 0.0072][lv]; } catch (e) {}
+      /* 阴影：中档以上自动打开（原来永远关着，画面很平） */
+      this.shadow(lv >= 2);
     }
     window.__perfLevel = this.level;
     // ★ 阴影也跟档位：最低档直接关（手机上最吃性能的就是这个），中档以上才开
@@ -2628,11 +2637,20 @@ var Perf = {
   tick: function (f) {                       // 每秒调用一次
     this.fps = f;
     if (this.MANUAL) return;                  // 用户手动锁档 → 不自动调
-    // ★ 自适应（像网页版）：掉帧快降、流畅慢升，5 档全覆盖
-    var loAt = 52, hiAt = 58;      // ★ 与网页版完全一致（真的会升会降）
-    if (f < loAt && this.level > 0) { this.lo++; this.hi = 0; if (this.lo >= 2) { this.level--; this.lo = 0; this.apply(); } }
-    else if (f > hiAt && this.level < 2) { this.hi++; this.lo = 0; if (this.hi >= 5) { this.level++; this.hi = 0; this.apply(); } }   // ★ 自适应上限=2（原版三档）
-    else { this.lo = 0; this.hi = 0; }
+    /* ★★★ 修了一个真 bug ★★★
+       原来：hiAt = 58，判断是 f > 58。
+       但 60 帧上限（cap60）会把实测 fps 压在 58~59，
+       于是 59 > 58 才勉强成立，58 > 58 不成立 —— 帧数正好 58 时永远不升档，
+       用户就永远卡在最低档 0.55 像素比（806×394），画质糊成一片。
+       现在：hiAt = 55（留出余量），并且升档更快（3 秒），上限提到 4 档。 */
+    var loAt = 50, hiAt = 55;
+    if (f < loAt && this.level > 0) {
+      this.lo++; this.hi = 0;
+      if (this.lo >= 2) { this.level--; this.lo = 0; this.apply(); }
+    } else if (f >= hiAt && this.level < 4) {
+      this.hi++; this.lo = 0;
+      if (this.hi >= 3) { this.level++; this.hi = 0; this.apply(); }
+    } else { this.lo = 0; this.hi = 0; }
   },
   // ★ 手动档位：0标清 1高清 2超清 3极高 4顶级3A
   setLevel: function (lv) { this.level = Math.max(0, Math.min(4, lv)); this.MANUAL = 1; this.apply(); return this.level; },

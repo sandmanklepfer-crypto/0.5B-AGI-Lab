@@ -1645,7 +1645,20 @@ function loop(now) {
 
   frames++; if (now - lastF > 1000) {
     fps = frames * 1000 / (now - lastF); frames = 0; lastF = now;
-    perf.textContent = W + 'x' + H + '  ' + fps.toFixed(0) + ' fps\n真3D地面 · ShadowMap · PBR · Bloom · TiltShift';
+    /* ★ 原来这里写死了 "ShadowMap · PBR · Bloom · TiltShift"，
+       但实际这些功能可能是关的 —— 显示假信息会误导判断画质。
+       现在改成显示真实状态：分辨率 / 像素比 / 档位 / 阴影 / 后处理 */
+    (function () {
+      var pr = 1, sh = false, fx = false;
+      try { pr = renderer.getPixelRatio(); } catch (e) {}
+      try { sh = !!(renderer.shadowMap && renderer.shadowMap.enabled); } catch (e) {}
+      try { fx = !!(window.FXp && FXp.on); } catch (e) {}
+      var lv = (window.Perf && Perf.name) ? Perf.name() : '-';
+      perf.textContent = W + 'x' + H + '  ' + fps.toFixed(0) + ' fps  ' +
+        'pr' + pr.toFixed(2) + '  ' + lv +
+        '\n阴影' + (sh ? '开' : '关') + ' · 后处理' + (fx ? '开' : '关') +
+        ' · 天空' + (window.Sky && Sky.inited && Sky.enabled ? '开' : '关');
+    })();
   }
   if (window.Shooter && window.Shooter.tick) { try { window.Shooter.tick(dt); } catch (e) { window.__stErr = String((e && e.message) || e); } }
   if (window.__CITY3D && window.__CITY3D.update) { try { window.__CITY3D.update(dt, cam.position); } catch (e) { window.__cityUpdErr = String((e && e.message) || e); } }
