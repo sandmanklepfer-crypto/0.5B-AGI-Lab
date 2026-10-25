@@ -2595,8 +2595,17 @@ var Perf = {
       var pr = this.PR[this.level];
       try { A.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pr)); A.resize(); } catch (e) {}
       MobRender.range = (U ? [28, 34, 46, 58, 72] : [22, 34, 46, 58, 72])[this.level];
-      try { A.setLean && A.setLean({ rain: [180, 320, 450, 520, 600][this.level], reflect: false, spotLights: false, pointLights: false }); } catch (e) {}
-      if (FXp) FXp.on = true;
+      /* ★ 探照灯：中档以上才开真实 SpotLight（很贵，但这是雨夜氛围的核心）
+         关着的时候只剩一个 2.6% 不透明度的锥体壳，看着就是"死灰" */
+      try {
+        A.setLean && A.setLean({
+          rain: [180, 320, 450, 520, 600][this.level],
+          reflect: this.level >= 2,          // ★ 湿地霓虹反光：≥2 档开（CubeCamera 很贵）
+          spotLights: this.level >= 1,       // ★ 关键：≥1 档就开
+          pointLights: false
+        });
+      } catch (e) {}
+      if (FXp) FXp.on = true;   // ★ 手动档也强制开 Bloom
       try { if (A.scene && A.scene.fog) A.scene.fog.density = [0.016, 0.013, 0.010, 0.0082, 0.0068][this.level]; } catch (e) {}
     } else {
       /* ★★ 自适应 = 原版限流器，一模一样（0.55/0.75/1.0，三档，会掉到模糊） */
@@ -2610,8 +2619,20 @@ var Perf = {
       var PRS = U ? [0.9, 1.25, 1.6, 2.0, 2.6] : [0.75, 1.0, 1.25, 1.5, 2.0];
       try { A.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, PRS[lv])); A.resize(); } catch (e) {}
       MobRender.range = [24, 34, 46, 58, 72][lv];
-      try { A.setLean && A.setLean({ rain: [200, 320, 450, 520, 600][lv], reflect: false, spotLights: false, pointLights: false }); } catch (e) {}
-      if (FXp) FXp.on = lv >= 2;                 // 后处理从第 3 档才开（很吃性能）
+      try {
+        A.setLean && A.setLean({
+          rain: [200, 320, 450, 520, 600][lv],
+          reflect: lv >= 3,                  // ★ 湿地反光只在最高档开
+          spotLights: lv >= 1,               // ★ ≥1 档就开真实探照灯
+          pointLights: false
+        });
+      } catch (e) {}
+      /* ★★★ 关键修正 ★★★
+         Bloom 后处理就是这个游戏的"体积光/霓虹辉光" ——
+         关掉它整片画面立刻变成死灰色（我之前为省性能设成 lv>=2 才开，是错的）。
+         改成：**始终开**。性能不够时用更便宜的方式省（降 rain / 缩短视野 / 降像素比），
+         而不是砍掉氛围光。 */
+      if (FXp) FXp.on = true;
       try { if (A.scene && A.scene.fog) A.scene.fog.density = [0.014, 0.012, 0.010, 0.0086, 0.0072][lv]; } catch (e) {}
       /* 阴影：中档以上自动打开（原来永远关着，画面很平） */
       this.shadow(lv >= 2);

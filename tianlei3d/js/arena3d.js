@@ -893,7 +893,13 @@ var DECAL_TEX = (function () {
     var sp = new THREE.SpotLight(s.c, 0, 100, 0.30, 0.55, 1.5);
     sp.position.set(bx, by, bz); sp.castShadow = false;
     var tg = new THREE.Object3D(); tg.position.set(bx, 0, bz + 12);
-    if (LEAN.spotLights) { tg.position.set(bx, 0, bz + 12); scene.add(tg); sp.target = tg; scene.add(sp); }
+    /* ★★ 关键修复：以前是 `if (LEAN.spotLights) { ... scene.add(sp) }`
+       —— SpotLight 只在启动那一刻判断一次，之后 Perf 再怎么改 LEAN 都没用，
+       灯根本没被加进场景，"体积光"永远是缺失的。
+       现在：始终创建并加入场景，用 .visible 做运行时开关。 */
+    scene.add(tg); sp.target = tg; scene.add(sp);
+    sp.visible = !!LEAN.spotLights;
+    sp.intensity = LEAN.spotLights ? 3.2 : 0;
     emAdd(bx, bz, by, s.c, 3.2, 80, true);
     var hgt = by, cone = new THREE.Mesh(new THREE.ConeGeometry(Math.tan(0.30) * hgt * 1.25, hgt, 22, 1, true),
       new THREE.MeshBasicMaterial({ color: s.c, transparent: true, opacity: 0.026, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
@@ -904,6 +910,8 @@ var DECAL_TEX = (function () {
       new THREE.MeshBasicMaterial({ map: DECAL_TEX, color: s.c, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending, depthWrite: false }));
     decal.rotation.x = -Math.PI / 2; decal.scale.set(11, 11, 1); scene.add(decal);
     SEARCH.push({ sp: sp, tg: tg, cone: cone, decal: decal, bx: bx, by: by, bz: bz, phase: Math.random() * 6.28, spd: rnd(0.25, 0.5) });
+    /* 把光锥壳调亮一点：即使 SpotLight 关了，锥体本身也该看得出是光柱 */
+    cone.material.opacity = 0.055;
   }
 })();
 
@@ -1061,7 +1069,16 @@ function update(dt, camPos) {
 
 function setSpot(on) {
   SPOT_ON = !!on;
-  for (var i = 0; i < SEARCH.length; i++) { SEARCH[i].sp.visible = SPOT_ON && LEAN.spotLights; SEARCH[i].sp.intensity = (SPOT_ON && LEAN.spotLights) ? 0.62 : 0; SEARCH[i].cone.visible = SPOT_ON; }
+  for (var i = 0; i < SEARCH.length; i++) {
+    var on = SPOT_ON && LEAN.spotLights;
+    SEARCH[i].sp.visible = on;
+    /* ★ 原来这里写 0.62 —— 4 盏探照灯 0.62 强度在雨夜里几乎看不见。
+       提到 5.0 才是肉眼能看到的"光柱打在地面上"的效果。 */
+    SEARCH[i].sp.intensity = on ? 5.0 : 0;
+    SEARCH[i].cone.visible = SPOT_ON;
+    SEARCH[i].cone.material.opacity = on ? 0.09 : 0.045;
+    if (SEARCH[i].decal) SEARCH[i].decal.material.opacity = on ? 0.22 : 0.12;
+  }
 }
 function getSpot() { return SPOT_ON; }
 // ★ 标记「自制都市内容」→ 外部（tileworld3d）可整体隐藏，只留环境（天/雨/雾/光/GI）
