@@ -29,7 +29,19 @@ var lerp = function (a, b, t) { return a + (b - a) * t; };
 var rnd = function (a, b) { return a + Math.random() * (b - a); };
 var norm360 = function (a) { a %= 360; return a < 0 ? a + 360 : a; };
 var _dummy = { style: {}, classList: { add: function () {}, remove: function () {}, toggle: function () {} }, textContent: '', innerHTML: '', appendChild: function () {}, removeChild: function () {}, querySelector: function () { return _dummy; }, addEventListener: function () {}, children: [], value: '', display: '', getBoundingClientRect: function () { return { left: 0, top: 0, width: 0, height: 0, right: 0, bottom: 0 }; } };
-var $ = function (id) { return document.getElementById(id) || _dummy; };
+/* ★ 带缓存的 $：全文 187 次调用，缓存后省掉重复的 getElementById。
+   注意：只缓存"存在"的结果；第一次查不到时仍走 _dummy 且不缓存，
+   避免元素晚于脚本创建时永久拿到 dummy。
+   DOM 被整体替换（如重建 HUD）时调用 $.clear() 清缓存。 */
+var _elCache = Object.create(null);
+var $ = function (id) {
+  var e = _elCache[id];
+  if (e) return e;
+  e = document.getElementById(id);
+  if (e) { _elCache[id] = e; return e; }
+  return _dummy;
+};
+$.clear = function () { _elCache = Object.create(null); };
 /* ★ 空安全 DOM 操作（元素缺失只跳过，绝不因 null.addEventListener 崩掉整脚本） */
 var _on = function (id, ev, fn) { var e = $(id); if (e) e.addEventListener(ev, fn); };
 var _txt = function (id, t) { var e = $(id); if (e) e.textContent = t; };
@@ -2716,6 +2728,22 @@ var Perf = {
        于是 59 > 58 才勉强成立，58 > 58 不成立 —— 帧数正好 58 时永远不升档，
        用户就永远卡在最低档 0.55 像素比（806×394），画质糊成一片。
        现在：hiAt = 55（留出余量），并且升档更快（3 秒），上限提到 4 档。 */
+    /* ★★★ 紧急救帧：连续 3 秒低于 20fps → 直接砸到最低配
+       （1fps 那种情况，靠一档一档降要 6 秒以上，玩家早就退出了） */
+    if (f < 20) {
+      this._emerg = (this._emerg || 0) + 1;
+      if (this._emerg >= 3) {
+        this._emerg = 0;
+        if (this.level > 0) { this.level = 0; this.hi = 0; this.lo = 0; this.apply(); }
+        /* 再补一刀：天空这种纯装饰的，低帧时直接关掉 */
+        try { if (window.Sky && Sky.inited) Sky.setEnabled(false); } catch (e) {}
+        try { if (window.FXp) FXp.on = true; } catch (e) {}   // Bloom 保留，氛围不砍
+        try { HUD.center('已自动降到最省画质', '帧率过低 · 可在菜单里手动调回', 2400); } catch (e) {}
+      }
+      return;                       // 紧急态下不做常规升降档判断
+    }
+    this._emerg = 0;
+
     var loAt = 50, hiAt = 55;
     if (f < loAt && this.level > 0) {
       this.lo++; this.hi = 0;
