@@ -325,7 +325,12 @@ if (!ATTACH) window.addEventListener('resize', resize);
 
 /* ---------------- 环境反射探针（CubeCamera → 地面/楼体反出霓虹） ---------------- */
 var cubeRT = new THREE.WebGLCubeRenderTarget(256, { generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
-var cubeCam = new THREE.CubeCamera(0.5, 400, cubeRT);
+/* ★ far 从 400 → 2000：原来拍不到半径 1600 的天空球，
+   导致环境反射里天空区域是纯黑 —— 这也是"死光"的一部分。
+   现在能把天空一起拍进去，湿地面才会反射出天光。 */
+var cubeCam = new THREE.CubeCamera(0.5, 2000, cubeRT);
+var cubeBaked = false;      // ★ 环境探针是否至少烘焙过一次（false = envMap 全是黑的）
+var cubeBakeN = 0;          // 前几次烘焙（应对贴图异步加载，避免烘进黑图就锁定）
 
 /* ---------------- PBR 贴图集（assets/tex：albedo + normal + roughness） ---------------- */
 var TL = new THREE.TextureLoader();
@@ -1055,14 +1060,32 @@ function update(dt, camPos) {
     rainMesh.geometry.attributes.position.needsUpdate = true;
     rainMesh.visible = true;
   } else if (rainMesh) rainMesh.visible = false;
-  // 环境反射探针（低频重建 → 地面反出霓虹/探照灯）
+  /* ★★★ 环境反射探针 ★★★
+     ！！这里原来有个致命 bug ！！
+     条件写成 `if (LEAN.reflect && ...)` —— 而 LEAN.reflect 默认 false，
+     于是 cubeCam.update() **一次都没执行过**。
+     但所有材质（地面/墙面/玻璃/金属）的 envMap 都指向 cubeRT.texture，
+     探针没更新 = 环境贴图全黑 = 表面完全没有环境反射 = 画面"死光"。
+     这就是"整体看不到全局光照"的真正原因。
+
+     现在的策略：
+       · 首帧（或玩家移动后）**无条件烘焙至少一次**，保证 envMap 有内容
+       · 之后才按档位决定"要不要持续更新"
+         - reflect=true  : 每 4 秒更新（湿地反出霓虹，最贵）
+         - reflect=false : 只在首次 / 玩家大幅移动时更新一次（很便宜） */
   envAcc += dt;
   var _moved = camPos ? Math.hypot(camPos.x - (lastEnvX || 1e9), camPos.z - (lastEnvZ || 1e9)) : 0;
-  if (LEAN.reflect && envAcc > 4.0 && camPos && _moved > 6.0) {      // ★ 降频 1.6s 且相机移动>2 才重建（原本 0.35s → 周期性爆帧）
+  /* 前 5 次强制烘：贴图是异步加载的，第一帧烘进去可能还是黑的，
+     所以头几秒多烘几次，等贴图就绪后自然就正确了。 */
+  var needFirst = (!cubeBaked) || cubeBakeN < 5;
+  var needUpdate = LEAN.reflect
+    ? (envAcc > 4.0 && _moved > 6.0)                    // 高档：持续低频更新
+    : (envAcc > 12.0 && _moved > 40.0);                 // 低档：只在走远时才补一次
+  if (camPos && (needFirst || needUpdate)) {
     envAcc = 0; lastEnvX = camPos.x; lastEnvZ = camPos.z;
     cubeCam.position.set(camPos.x, camPos.y + 1.5, camPos.z);
     if (rainMesh) rainMesh.visible = false;
-    cubeCam.update(renderer, scene);
+    try { cubeCam.update(renderer, scene); cubeBaked = true; cubeBakeN++; } catch (e) {}
     if (rainMesh && RAIN.on) rainMesh.visible = true;
   }
 }

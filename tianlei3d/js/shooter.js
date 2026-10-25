@@ -2651,7 +2651,7 @@ var Perf = {
       try {
         A.setLean && A.setLean({
           rain: [180, 320, 450, 520, 600][this.level],
-          reflect: this.level >= 2,          // ★ 湿地霓虹反光：≥2 档开（CubeCamera 很贵）
+          reflect: this.level >= 2,          // ★ 持续更新湿地反光 ≥2 档（首帧必烘由 arena3d 保证）
           spotLights: this.level >= 1,       // ★ 关键：≥1 档就开
           pointLights: false
         });
@@ -2673,7 +2673,7 @@ var Perf = {
       try {
         A.setLean && A.setLean({
           rain: [200, 320, 450, 520, 600][lv],
-          reflect: lv >= 3,                  // ★ 湿地反光只在最高档开
+          reflect: lv >= 3,                  // ★ 持续更新湿地反光只在高档（首帧必烘已由 arena3d 保证）
           spotLights: lv >= 1,               // ★ ≥1 档就开真实探照灯
           pointLights: false
         });
