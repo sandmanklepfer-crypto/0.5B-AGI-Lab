@@ -2503,6 +2503,45 @@ var HUD = {
 
 /* ============================== HD-2D 后期：泛光 + 移轴景深 + 调色 ============================== */
 var FXp = { on: true, fog: false };   // ★ 后处理管线保留（默认开）
+
+/* ★★ 帧耗时分解 + 自诊断 ★★
+   为什么需要：用户报"1 fps"，但看不出是渲染慢、逻辑慢、还是网络/GC。
+   这里把每帧拆成三段计时（逻辑 / 渲染 / 后处理），
+   并在控制台提供 Fps.where() 直接告诉你瓶颈在哪。 */
+var FpsDiag = {
+  logicMs: 0, renderMs: 0, postMs: 0, totalMs: 0,
+  _t: 0, _acc: { l: 0, r: 0, p: 0, n: 0 },
+  begin: function () { this._t = performance.now(); },
+  markLogic: function () { this.logicMs = performance.now() - this._t; this._t = performance.now(); },
+  markRender: function () { this.renderMs = performance.now() - this._t; this._t = performance.now(); },
+  markPost: function () {
+    this.postMs = performance.now() - this._t;
+    var a = this._acc;
+    a.l += this.logicMs; a.r += this.renderMs; a.p += this.postMs; a.n++;
+  },
+  where: function () {
+    var a = this._acc;
+    if (!a.n) return '还没有采样（先玩几秒）';
+    var l = a.l / a.n, r = a.r / a.n, p = a.p / a.n;
+    var tot = l + r + p;
+    var msg = '每帧平均 ' + tot.toFixed(1) + ' ms  (≈' + (1000 / Math.max(0.1, tot)).toFixed(0) + ' fps)\n' +
+      '  逻辑 ' + l.toFixed(1) + ' ms\n' +
+      '  渲染 ' + r.toFixed(1) + ' ms  ← WebGL draw\n' +
+      '  后处理 ' + p.toFixed(1) + ' ms  ← Bloom\n';
+    var worst = l > r && l > p ? '逻辑' : (r > p ? '渲染' : '后处理');
+    msg += '瓶颈: ' + worst;
+    try {
+      msg += '\n像素比 ' + (window.Perf ? Perf.name() : '?') +
+        ' / pr ' + (A && A.renderer ? A.renderer.getPixelRatio().toFixed(2) : '?') +
+        '\n天空 ' + (window.Sky && Sky.enabled ? '开' : '关') +
+        ' / 后处理 ' + (FXp.on ? '开' : '关') +
+        ' / 探照灯 ' + (A && A.LEAN ? (A.LEAN.spotLights ? '开' : '关') : '?');
+    } catch (e) {}
+    return msg;
+  },
+  reset: function () { this._acc = { l: 0, r: 0, p: 0, n: 0 }; }
+};
+window.FpsDiag = FpsDiag;
 function initFXpass() {
   var opt = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
   FXp.rtScene = new THREE.WebGLRenderTarget(1, 1, opt);
@@ -2638,8 +2677,21 @@ var Perf = {
       this.shadow(lv >= 2);
     }
     window.__perfLevel = this.level;
+
     // ★ 阴影也跟档位：最低档直接关（手机上最吃性能的就是这个），中档以上才开
     this.shadow(this.MANUAL ? this.level : Math.min(this.level, 2));
+
+    /* ★ 天空：每像素 shader，弱 GPU 上很贵。
+       0 档直接关掉（省一半像素着色），1 档以上才开。 */
+    try {
+      if (window.Sky && Sky.inited && Sky.cfg.autoOff) {
+        Sky.setEnabled(this.level >= 1);
+      }
+    } catch (e) {}
+
+    /* ★ Bloom 保持常开（氛围不能砍）。但如果真的只有个位数帧，
+       说明瓶颈在像素着色，这时才临时降到低分辨率 half-res 后处理。 */
+    try { if (FXp) FXp.on = true; } catch (e) {}
   },
   shadow: function (lv) {
     var on = lv >= 1;
@@ -2706,6 +2758,7 @@ function loop(now) {
 }
 function loopBody(dt, now) {
   try {
+  FpsDiag.begin();
   if (HOST && window.__OCTO) { var _hh = window.__OCTO.hero; P.x = _hh.x; P.z = _hh.y; P.y = 0; if (window.__OCTO.yaw) P.yaw = window.__OCTO.yaw(); }
   elapsed += dt; ScreenShake.update(dt);
 
@@ -2767,7 +2820,9 @@ function loopBody(dt, now) {
     if (window.Sky && Sky.inited) Sky.update(dt, P.x, P.z);
   } catch (e) { window.__skyErr = String((e && e.message) || e); }
 
+  FpsDiag.markLogic();
   if (!HOST) try { renderFrame(); } catch (e) { window.__renderErr = (e && (e.stack || e.message)) || String(e); try { renderer.setRenderTarget(null); renderer.render(actionScene, cam()); } catch (_) {} }
+  FpsDiag.markPost();
   frames++; if (now - lastF > 1000) {
     fps = frames * 1000 / (now - lastF); frames = 0; lastF = now;
     Perf.tick(fps);
@@ -3435,6 +3490,20 @@ function bindUI() {
   _on('chatInput', 'keydown', function (e) { if (e.key === 'Enter') { sendChat(); e.stopPropagation(); } });
   /* ★ 天空开关 */
   /* ★ 手动全屏 + 横屏（任何时候都能用，不依赖那个提示） */
+  /* ★ 点右上角 perf 那行 → 弹出帧耗时分解（诊断 1fps 到底卡在哪） */
+  (function () {
+    var pf = $('perf');
+    if (!pf) return;
+    pf.style.pointerEvents = 'auto';
+    pf.style.cursor = 'pointer';
+    pf.addEventListener('click', function () {
+      var msg = (window.FpsDiag ? FpsDiag.where() : '诊断未就绪');
+      try { HUD.center('帧耗时分解', msg, 9000); } catch (e) { alert(msg); }
+      try { console.log('[FpsDiag]\n' + msg); } catch (e) {}
+      if (window.FpsDiag) FpsDiag.reset();
+    });
+  })();
+
   _on('bFull', 'click', function () {
     openTree(false);
     var el = document.documentElement;
@@ -3852,7 +3921,15 @@ function restorePrefs() {
   if ($('modeChip')) { $('modeChip').textContent = SANDBOX ? '🧱 沙盒' : '⚔ 战斗'; $('modeChip').className = 'chip' + (SANDBOX ? '' : ' on'); }
   // ★ 恢复画质选择（auto / m0~m4）
   (function () {
+    /* ★ 画质存档迁移：
+       旧方案的 m0/m1 对应 0.55/0.75 像素比（很糊）。
+       很多用户点了「画质」之后被永久锁在 m0，新档位表完全用不上，
+       表现就是"分辨率一直上不去"。这里对 m0/m1 视为自动，主动解锁。 */
     var q = load('tl_qual', 'auto');
+    if (q === 'm0' || q === 'm1') {
+      q = 'auto';
+      save('tl_qual', 'auto');
+    }
     if (q === 'auto') Perf.auto();
     else if (/^m[0-4]$/.test(q)) Perf.setLevel(parseInt(q.slice(1), 10));
     var b = $('bQual'); if (b) b.textContent = '画质:' + Perf.name();

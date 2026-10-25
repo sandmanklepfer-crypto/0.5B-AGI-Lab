@@ -43,7 +43,10 @@
          主城本来就有一套精心调的夜景光（arena3d: 紫调 hemi 0.34 + 暖月光 0.70），
          sky.js 再叠一层会把雨夜氛围冲淡、画面变平。
          想要"天空管昼夜光照"时把这里改 true（或 Sky.setLighting(true)）。 */
-      lighting: false
+      lighting: false,
+      /* 低画质自动关：由 Perf.apply 调用 setEnabled(false)。
+         天空 shader 是每像素成本，弱 GPU 上能吃掉一半帧率。 */
+      autoOff: true
     },
 
     inited: false,
@@ -104,7 +107,7 @@
           '}',
           'float fbm(vec2 p){',
           '  float s = 0.0, a = 0.5;',
-          '  for (int i = 0; i < 5; i++) { s += a * vnoise(p); p *= 2.03; a *= 0.5; }',
+          '  for (int i = 0; i < 3; i++) { s += a * vnoise(p); p *= 2.03; a *= 0.5; }',   // ★ 5→3 层：手机 GPU 上便宜一半
           '  return s;',
           '}',
 
@@ -137,7 +140,7 @@
           '  }',
 
           /* ---- 云：两层 fbm 叠加 + 随时间飘 ---- */
-          '  if (d.y > 0.015) {',
+          '  if (d.y > 0.015 && uCloud > 0.01) {',
           '    vec2 uv = d.xz / max(d.y, 0.10) * 0.55;',
           '    vec2 drift = vec2(uTime * 0.010, uTime * 0.004);',
           '    float c1 = fbm(uv * 1.0 + drift);',
@@ -237,7 +240,7 @@
       scene.add(this.group);
 
       this.mat = this._buildMaterial();
-      var geo = new THREE.SphereGeometry(this.cfg.radius, 32, 20);
+      var geo = new THREE.SphereGeometry(this.cfg.radius, 16, 10);   // ★ 32x20→16x10，顶点少一半
       this.mesh = new THREE.Mesh(geo, this.mat);
       this.mesh.frustumCulled = false;
       this.mesh.renderOrder = -10000;         // 永远最先画
