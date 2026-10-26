@@ -1,0 +1,12 @@
+{
+  "online": false,
+  "checked_at": "2026-10-26T03:50:00Z",
+  "gateway_url": null,
+  "note": "静态文件。没有在线网关时为 false。运维跑起 shell/gateway.js 并暴露到公网后，手动改这里或让定时任务改。",
+  "how_to_bring_online": [
+    "1. 在一台有公网 IP 的机器上：node shell/gateway.js --port 8899",
+    "2. 用 Cloudflare Tunnel / frp / nginx 把它暴露成 https://your-domain/invoke",
+    "3. 把上面的 gateway_url 改成那个地址，online 改成 true",
+    "4. git commit && git push"
+  ]
+}
