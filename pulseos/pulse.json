@@ -9,8 +9,8 @@
     "给 AI 的说明：",
     "1. 这个 JSON 只描述【能做什么】和【去哪里调】。它本身不执行任何东西。",
     "2. 真正调用必须走 gateway 字段描述的端点。若 gateway.available 为 false，说明没有在线网关，调用会失败。",
-    "4. 【重要】批量调用用 gateway.batch_invoke，不要循环调 gateway.invoke。实测网络层快 4.2x，端到端快 182x。",
-    "3. 不要假设这些能力已经在线。先 GET gateway.health_check 确认。"
+    "3. 不要假设这些能力已经在线。先 GET gateway.health_check 确认。",
+    "4. 【重要】批量调用用 gateway.batch_invoke，不要循环调 gateway.invoke。实测网络层快 4.2x，端到端快 182x。"
   ],
   "gateway": {
     "available": false,
