@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PulseOS · 活的实例</title>
+<style>
+:root{
+  --bg:#0b0f14;--bg2:#0f151d;--line:#1c2634;--line2:#26333f;
+  --fg:#dde7f0;--dim:#8fa3b8;--dim2:#5d7085;
+  --acc:#2dd4bf;--ok:#4ade80;--warn:#fbbf24;--bad:#f87171;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:15px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:24px 20px 60px}
+
+h1{font-size:26px;margin:0 0 6px;letter-spacing:-.3px}
+h1 em{font-style:normal;background:linear-gradient(100deg,var(--acc),#7dd3fc);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--dim);font-size:14px;margin:0 0 22px}
+
+.status{display:flex;align-items:center;gap:10px;padding:13px 16px;border-radius:10px;
+  border:1px solid var(--line);background:var(--bg2);margin-bottom:18px;font-size:14px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--dim2);flex:0 0 auto}
+.dot.on{background:var(--ok);box-shadow:0 0 10px var(--ok)}
+.dot.wait{background:var(--warn);box-shadow:0 0 10px var(--warn);animation:pulse 1s infinite}
+.dot.off{background:var(--bad)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+#stText{flex:1}
+#stSub{color:var(--dim2);font-family:var(--mono);font-size:11.5px}
+
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:11px;
+  padding:18px 20px;margin-bottom:14px}
+.card h2{font-size:13px;margin:0 0 12px;color:var(--dim2);letter-spacing:.6px;
+  text-transform:uppercase;font-weight:600}
+
+.btns{display:flex;flex-wrap:wrap;gap:9px}
+button{padding:10px 18px;border-radius:9px;border:1px solid var(--line2);
+  background:var(--bg);color:var(--fg);cursor:pointer;font-size:14px;
+  font-family:inherit;transition:.15s}
+button:hover:not(:disabled){border-color:var(--acc);color:var(--acc)}
+button.primary{background:#0d9488;border-color:#0d9488;color:#021514;font-weight:600}
+button.primary:hover:not(:disabled){background:var(--acc);border-color:var(--acc);color:#021514}
+button:disabled{opacity:.4;cursor:not-allowed}
+
+#out{background:#05090d;border:1px solid var(--line2);border-radius:9px;
+  padding:14px 16px;font-family:var(--mono);font-size:12.5px;line-height:1.85;
+  color:var(--dim);max-height:400px;overflow-y:auto;white-space:pre-wrap;
+  min-height:120px;margin:0}
+#out .ok{color:var(--ok)}
+#out .bad{color:var(--bad)}
+#out .acc{color:var(--acc)}
+#out .dim{color:var(--dim2)}
+#out .big{color:var(--fg);font-size:14px}
+
+.worker{font-family:var(--mono);font-size:12.5px;line-height:1.9;color:var(--dim)}
+.worker b{color:var(--ok)}
+
+.foot{margin-top:26px;padding-top:16px;border-top:1px solid var(--line);
+  font-size:12px;color:var(--dim2);line-height:1.9}
+.foot code{background:var(--bg2);padding:1px 6px;border-radius:4px;
+  font-family:var(--mono);font-size:11.5px;color:#8fd9c9}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>PulseOS · <em>活的实例</em></h1>
+  <p class="sub">打开即连。频道 <code style="font-family:var(--mono);color:var(--acc)">pulsedemo</code> 已写死，不需要任何配置。</p>
+
+  <div class="status">
+    <span class="dot wait" id="dot"></span>
+    <span id="stText">正在连接…</span>
+    <span id="stSub"></span>
+  </div>
+
+  <div class="card">
+    <h2>执行端</h2>
+    <div class="worker" id="workerBox">扫描中…</div>
+  </div>
+
+  <div class="card">
+    <h2>试试</h2>
+    <div class="btns">
+      <button class="primary" id="bPing" disabled>echo.ping</button>
+      <button id="bStatus" disabled>status</button>
+      <button id="bList" disabled>list_services</button>
+      <button id="bDeploy" disabled>部署 calc</button>
+      <button id="bBatch" disabled>批量 50 条</button>
+      <button id="bFlush" disabled>flush</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>输出</h2>
+    <pre id="out"></pre>
+  </div>
+
+  <div class="foot">
+    <b>这个页面不需要隧道。</b><br>
+    它和你的设备都是 MQTT 客户端，都主动连 <code>broker.hivemq.com</code>。
+    没有任何一方监听端口。<br><br>
+    <b>为什么有 400~600ms 延迟：</b>那是公网 broker 往返，不是 PulseOS 慢。
+    服务端实际耗时看输出里的 <code>服务端 Xms</code>。
+  </div>
+
+</div>
+
+<script>
+/* ==================== 极简 MQTT（零依赖） ==================== */
+(function () {
+  const BROKERS = ['wss://broker.hivemq.com:8884/mqtt', 'wss://broker.emqx.io:8084/mqtt'];
+  function encStr(s){const b=new TextEncoder().encode(s);const o=new Uint8Array(b.length+2);
+    o[0]=b.length>>8;o[1]=b.length&255;o.set(b,2);return o;}
+  function encLen(n){const o=[];do{let d=n%128;n=Math.floor(n/128);if(n>0)d|=128;o.push(d);}while(n>0);return new Uint8Array(o);}
+  function packet(t,b){const l=encLen(b.length);const o=new Uint8Array(1+l.length+b.length);
+    o[0]=t;o.set(l,1);o.set(b,1+l.length);return o;}
+  function join(ps){let n=0;for(const p of ps)n+=p.length;const o=new Uint8Array(n);let k=0;
+    for(const p of ps){o.set(p,k);k+=p.length;}return o;}
+
+  window.miniMqtt = function (opts) {
+    opts = opts || {};
+    const cid = (opts.clientId || 'pw') + Math.random().toString(36).slice(2, 8);
+    let bi = 0, ws = null, ready = false, closed = false, keep = null, retry = null;
+    const subs = new Set(), H = {};
+    const emit = (e, ...a) => (H[e] || []).forEach(f => { try { f(...a); } catch (x) {} });
+
+    function connect() {
+      const url = (opts.brokers || BROKERS)[bi++ % (opts.brokers || BROKERS).length];
+      try { ws = new WebSocket(url, 'mqtt'); } catch (e) { schedule(); return; }
+      ws.binaryType = 'arraybuffer';
+      ws.onopen = () => ws.send(packet(0x10, join([encStr('MQTT'), new Uint8Array([4, 2, 0, 60]), encStr(cid)])));
+      ws.onmessage = (ev) => {
+        const buf = new Uint8Array(ev.data);
+        let i = 0;
+        while (i < buf.length) {
+          const type = buf[i] >> 4;
+          let len = 0, mult = 1, j = i + 1;
+          while (true) { const b = buf[j++]; len += (b & 127) * mult; if (!(b & 128)) break; mult *= 128; }
+          const body = buf.subarray(j, j + len);
+          if (type === 2) {
+            ready = true;
+            subs.forEach(t => rawSub(t));
+            clearInterval(keep);
+            keep = setInterval(() => { if (ws && ws.readyState === 1) ws.send(packet(0xC0, new Uint8Array(0))); }, 25000);
+            emit('connect');
+          } else if (type === 3) {
+            const tl = (body[0] << 8) | body[1];
+            emit('message',
+              new TextDecoder().decode(body.subarray(2, 2 + tl)),
+              new TextDecoder().decode(body.subarray(2 + tl)));
+          }
+          i = j + len;
+        }
+      };
+      ws.onclose = () => { ready = false; emit('close'); schedule(); };
+      ws.onerror = () => { try { ws.close(); } catch (e) {} };
+    }
+    function schedule() { if (closed) return; clearTimeout(retry); retry = setTimeout(connect, 2000); }
+    function rawSub(t) { if (ws && ws.readyState === 1) ws.send(packet(0x82, join([new Uint8Array([0, 1]), encStr(t), new Uint8Array([0])]))); }
+
+    const api = {
+      on(e, f) { (H[e] = H[e] || []).push(f); return api; },
+      subscribe(t) { subs.add(t); rawSub(t); return api; },
+      publish(t, m, r) {
+        if (!ready || !ws) return false;
+        ws.send(packet(r ? 0x31 : 0x30, join([encStr(t), new TextEncoder().encode(String(m))])));
+        return true;
+      },
+      end() { closed = true; clearInterval(keep); clearTimeout(retry); try { ws.close(); } catch (e) {} },
+      get connected() { return ready; },
+    };
+    connect();
+    return api;
+  };
+})();
+
+/* ==================== 页面逻辑 ==================== */
+const CHAN = 'pulsedemo';          /* ★ 写死，零配置 */
+const NS = 'zhz/pulse/' + CHAN + '/';
+const HELLO = 'zhz/pulse/hello';
+
+const $ = (s) => document.querySelector(s);
+let cli = null, workers = {}, replies = new Map();
+
+function out(line, cls) {
+  const el = document.createElement('div');
+  if (cls) el.className = cls;
+  el.textContent = line;
+  $('#out').appendChild(el);
+  $('#out').scrollTop = $('#out').scrollHeight;
+}
+
+function setStatus(state, text, sub) {
+  $('#dot').className = 'dot ' + state;
+  $('#stText').textContent = text;
+  if (sub !== undefined) $('#stSub').textContent = sub;
+}
+
+function rid() {
+  const a = new Uint8Array(6);
+  crypto.getRandomValues(a);
+  return Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function enable(on) {
+  ['bPing', 'bStatus', 'bList', 'bDeploy', 'bBatch', 'bFlush'].forEach(id => {
+    $('#' + id).disabled = !on;
+  });
+}
+
+function renderWorkers() {
+  const list = Object.values(workers);
+  if (!list.length) {
+    $('#workerBox').textContent = '还没发现执行端。';
+    setStatus('wait', '已连 broker，等待执行端…', '');
+    enable(false);
+    return;
+  }
+  $('#workerBox').innerHTML = list.map(w =>
+    '<b>●</b> ' + w.name + '　服务: ' + (w.services || []).join(',') +
+    '　持久化: ' + w.durability + '　' + Math.round((Date.now() - w.ts) / 1000) + 's 前'
+  ).join('<br>');
+  setStatus('on', '已连接，执行端在线', list.length + ' 个');
+  enable(true);
+}
+
+/* ---- 连接 ---- */
+function boot() {
+  out('连接 ' + CHAN + ' …', 'dim');
+  const c = minMqtt({ clientId: 'demo-' + rid() });
+
+  c.on('connect', () => {
+    out('✓ 已连上 broker', 'ok');
+    setStatus('wait', '已连 broker，等待执行端…', '');
+    c.subscribe(HELLO);
+    c.subscribe(NS + 'reply');
+    out('✓ 订阅 ' + HELLO + ' 和 ' + NS + 'reply', 'ok');
+    /* 每 3 秒刷新心跳显示 */
+    setInterval(renderWorkers, 3000);
+    setTimeout(() => {
+      if (!Object.keys(workers).length) {
+        out('⚠ 3 秒内没发现执行端', 'bad');
+        out('  执行端需要有人在设备上跑：', 'dim');
+        out('  node shell/worker.js --chan ' + CHAN, 'dim');
+      }
+    }, 3000);
+  });
+
+  c.on('close', () => {
+    setStatus('off', '连接断开，重试中…', '');
+    out('✗ 断开，2 秒后重连', 'bad');
+    enable(false);
+  });
+
+  c.on('message', (t, p) => {
+    if (t === HELLO) {
+      try {
+        const o = JSON.parse(p);
+        if (o.chan === CHAN) {
+          if (!workers[o.name]) out('✓ 发现执行端: ' + o.name + '（' + (o.services || []).join(',') + '）', 'ok');
+          workers[o.name] = o;
+          renderWorkers();
+        }
+      } catch (e) {}
+      return;
+    }
+    if (t === NS + 'reply') {
+      try { const o = JSON.parse(p); replies.set(o.request_id, o); } catch (e) {}
+    }
+  });
+
+  cli = c;
+}
+
+/* ---- 调用 ---- */
+function ask(payload) {
+  return new Promise((resolve) => {
+    if (!cli || !cli.connected) return resolve({ ok: false, error: '未连接' });
+    const id = rid();
+    payload.request_id = id;
+    replies.delete(id);
+    const topic = NS + (Array.isArray(payload.ops) ? 'batch' : 'invoke');
+    cli.publish(topic, JSON.stringify(payload));
+    const t0 = Date.now();
+    const iv = setInterval(() => {
+      if (replies.has(id)) { clearInterval(iv); resolve(replies.get(id)); }
+      else if (Date.now() - t0 > 20000) { clearInterval(iv); resolve({ ok: false, error: '超时 20s' }); }
+    }, 25);
+  });
+}
+
+async function call(label, payload, fmt) {
+  out('▸ ' + label, 'acc');
+  const t0 = Date.now();
+  const r = await ask(payload);
+  const wall = Date.now() - t0;
+  if (!r.ok) { out('✗ ' + (r.error || '未知'), 'bad'); return r; }
+  out('✓ ' + (fmt ? fmt(r) : JSON.stringify(r.result)), 'ok');
+  out('  服务端 ' + (r.ms || 0).toFixed(2) + 'ms　端到端 ' + wall + 'ms', 'dim');
+  return r;
+}
+
+/* ---- 绑定 ---- */
+$('#bPing').onclick = () => call('echo.ping',
+  { capability: 'invoke', params: { service: 'echo', op: 'ping' } });
+
+$('#bStatus').onclick = () => call('status', { capability: 'status', params: {} },
+  (r) => '服务 ' + r.result.services + ' 个，脉冲 ' + r.result.totalPulses + ' 次，持久化 ' + r.result.durability);
+
+$('#bList').onclick = async () => {
+  out('▸ list_services', 'acc');
+  const r = await ask({ capability: 'list_services', params: {} });
+  if (!r.ok) { out('✗ ' + r.error, 'bad'); return; }
+  for (const s of r.result) out('  ' + s.name + '　方法[' + s.handlers.join(',') + ']　' + s.stateBytes + 'B', 'dim');
+};
+
+$('#bDeploy').onclick = () => call('部署 calc',
+  { capability: 'deploy', params: { src: 'service calc { state { n: int = 0 } on "add"(a,b) { set n = a + b return n } }' } },
+  (r) => '已部署 ' + r.result.map(x => x.name).join(','));
+
+$('#bBatch').onclick = async () => {
+  const ops = [];
+  for (let i = 0; i < 50; i++) {
+    ops.push({ capability: 'invoke', params: { service: 'echo', op: 'ping' } });
+  }
+  out('▸ 批量 50 条（一次往返）', 'acc');
+  const t0 = Date.now();
+  const r = await ask({ ops });
+  const wall = Date.now() - t0;
+  if (r.error) { out('✗ ' + r.error, 'bad'); return; }
+  out('✓ ' + r.okCount + '/' + r.total + ' 成功', 'ok');
+  out('  服务端总耗时 ' + r.totalMs + 'ms　每条 ' + (r.totalMs / r.total).toFixed(2) + 'ms', 'big');
+  out('  端到端 ' + wall + 'ms（含 broker 往返）', 'dim');
+};
+
+$('#bFlush').onclick = () => call('flush', { capability: 'flush', params: {} },
+  (r) => '已落盘 ' + (r.result.flushed || 0) + ' 个服务');
+
+/* ---- 启动 ---- */
+out('◈ PulseOS 活的实例', 'acc');
+out('  频道 ' + CHAN + '（写死，无需配置）', 'dim');
+out('');
+boot();
+</script>
+</body>
+</html>
