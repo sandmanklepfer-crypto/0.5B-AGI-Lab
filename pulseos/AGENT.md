@@ -204,7 +204,30 @@ const {EnvManager} = require('./shell/envs');
 
 ---
 
-## 九、一句话总结
+## 九、网页遥控（agent.html）
+
+手机起 worker：
+
+```bash
+cd /workspace/luhuo/pulseos
+node shell/worker.js \
+  --chan 你的频道 \
+  --name 我的手机 \
+  --allow-agent \
+  --rootfs /workspace/_cx/rootfs-ubuntu/root
+```
+
+浏览器打开：
+
+```
+https://sandmanklepfer-crypto.github.io/0.5B-AGI-Lab/pulseos/agent.html#chan=你的频道
+```
+
+页面会：填频道 → 连接 → 自动查 status 确认 Agent 开了 → 下发任务 → 实时看每步 → 看最终答案。
+
+**网页只是遥控器，Agent 跑在你设备上。全程零入站端口。**
+
+## 十、一句话总结
 
 > **13 个原语 = 四肢（能跑通，实测过）**
 > **AgentLoop = 神经回路（能转，实测过）**

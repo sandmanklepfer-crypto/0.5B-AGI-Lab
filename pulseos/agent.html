@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PulseOS · Agent 遥控台</title>
+<style>
+:root{--bg:#0b0f14;--bg2:#0f151d;--line:#1c2634;--line2:#26333f;
+  --fg:#dde7f0;--dim:#8fa3b8;--dim2:#5d7085;
+  --acc:#2dd4bf;--ok:#4ade80;--warn:#fbbf24;--bad:#f87171;--info:#7dd3fc;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:14.5px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
+
+.bar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;
+  height:52px;padding:0 16px;background:rgba(11,15,20,.94);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);flex-wrap:wrap}
+.bar b{color:var(--acc);font-weight:600}
+.bar .sp{flex:1}
+.tag{font-family:var(--mono);font-size:10.5px;padding:1px 7px;border-radius:20px;
+  border:1px solid var(--line2);color:var(--dim2)}
+.tag.on{color:var(--ok);border-color:rgba(74,222,128,.4)}
+.tag.off{color:var(--bad);border-color:rgba(248,113,113,.4)}
+.tag.wait{color:var(--warn);border-color:rgba(251,191,36,.4)}
+
+.wrap{max-width:1100px;margin:0 auto;padding:18px;display:flex;flex-direction:column;gap:14px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+
+.panel{background:var(--bg2);border:1px solid var(--line);border-radius:11px;overflow:hidden;
+  display:flex;flex-direction:column}
+.ph{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:9px 14px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--dim);
+  background:rgba(255,255,255,.02);flex-wrap:wrap}
+.ph .r{display:flex;gap:7px;align-items:center}
+
+input[type=text],textarea,select{
+  background:var(--bg);border:1px solid var(--line2);border-radius:7px;
+  color:var(--fg);padding:7px 10px;font-family:var(--mono);font-size:12.5px;width:100%}
+textarea{min-height:76px;resize:vertical;line-height:1.7}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--acc)}
+
+button{padding:6px 14px;border-radius:7px;border:1px solid var(--line2);
+  background:var(--bg);color:var(--fg);cursor:pointer;font-size:12.5px;
+  font-family:inherit;transition:.15s;white-space:nowrap}
+button:hover:not(:disabled){border-color:var(--acc);color:var(--acc)}
+button.primary{background:#0d9488;border-color:#0d9488;color:#021514;font-weight:600}
+button.primary:hover:not(:disabled){background:var(--acc);border-color:var(--acc)}
+button:disabled{opacity:.4;cursor:not-allowed}
+
+.pad{padding:12px 14px;display:flex;flex-direction:column;gap:9px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row .lbl{font-size:11.5px;color:var(--dim2);font-family:var(--mono);min-width:64px}
+
+#steps{flex:1;overflow-y:auto;max-height:52vh;min-height:200px;padding:10px 14px;
+  font-family:var(--mono);font-size:11.8px;line-height:1.75;background:rgba(0,0,0,.22)}
+.step{padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.step:last-child{border-bottom:0}
+.step .h{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.step .n{color:var(--acc);font-weight:600}
+.step .tl{color:var(--info)}
+.step .ok{color:var(--ok)}
+.step .bad{color:var(--bad)}
+.step .ms{color:var(--dim2);margin-left:auto;font-size:10.5px}
+.step .th{color:var(--dim);font-style:italic;margin-top:3px;font-size:11.5px}
+.step .out{color:#8fd9c9;margin-top:3px;white-space:pre-wrap;word-break:break-all;
+  font-size:11px;max-height:80px;overflow:hidden}
+
+#log{padding:10px 14px;font-family:var(--mono);font-size:11.3px;line-height:1.8;
+  color:var(--dim);max-height:220px;overflow-y:auto;background:rgba(0,0,0,.22);
+  white-space:pre-wrap}
+#log .ok{color:var(--ok)}
+#log .bad{color:var(--bad)}
+#log .acc{color:var(--acc)}
+#log .dim{color:var(--dim2)}
+
+#answer{padding:14px;font-size:13.5px;line-height:1.85;white-space:pre-wrap;
+  max-height:320px;overflow-y:auto;background:rgba(74,222,128,.05);
+  border-top:1px solid rgba(74,222,128,.2);display:none}
+#answer.on{display:block}
+
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:1px;
+  background:var(--line);border-bottom:1px solid var(--line)}
+.kpi div{background:var(--bg2);padding:9px 12px}
+.kpi b{display:block;font-family:var(--mono);font-size:15px;color:var(--acc)}
+.kpi span{display:block;font-size:10px;color:var(--dim2);margin-top:1px}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <b>◈ Agent 遥控台</b>
+  <span class="tag" id="tConn">未连接</span>
+  <span class="tag off" id="tAgent">Agent ?</span>
+  <span class="sp"></span>
+  <span class="tag" id="tRun" style="display:none">—</span>
+</div>
+
+<div class="wrap">
+
+  <!-- 连接 -->
+  <div class="panel">
+    <div class="ph"><span>① 连接</span><span class="r" id="chanHint"></span></div>
+    <div class="pad">
+      <div class="row">
+        <span class="lbl">频道</span>
+        <input type="text" id="chan" placeholder="和 worker 的 --chan 一致" style="flex:1;min-width:160px">
+        <button id="btnConn" class="primary">连接</button>
+        <button id="btnDisc">断开</button>
+      </div>
+      <div style="font-size:11.5px;color:var(--dim2);font-family:var(--mono)">
+        broker: wss://broker.hivemq.com:8884/mqtt ｜ 零入站端口
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <!-- 左：任务 -->
+    <div class="panel">
+      <div class="ph"><span>② 下发任务</span></div>
+      <div class="pad">
+        <textarea id="task" placeholder="例：用沙箱算出 1000 以内素数个数，用两种算法对比">用沙箱算出 500 以内素数个数，一种算法即可</textarea>
+        <div class="row">
+          <span class="lbl">最大步数</span>
+          <input type="text" id="maxSteps" value="8" style="width:70px">
+          <span class="lbl">超时ms</span>
+          <input type="text" id="maxWall" value="90000" style="width:90px">
+          <button id="btnRun" class="primary" disabled>▶ 运行 Agent</button>
+        </div>
+        <div class="row">
+          <button id="btnStatus" disabled>查状态</button>
+          <button id="btnLog" disabled>拉审计</button>
+          <button id="btnCancel" disabled>取消</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右：实时 -->
+    <div class="panel">
+      <div class="ph"><span>③ 实时步骤</span><span class="r"><span id="stepCount" style="color:var(--dim2);font-family:var(--mono);font-size:11px">0 步</span></span></div>
+      <div class="kpi" id="kpi">
+        <div><b id="kStep">—</b><span>当前步</span></div>
+        <div><b id="kAck">—</b><span>ack 延迟</span></div>
+        <div><b id="kTotal">—</b><span>总耗时</span></div>
+      </div>
+      <div id="steps"></div>
+      <div id="answer"></div>
+    </div>
+
+  </div>
+
+  <!-- 日志 -->
+  <div class="panel">
+    <div class="ph"><span>④ 日志</span><span class="r"><button id="btnClear">清空</button></span></div>
+    <div id="log"></div>
+  </div>
+
+  <!-- 怎么跑 -->
+  <div class="panel">
+    <div class="ph"><span>⑤ 手机上怎么起 worker</span></div>
+    <div class="pad">
+      <div style="font-size:12.5px;color:var(--dim);line-height:1.9">
+        这个网页只是遥控器。<strong>Agent 跑在你自己设备上</strong>（沙箱 + DeepSeek），
+        网页通过 MQTT 发指令、收结果，全程不开任何入站端口。
+      </div>
+      <pre id="cmd" style="background:#05090d;border:1px solid var(--line2);border-radius:8px;
+        padding:14px 16px;font-family:var(--mono);font-size:12px;line-height:1.85;
+        color:#9fc4d8;white-space:pre-wrap;margin:0;overflow-x:auto"></pre>
+      <div class="row">
+        <button id="btnCopy">复制命令</button>
+        <a href="SANDBOX.md" style="color:var(--acc);font-size:12px;font-family:var(--mono)">沙箱文档</a>
+        <a href="AGENT.md" style="color:var(--acc);font-size:12px;font-family:var(--mono)">Agent 文档</a>
+        <a href="entry.html" style="color:var(--dim);font-size:12px;font-family:var(--mono)">总入口</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ============ 极简 MQTT（零依赖，内联） ============ */
+(function(){
+  const BROKERS=['wss://broker.hivemq.com:8884/mqtt','wss://broker.emqx.io:8084/mqtt'];
+  function encStr(s){const b=new TextEncoder().encode(s);const o=new Uint8Array(b.length+2);
+    o[0]=b.length>>8;o[1]=b.length&255;o.set(b,2);return o;}
+  function encLen(n){const o=[];do{let d=n%128;n=Math.floor(n/128);if(n>0)d|=128;o.push(d);}while(n>0);return new Uint8Array(o);}
+  function packet(t,b){const l=encLen(b.length);const o=new Uint8Array(1+l.length+b.length);
+    o[0]=t;o.set(l,1);o.set(b,1+l.length);return o;}
+  function join(ps){let n=0;for(const p of ps)n+=p.length;const o=new Uint8Array(n);let k=0;
+    for(const p of ps){o.set(p,k);k+=p.length;}return o;}
+  window.miniMqtt=function(opts){
+    opts=opts||{};
+    const cid=(opts.clientId||'ag')+Math.random().toString(36).slice(2,8);
+    let bi=0,ws=null,ready=false,closed=false,keep=null,retry=null;
+    const subs=new Set(),H={};
+    const emit=(e,...a)=>(H[e]||[]).forEach(f=>{try{f(...a)}catch(x){}});
+    function connect(){
+      const url=(opts.brokers||BROKERS)[bi++%(opts.brokers||BROKERS).length];
+      try{ws=new WebSocket(url,'mqtt');}catch(e){schedule();return;}
+      ws.binaryType='arraybuffer';
+      ws.onopen=()=>ws.send(packet(0x10,join([encStr('MQTT'),new Uint8Array([4,2,0,60]),encStr(cid)])));
+      ws.onmessage=(ev)=>{
+        const buf=new Uint8Array(ev.data);let i=0;
+        while(i<buf.length){
+          const type=buf[i]>>4;let len=0,mult=1,j=i+1;
+          while(true){const b=buf[j++];len+=(b&127)*mult;if(!(b&128))break;mult*=128;}
+          const body=buf.subarray(j,j+len);
+          if(type===2){ready=true;subs.forEach(t=>rawSub(t));
+            clearInterval(keep);keep=setInterval(()=>{if(ws&&ws.readyState===1)ws.send(packet(0xC0,new Uint8Array(0)))},25000);
+            emit('connect');}
+          else if(type===3){
+            const tl=(body[0]<<8)|body[1];
+            emit('message',new TextDecoder().decode(body.subarray(2,2+tl)),
+              new TextDecoder().decode(body.subarray(2+tl)));
+          }
+          i=j+len;
+        }
+      };
+      ws.onclose=()=>{ready=false;emit('close');schedule();};
+      ws.onerror=()=>{try{ws.close()}catch(e){}};
+    }
+    function schedule(){if(closed)return;clearTimeout(retry);retry=setTimeout(connect,2000);}
+    function rawSub(t){if(ws&&ws.readyState===1)ws.send(packet(0x82,join([new Uint8Array([0,1]),encStr(t),new Uint8Array([0])])));}
+    const api={
+      on(e,f){(H[e]=H[e]||[]).push(f);return api;},
+      subscribe(t){subs.add(t);rawSub(t);return api;},
+      publish(t,m,r){if(!ready||!ws)return false;
+        ws.send(packet(r?0x31:0x30,join([encStr(t),new TextEncoder().encode(String(m))])));return true;},
+      end(){closed=true;clearInterval(keep);clearTimeout(retry);try{ws.close()}catch(e){}},
+      get connected(){return ready;},
+    };
+    connect();return api;
+  };
+})();
+
+/* ============ 页面逻辑 ============ */
+const $=s=>document.querySelector(s);
+let cli=null, CH='', NS='', runId=null, t0=0, steps=[];
+
+function log(msg,cls){
+  const d=document.createElement('div');
+  if(cls)d.className=cls;
+  d.textContent=msg;
+  $('#log').appendChild(d);
+  $('#log').scrollTop=$('#log').scrollHeight;
+}
+function tag(id,cls,text){
+  const e=$(id); e.className='tag '+cls; e.textContent=text;
+}
+function setRunIdle(on){
+  ['btnRun','btnStatus','btnLog','btnCancel'].forEach(id=>$('#'+id).disabled=!on);
+}
+function copyCmd(){
+  const ch=CH||'你的频道';
+  return [
+    'cd /workspace/luhuo/pulseos',
+    'node shell/worker.js \\',
+    '  --chan '+ch+' \\',
+    '  --name 我的手机 \\',
+    '  --allow-agent \\',
+    '  --rootfs /workspace/_cx/rootfs-ubuntu/root',
+  ].join('\n');
+}
+function refreshCmd(){ $('#cmd').textContent=copyCmd(); }
+
+/* 连接 */
+$('#btnConn').onclick=()=>{
+  CH=$('#chan').value.trim();
+  if(!CH){alert('先填频道名');return;}
+  if(cli)cli.end();
+  NS='zhz/pulse/'+CH+'/';
+  tag('#tConn','wait','连接中…');
+  log('连接 '+CH+' …','dim');
+  refreshCmd();
+
+  const c=miniMqtt({clientId:'web'+Math.random().toString(36).slice(2,7)});
+  c.on('connect',()=>{
+    tag('#tConn','on','已连接');
+    log('✓ 已连接 broker','ok');
+    c.subscribe(NS+'evt');
+    c.subscribe(NS+'reply');
+    log('✓ 订阅 evt / reply','ok');
+    setRunIdle(true);
+    setTimeout(()=>{ doStatus(); },1500);
+  });
+  c.on('close',()=>{
+    tag('#tConn','off','断开');
+    log('✗ 连接断开','bad');
+    setRunIdle(false);
+  });
+  c.on('message',(t,p)=>{
+    let m;try{m=JSON.parse(p)}catch(e){return;}
+    if(t===NS+'evt') onEvt(m);
+    else if(t===NS+'reply') onReply(m);
+  });
+  cli=c;
+};
+
+$('#btnDisc').onclick=()=>{
+  if(cli){cli.end();cli=null;}
+  tag('#tConn','off','未连接');
+  setRunIdle(false);
+};
+
+/* 状态 */
+async function doStatus(){
+  if(!cli||!cli.connected)return;
+  const rid=Math.random().toString(36).slice(2,8);
+  const h=(t,p)=>{let m;try{m=JSON.parse(p)}catch(e){return;}
+    if(t===NS+'reply'&&m.request_id===rid){
+      const ag=m.result&&m.result.agent;
+      if(ag&&ag.enabled){
+        tag('#tAgent','on','Agent 开');
+        log('Agent 已启用：'+JSON.stringify(ag.limits),'ok');
+        log('  沙箱: '+ag.rootfs,'dim');
+        log('  并发: '+ag.running+' / 总运行 '+ag.total_runs,'dim');
+      } else {
+        tag('#tAgent','off','Agent 关');
+        log('⚠ Agent 未启用（worker 要加 --allow-agent）','bad');
+      }
+    }};
+  cli.on('message',h);
+  cli.publish(NS+'invoke',JSON.stringify({request_id:rid,capability:'status',params:{}}));
+}
+$('#btnStatus').onclick=doStatus;
+
+/* 运行 */
+$('#btnRun').onclick=()=>{
+  const task=$('#task').value.trim();
+  if(!task){alert('填任务');return;}
+  if(!cli||!cli.connected){alert('先连接');return;}
+
+  steps=[]; runId=null; t0=Date.now();
+  $('#steps').innerHTML='';
+  $('#answer').className=''; $('#answer').textContent='';
+  $('#kStep').textContent='—'; $('#kAck').textContent='—'; $('#kTotal').textContent='—';
+  tag('#tRun','wait','running');
+  $('#tRun').style.display='';
+
+  const rid=Math.random().toString(36).slice(2,8);
+  const h=(t,p)=>{
+    let m;try{m=JSON.parse(p)}catch(e){return;}
+    if(t===NS+'reply'&&m.request_id===rid&&m.run_id){
+      runId=m.run_id;
+      $('#kAck').textContent=(Date.now()-t0)+'ms';
+      log('✓ ACK run_id='+runId+'  '+(Date.now()-t0)+'ms','ok');
+      tag('#tRun','wait',runId.slice(0,12));
+    }
+  };
+  cli.on('message',h);
+  cli.publish(NS+'invoke',JSON.stringify({
+    request_id:rid, capability:'run_agent',
+    params:{
+      task,
+      maxSteps:parseInt($('#maxSteps').value,10)||8,
+      maxWallMs:parseInt($('#maxWall').value,10)||90000,
+    },
+  }));
+  log('▶ 已下发任务','acc');
+};
+
+/* 实时步骤 */
+function onEvt(m){
+  if(runId&&m.run_id&&m.run_id!==runId)return;
+
+  if(m.kind==='start'){
+    log('  [start] '+String(m.task||'').slice(0,60),'dim');
+    return;
+  }
+  if(m.kind==='cleanup'){
+    log('  [cleanup] 回收 '+m.killed+' 个环境','dim');
+    return;
+  }
+  if(m.kind==='stop'||m.kind==='brain_error'){
+    log('  ['+m.kind+'] '+(m.reason||''),'bad');
+    tag('#tRun','off','stopped');
+    return;
+  }
+  if(m.step===undefined)return;
+
+  steps.push(m);
+  $('#stepCount').textContent=steps.length+' 步';
+  $('#kStep').textContent=m.step;
+
+  const d=document.createElement('div');
+  d.className='step';
+  d.innerHTML=
+    '<div class="h">'+
+      '<span class="n">第'+m.step+'步</span>'+
+      '<span class="tl">'+String(m.tool||'')+'</span>'+
+      '<span class="'+(m.ok?'ok':'bad')+'">'+(m.ok?'✓':'✗')+'</span>'+
+      '<span class="ms">'+(m.ms||0)+'ms</span>'+
+    '</div>'+
+    (m.thought?('<div class="th">💭 '+String(m.thought).replace(/</g,'&lt;').slice(0,200)+'</div>'):'')+
+    (m.out?('<div class="out">'+String(m.out).replace(/</g,'&lt;').slice(0,300)+'</div>'):'')+
+    (m.err?('<div class="out" style="color:#f87171">'+String(m.err).replace(/</g,'&lt;').slice(0,200)+'</div>'):'');
+  $('#steps').appendChild(d);
+  $('#steps').scrollTop=$('#steps').scrollHeight;
+}
+
+/* 最终结果 */
+function onReply(m){
+  if(!m.done)return;
+  if(runId&&m.run_id&&m.run_id!==runId)return;
+
+  const total=Date.now()-t0;
+  $('#kTotal').textContent=total+'ms';
+  tag('#tRun', m.ok?'on':'off', m.ok?'完成':'失败');
+
+  if(m.ok){
+    log('✅ FINAL ok  steps='+m.steps+'  '+m.elapsed_ms+'ms','ok');
+    const a=$('#answer');
+    a.className='on';
+    a.textContent='✅ 答案（'+m.steps+' 步 / '+(m.elapsed_ms||0)+'ms）\n\n'+(m.answer||'');
+  }else{
+    log('✗ FINAL 失败: '+m.error,'bad');
+    const a=$('#answer');
+    a.className='on';
+    a.style.background='rgba(248,113,113,.06)';
+    a.textContent='✗ '+(m.error||'未知错误');
+  }
+}
+
+/* 审计 */
+$('#btnLog').onclick=()=>{
+  if(!runId)return alert('先跑一次');
+  const rid=Math.random().toString(36).slice(2,8);
+  const h=(t,p)=>{
+    let m;try{m=JSON.parse(p)}catch(e){return;}
+    if(t===NS+'reply'&&m.request_id===rid){
+      const r=m.result||{};
+      log('── 审计 '+runId+' ──','acc');
+      log('  status='+r.status+'  step='+r.step+'  '+(r.elapsed_ms||0)+'ms','dim');
+      (r.events||[]).forEach(e=>{
+        log('  第'+e.step+'步 '+e.tool+' '+(e.ok?'✓':'✗')+' '+(e.thought?('💭 '+String(e.thought).slice(0,50)):''),'dim');
+      });
+    }
+  };
+  cli.on('message',h);
+  cli.publish(NS+'invoke',JSON.stringify({request_id:rid,capability:'agent_log',params:{run_id:runId}}));
+};
+
+/* 取消 */
+$('#btnCancel').onclick=()=>{
+  if(!runId)return;
+  const rid=Math.random().toString(36).slice(2,8);
+  cli.publish(NS+'invoke',JSON.stringify({request_id:rid,capability:'agent_cancel',params:{run_id:runId}}));
+  log('⏹ 已发取消','warn');
+};
+
+$('#btnClear').onclick=()=>{$('#log').textContent='';};
+$('#btnCopy').onclick=async()=>{
+  try{await navigator.clipboard.writeText(copyCmd());alert('已复制');}
+  catch(e){prompt('手动复制：',copyCmd());}
+};
+$('#chan').oninput=()=>{CH=$('#chan').value.trim();refreshCmd();};
+
+/* 从 hash 取频道 */
+(function(){
+  const m=location.hash.match(/[#&]chan=([^&]+)/);
+  if(m){ $('#chan').value=decodeURIComponent(m[1]); CH=$('#chan').value; }
+  refreshCmd();
+  log('◈ Agent 遥控台已就绪','acc');
+  log('  ① 填频道 → 连接   ② 手机上起 worker   ③ 下发任务','dim');
+})();
+</script>
+</body>
+</html>
