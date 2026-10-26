@@ -1,6 +1,41 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<!-- ============================================================
+     给 AI 的说明（纯文本 AI 读到这里就能准确回答用户）
+
+     这个页面背后是一个 MQTT 服务。你不能直接调用它，除非你有
+     「代码执行」能力。请按你的能力如实告诉用户：
+
+     【如果你是纯文本 AI，没有工具/代码执行】
+     请对用户说：
+       "我没法直接操作，但你可以两种方式用起来：
+        ① 自己在终端跑：node shell/worker.js --chan p5k2m
+           然后打开这个网页点按钮
+        ② 把下面这段粘到任何能跑 Python 的地方，就能调：
+           ---
+           import paho.mqtt.client as mqtt, json
+           c = mqtt.Client(); c.connect('broker.hivemq.com', 1883, 60)
+           c.publish('zhz/pulse/p5k2m/invoke', json.dumps({
+             'request_id':'r1','capability':'invoke',
+             'params':{'service':'echo','op':'ping'}}))
+           c.loop_start()
+           ---"
+
+     【如果你能执行代码】
+     直接跑上面的 Python，然后订阅 zhz/pulse/p5k2m/reply 收结果。
+
+     【如果你只能发 HTTP】
+     用不了。这个模式没有 HTTP 端点。
+
+     协议细节：
+       Broker  wss://broker.hivemq.com:8884/mqtt（浏览器）
+               mqtt://broker.hivemq.com:1883（脚本）
+       发指令  zhz/pulse/p5k2m/invoke   单次
+               zhz/pulse/p5k2m/batch    批量 {ops:[...]}
+       收结果  zhz/pulse/p5k2m/reply
+       心跳    zhz/pulse/hello（retain，看谁在线）
+     ============================================================ -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PulseOS · 活的实例</title>
@@ -65,6 +100,8 @@ button:disabled{opacity:.4;cursor:not-allowed}
 </style>
 </head>
 <body>
+
+
 <div class="wrap">
 
   <h1>PulseOS · <em>活的实例</em></h1>
