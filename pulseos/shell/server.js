@@ -27,26 +27,63 @@ const PORT = (() => {
 })();
 
 const ROOT = path.join(__dirname, '..');
-const STATE_DIR = path.join(ROOT, 'state');
+const STATE_DIR = process.env.PULSE_STATE_DIR || path.join(ROOT, 'state');
 const EX_DIR = path.join(ROOT, 'examples');
 
 const sh = new AggregatedShell({ root: STATE_DIR });
 const bootLog = [];
 
-/* ---------- 启动时自动装载 examples/ ---------- */
-function autoload() {
-  if (!fs.existsSync(EX_DIR)) return;
-  for (const f of fs.readdirSync(EX_DIR).filter(x => x.endsWith('.pulse'))) {
+/* ---------- 源码持久化：每个服务存一份 .pulse，重启时重建 ---------- */
+const SRC_DIR = path.join(STATE_DIR, '_src');
+
+function persistSource(name, src) {
+  try {
+    fs.mkdirSync(SRC_DIR, { recursive: true });
+    fs.writeFileSync(path.join(SRC_DIR, name + '.pulse'), src);
+  } catch (e) {}
+}
+
+function loadPersistedSources() {
+  if (!fs.existsSync(SRC_DIR)) return [];
+  const out = [];
+  for (const f of fs.readdirSync(SRC_DIR).filter(x => x.endsWith('.pulse'))) {
     try {
-      const src = fs.readFileSync(path.join(EX_DIR, f), 'utf8');
-      const r = sh.register(src);
-      bootLog.push('已装载 ' + r.name + '（' + f + '）');
+      out.push({ name: f.replace(/\.pulse$/, ''), src: fs.readFileSync(path.join(SRC_DIR, f), 'utf8') });
+    } catch (e) {}
+  }
+  return out;
+}
+
+/* ---------- 启动：先恢复持久化的，再装 examples/ ---------- */
+function bootup() {
+  /* ① 恢复之前部署过的服务 */
+  for (const { name, src } of loadPersistedSources()) {
+    try {
+      const added = sh.registerAll(src);
+      bootLog.push('恢复 ' + added.map(a => a.name).join(',') + '（持久化）');
     } catch (e) {
-      bootLog.push('装载失败 ' + f + ': ' + e.message.split('\n')[0]);
+      bootLog.push('恢复失败 ' + name + ': ' + e.message.split('\n')[0]);
+    }
+  }
+
+  /* ② 装 examples/（不覆盖已有的） */
+  if (fs.existsSync(EX_DIR)) {
+    for (const f of fs.readdirSync(EX_DIR).filter(x => x.endsWith('.pulse'))) {
+      try {
+        const src = fs.readFileSync(path.join(EX_DIR, f), 'utf8');
+        const { ast } = ps.compile(src);
+        const names = ast.services.map(s => s.name);
+        const fresh = names.filter(n => !sh.kernels.has(n));
+        if (!fresh.length) continue;
+        const r = sh.register(src);
+        bootLog.push('已装载 ' + r.name + '（' + f + '）');
+      } catch (e) {
+        bootLog.push('装载失败 ' + f + ': ' + e.message.split('\n')[0]);
+      }
     }
   }
 }
-autoload();
+bootup();
 
 /* ---------- 工具 ---------- */
 const MIME = {
@@ -165,6 +202,7 @@ const server = http.createServer(async (req, res) => {
       const b = await readBody(req);
       try {
         const r = sh.register(b.src || '');
+        persistSource(r.name, b.src || '');
         return json(res, 200, { ok: true, ...r });
       } catch (e) {
         return json(res, 200, { ok: false, error: e.message });
@@ -175,6 +213,7 @@ const server = http.createServer(async (req, res) => {
     if (p.startsWith('/api/service/') && req.method === 'DELETE') {
       const name = decodeURIComponent(p.slice('/api/service/'.length));
       sh.unregister(name);
+      try { fs.unlinkSync(path.join(SRC_DIR, name + '.pulse')); } catch (e) {}
       return json(res, 200, { ok: true, removed: name });
     }
 

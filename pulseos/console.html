@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PulseOS · 控制台（纯 MQTT，零隧道）</title>
+<link rel="stylesheet" href="css/site.css">
+<style>
+.console{display:grid;gap:14px}
+.box{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+.box h3{margin:0 0 10px;font-size:14px;color:var(--fg);font-weight:600}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input[type=text],textarea,select{
+  background:var(--bg);border:1px solid var(--line2);border-radius:7px;
+  color:var(--fg);padding:7px 10px;font-family:var(--mono);font-size:12.5px}
+input[type=text]{min-width:180px}
+textarea{width:100%;min-height:110px;resize:vertical;line-height:1.7}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--acc)}
+button{padding:7px 15px;border-radius:7px;border:1px solid var(--line2);
+  background:var(--bg);color:var(--fg);cursor:pointer;font-size:13px;transition:.15s}
+button:hover{border-color:var(--acc);color:var(--acc)}
+button.primary{background:var(--acc-d);border-color:var(--acc-d);color:#021514;font-weight:600}
+button.primary:hover{background:var(--acc)}
+button:disabled{opacity:.4;cursor:not-allowed}
+.st{font-family:var(--mono);font-size:11.5px;padding:2px 9px;border-radius:20px;border:1px solid}
+.st.on{color:#4ade80;border-color:rgba(74,222,128,.4);background:rgba(74,222,128,.08)}
+.st.off{color:#f87171;border-color:rgba(248,113,113,.4);background:rgba(248,113,113,.08)}
+.st.wait{color:#fbbf24;border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.08)}
+#log{background:#080c11;border:1px solid var(--line2);border-radius:8px;padding:12px 14px;
+  font-family:var(--mono);font-size:11.5px;line-height:1.8;color:var(--dim);
+  max-height:340px;overflow-y:auto;white-space:pre-wrap}
+#log .ok{color:#4ade80}
+#log .bad{color:#f87171}
+#log .acc{color:var(--acc)}
+#log .dim{color:var(--dim2)}
+.warn{background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.28);
+  border-radius:9px;padding:13px 17px;font-size:13.5px;line-height:1.8}
+.warn b{color:#fbbf24}
+.kv{font-family:var(--mono);font-size:12px;color:var(--dim);line-height:1.95}
+.kv b{color:var(--fg)}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="logo" href="./"><span class="mark">◈</span><span class="name">PulseOS</span></a>
+    <nav class="links">
+      <a href="./">首页</a>
+      <a href="api.html">能力清单</a>
+      <a href="console.html">控制台</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero" style="padding:44px 0 34px">
+  <div class="wrap">
+    <p class="tag">纯 MQTT · 零入站端口 · 零隧道</p>
+    <h1 style="font-size:clamp(24px,3.6vw,34px)">控制台</h1>
+    <p class="lede" style="font-size:15px">
+      这个页面和你的手机都<strong>主动连出去</strong>，谁都不开端口。<br>
+      跟天泪纪元的联机方式一模一样。
+    </p>
+  </div>
+</section>
+
+<section class="sec" style="padding-top:0">
+  <div class="wrap">
+    <div class="console">
+
+      <!-- 连接 -->
+      <div class="box">
+        <h3>① 连接</h3>
+        <div class="row" style="margin-bottom:10px">
+          <input type="text" id="chan" placeholder="频道名（两端一致）" value="">
+          <button id="btnGen" title="随机生成频道名">随机</button>
+          <button id="btnConn" class="primary">连接</button>
+          <span id="connState" class="st off">未连接</span>
+        </div>
+        <div class="kv" id="brokerInfo">Broker：wss://broker.hivemq.com:8884/mqtt</div>
+      </div>
+
+      <!-- 发现 -->
+      <div class="box">
+        <h3>② 发现执行端</h3>
+        <div id="workers" class="kv">还没有发现 worker。先在你的设备上跑：<br>
+          <code>node shell/worker.js --chan 你的频道名</code></div>
+      </div>
+
+      <!-- 调用 -->
+      <div class="box">
+        <h3>③ 调用</h3>
+        <div class="row" style="margin-bottom:10px">
+          <input type="text" id="svc" placeholder="service" value="echo" style="min-width:130px">
+          <input type="text" id="op" placeholder="op" value="ping" style="min-width:130px">
+          <input type="text" id="args" placeholder='args JSON，如 []' value="[]" style="min-width:200px">
+          <button id="btnCall" class="primary">发送</button>
+        </div>
+        <div class="row">
+          <button id="btnStatus">status</button>
+          <button id="btnList">list_services</button>
+          <button id="btnFlush">flush</button>
+        </div>
+      </div>
+
+      <!-- 批量（AI 用这个） -->
+      <div class="box">
+        <h3>④ 批量（把 AI 生成的 JSON 粘这里）</h3>
+        <textarea id="batch" placeholder='{"ops":[{"capability":"invoke","params":{"service":"echo","op":"ping"}}]}'></textarea>
+        <div class="row" style="margin-top:10px">
+          <button id="btnBatch" class="primary">执行批量</button>
+          <button id="btnSample">填入示例</button>
+        </div>
+      </div>
+
+      <!-- 日志 -->
+      <div class="box">
+        <h3>⑤ 日志</h3>
+        <div id="log"></div>
+        <div class="row" style="margin-top:10px">
+          <button id="btnClear">清空</button>
+        </div>
+      </div>
+
+      <!-- 说明 -->
+      <div class="warn">
+        <b>为什么不需要隧道</b><br>
+        你的手机和这个网页都是 MQTT <b>客户端</b>，都主动连向公共 broker。<br>
+        没有任何一方需要公网 IP、需要监听端口、需要内网穿透。<br>
+        这跟天泪纪元的联机方式完全一样。
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-l">
+      <div class="logo"><span class="mark">◈</span> PulseOS</div>
+      <p>常驻内核之上，脉冲一切应用。</p>
+    </div>
+  </div>
+</footer>
+
+<script src="js/mqtt.min.js"></script>
+<script>
+/* ==================== 迷你 MQTT（内联，零依赖） ==================== */
+/* 优先用 js/mqtt.min.js；没有就用下面这个极简实现 */
+if (!window.mqtt || !window.mqtt.connect) {
+  (function () {
+    const BROKERS = ['wss://broker.hivemq.com:8884/mqtt', 'wss://broker.emqx.io:8084/mqtt'];
+    function encStr(s) {
+      const b = new TextEncoder().encode(s);
+      const o = new Uint8Array(b.length + 2);
+      o[0] = b.length >> 8; o[1] = b.length & 255; o.set(b, 2); return o;
+    }
+    function encLen(n) { const o = []; do { let d = n % 128; n = Math.floor(n / 128); if (n > 0) d |= 128; o.push(d); } while (n > 0); return new Uint8Array(o); }
+    function packet(t, body) { const l = encLen(body.length); const o = new Uint8Array(1 + l.length + body.length); o[0] = t; o.set(l, 1); o.set(body, 1 + l.length); return o; }
+    function join(ps) { let n = 0; for (const p of ps) n += p.length; const o = new Uint8Array(n); let k = 0; for (const p of ps) { o.set(p, k); k += p.length; } return o; }
+
+    function createClient(opts) {
+      opts = opts || {};
+      const clientId = (opts.clientId || 'pw') + Math.random().toString(36).slice(2, 8);
+      let bi = 0, ws = null, ready = false, closed = false, keepTimer = null, retryTimer = null;
+      const subs = new Set();
+      const handlers = {};
+
+      function connect() {
+        const url = (opts.brokers || BROKERS)[bi++ % (opts.brokers || BROKERS).length];
+        try { ws = new WebSocket(url, 'mqtt'); } catch (e) { schedule(); return; }
+        ws.binaryType = 'arraybuffer';
+        ws.onopen = () => {
+          ws.send(packet(0x10, join([encStr('MQTT'), new Uint8Array([4, 2, 0, 60]), encStr(clientId)])));
+        };
+        ws.onmessage = (ev) => {
+          const buf = new Uint8Array(ev.data);
+          let i = 0;
+          while (i < buf.length) {
+            const type = buf[i] >> 4;
+            let len = 0, mult = 1, j = i + 1;
+            while (true) { const b = buf[j++]; len += (b & 127) * mult; if (!(b & 128)) break; mult *= 128; }
+            const body = buf.subarray(j, j + len);
+            if (type === 2) {
+              ready = true;
+              subs.forEach(t => rawSub(t));
+              startKeep();
+              emit('connect');
+            } else if (type === 3) {
+              const tl = (body[0] << 8) | body[1];
+              const topic = new TextDecoder().decode(body.subarray(2, 2 + tl));
+              const payload = new TextDecoder().decode(body.subarray(2 + tl));
+              emit('message', topic, payload);
+            } else if (type === 13) { emit('close'); }
+            i = j + len;
+          }
+        };
+        ws.onclose = () => { ready = false; emit('close'); schedule(); };
+        ws.onerror = () => { try { ws.close(); } catch (e) {} };
+      }
+      function schedule() { if (closed) return; clearTimeout(retryTimer); retryTimer = setTimeout(connect, 2000); }
+      function rawSub(t) { if (ws && ws.readyState === 1) ws.send(packet(0x82, join([new Uint8Array([0, 1]), encStr(t), new Uint8Array([0])]))); }
+      function startKeep() { clearInterval(keepTimer); keepTimer = setInterval(() => { if (ws && ws.readyState === 1) ws.send(packet(0xC0, new Uint8Array(0))); }, 25000); }
+      function emit(ev, ...a) { (handlers[ev] || []).forEach(f => { try { f(...a); } catch (e) {} }); }
+
+      const api = {
+        on(ev, fn) { (handlers[ev] = handlers[ev] || []).push(fn); return api; },
+        subscribe(t) { subs.add(t); rawSub(t); return api; },
+        publish(t, msg, retain) {
+          if (!ready || !ws) return false;
+          ws.send(packet(retain ? 0x31 : 0x30, join([encStr(t), new TextEncoder().encode(String(msg))])));
+          return true;
+        },
+        end() { closed = true; clearInterval(keepTimer); clearTimeout(retryTimer); try { ws.close(); } catch (e) {} },
+        get connected() { return ready; },
+      };
+      connect();
+      return api;
+    }
+    window.mqtt = { connect: (url, o) => createClient(o || {}), _mini: true };
+  })();
+}
+
+/* ==================== 控制台逻辑 ==================== */
+const $ = (s) => document.querySelector(s);
+const BROKER = 'wss://broker.hivemq.com:8884/mqtt';
+let cli = null, CH = '', NS = '', hellos = {}, replies = new Map();
+
+function log(msg, cls) {
+  const el = document.createElement('div');
+  if (cls) el.className = cls;
+  el.textContent = msg;
+  $('#log').appendChild(el);
+  $('#log').scrollTop = $('#log').scrollHeight;
+}
+
+function setState(s, text) {
+  const el = $('#connState');
+  el.className = 'st ' + s;
+  el.textContent = text;
+}
+
+function rid() {
+  const a = new Uint8Array(6);
+  (self.crypto || self.msCrypto).getRandomValues(a);
+  return Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/* 连接 */
+$('#btnConn').onclick = () => {
+  CH = $('#chan').value.trim();
+  if (!CH) { alert('先填频道名'); return; }
+  if (cli) { cli.end(); cli = null; }
+
+  NS = 'zhz/pulse/' + CH + '/';
+  setState('wait', '连接中…');
+  log('连接 ' + BROKER + ' …', 'dim');
+
+  const c = window.mqtt.connect(BROKER, { clientId: 'pc-' + rid() });
+
+  c.on('connect', () => {
+    setState('on', '已连接');
+    log('✓ 已连接 broker', 'ok');
+    c.subscribe('zhz/pulse/hello');
+    c.subscribe(NS + 'reply');
+    log('✓ 订阅 zhz/pulse/hello 和 ' + NS + 'reply', 'ok');
+    setTimeout(() => {
+      const n = Object.keys(hellos).length;
+      log(n ? '✓ 发现 ' + n + ' 个 worker' : '⚠ 还没发现 worker', n ? 'ok' : 'bad');
+      renderWorkers();
+    }, 2500);
+  });
+
+  c.on('close', () => {
+    setState('off', '断开');
+    log('✗ 连接断开', 'bad');
+  });
+
+  c.on('message', (t, p) => {
+    if (t === 'zhz/pulse/hello') {
+      try {
+        const o = JSON.parse(p);
+        if (o.chan === CH) { hellos[o.name] = o; renderWorkers(); }
+      } catch (e) {}
+      return;
+    }
+    if (t === NS + 'reply') {
+      try { const o = JSON.parse(p); replies.set(o.request_id, o); } catch (e) {}
+    }
+  });
+
+  cli = c;
+};
+
+/* 随机频道 */
+$('#btnGen').onclick = () => {
+  const a = new Uint8Array(4);
+  (self.crypto || self.msCrypto).getRandomValues(a);
+  const s = 'p' + Array.from(a, b => (b % 36).toString(36)).join('');
+  $('#chan').value = s;
+  log('生成频道名: ' + s, 'acc');
+};
+
+/* 渲染 worker */
+function renderWorkers() {
+  const list = Object.values(hellos);
+  const box = $('#workers');
+  if (!list.length) {
+    box.innerHTML = '还没有发现 worker。先在你的设备上跑：<br><code>node shell/worker.js --chan ' + (CH || '你的频道名') + '</code>';
+    return;
+  }
+  box.innerHTML = list.map(w =>
+    '<div>● <b>' + w.name + '</b>  ' +
+    '服务: ' + (w.services || []).join(',') + '  ' +
+    '持久化: ' + w.durability + '  ' +
+    '允许: ' + w.allow + '  ' +
+    '心跳: ' + Math.round((Date.now() - w.ts) / 1000) + 's 前</div>'
+  ).join('');
+}
+
+/* 发送并等回复 */
+function ask(payload) {
+  return new Promise((resolve) => {
+    if (!cli || !cli.connected) return resolve({ ok: false, error: '未连接' });
+    const id = rid();
+    payload.request_id = id;
+    replies.delete(id);
+    const topic = NS + (Array.isArray(payload.ops) ? 'batch' : 'invoke');
+    cli.publish(topic, JSON.stringify(payload));
+
+    const t0 = Date.now();
+    const iv = setInterval(() => {
+      if (replies.has(id)) { clearInterval(iv); resolve(replies.get(id)); }
+      else if (Date.now() - t0 > 15000) { clearInterval(iv); resolve({ ok: false, error: '超时 15s' }); }
+    }, 40);
+  });
+}
+
+/* 单次调用 */
+$('#btnCall').onclick = async () => {
+  const svc = $('#svc').value.trim(), op = $('#op').value.trim();
+  let args = [];
+  try { args = JSON.parse($('#args').value || '[]'); } catch (e) { alert('args 不是合法 JSON'); return; }
+  log('▸ invoke ' + svc + '.' + op + '(' + JSON.stringify(args) + ')', 'acc');
+  const t0 = Date.now();
+  const r = await ask({ capability: 'invoke', params: { service: svc, op, args } });
+  log((r.ok ? '✓ ' : '✗ ') + (r.ok ? JSON.stringify(r.result) : r.error) +
+    '  ' + (r.ms || 0).toFixed(2) + 'ms(服务端) ' + (Date.now() - t0) + 'ms(端到端)',
+    r.ok ? 'ok' : 'bad');
+};
+
+/* 快捷 */
+$('#btnStatus').onclick = async () => {
+  log('▸ status', 'acc');
+  const r = await ask({ capability: 'status', params: {} });
+  log((r.ok ? '✓ ' : '✗ ') + JSON.stringify(r.result || r.error), r.ok ? 'ok' : 'bad');
+};
+$('#btnList').onclick = async () => {
+  log('▸ list_services', 'acc');
+  const r = await ask({ capability: 'list_services', params: {} });
+  if (r.ok) { for (const s of r.result) log('  ' + s.name + '  方法[' + s.handlers.join(',') + ']  ' + s.stateBytes + 'B  ' + s.pulses + ' 次脉冲', 'dim'); }
+  else log('✗ ' + r.error, 'bad');
+};
+$('#btnFlush').onclick = async () => {
+  log('▸ flush', 'acc');
+  const r = await ask({ capability: 'flush', params: {} });
+  log((r.ok ? '✓ ' : '✗ ') + JSON.stringify(r.result || r.error), r.ok ? 'ok' : 'bad');
+};
+
+/* 批量 */
+$('#btnBatch').onclick = async () => {
+  let body;
+  try { body = JSON.parse($('#batch').value); } catch (e) { alert('不是合法 JSON: ' + e.message); return; }
+  const ops = Array.isArray(body) ? body : body.ops;
+  if (!Array.isArray(ops)) { alert('需要 { ops: [...] } 或直接一个数组'); return; }
+
+  log('▸ batch ' + ops.length + ' 条', 'acc');
+  const t0 = Date.now();
+  const r = await ask({ ops });
+  const wall = Date.now() - t0;
+  if (!r.ok && r.error) { log('✗ ' + r.error, 'bad'); return; }
+  log('✓ ' + r.okCount + '/' + r.total + '  服务端 ' + r.totalMs + 'ms  端到端 ' + wall + 'ms', 'ok');
+  log('  每条 ' + (r.totalMs / r.total).toFixed(2) + 'ms(服务端)  ' + (wall / r.total).toFixed(2) + 'ms(含往返)', 'dim');
+  if (r.failCount) {
+    for (const x of r.results.filter(x => !x.ok).slice(0, 5)) log('  ✗ #' + x.index + ' ' + x.error, 'bad');
+  }
+};
+
+$('#btnSample').onclick = () => {
+  $('#batch').value = JSON.stringify({
+    ops: [
+      { capability: 'invoke', params: { service: 'echo', op: 'ping' } },
+      { capability: 'invoke', params: { service: 'echo', op: 'ping' } },
+      { capability: 'invoke', params: { service: 'echo', op: 'get' } },
+      { capability: 'status', params: {} }
+    ]
+  }, null, 2);
+  log('已填入示例', 'dim');
+};
+
+$('#btnClear').onclick = () => { $('#log').textContent = ''; };
+
+/* 从 URL hash 自动填频道 */
+(function () {
+  const m = location.hash.match(/[#&]chan=([^&]+)/);
+  if (m) $('#chan').value = decodeURIComponent(m[1]);
+})();
+
+log('◈ PulseOS 控制台（纯 MQTT）', 'acc');
+log('  填频道名 → 连接 → 在设备上跑 worker.js → 就能调了', 'dim');
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "mode": "mqtt-direct",
+  "online": true,
+  "checked_at": "2026-10-26T04:20:00Z",
+  "note": "★ 重大变更：不再需要 HTTP 网关。改用纯 MQTT —— worker 主动出站连 broker，零入站端口，零隧道。跟天泪纪元的联机方式一样。",
+  "how_it_works": {
+    "worker": "在你的设备上跑 node shell/worker.js --chan <频道名>，它主动连 broker，订阅 zhz/pulse/<频道>/invoke",
+    "client": "网页 console.html 或任何 MQTT 客户端，也主动连 broker，发布指令",
+    "nobody_listens": "两端都不监听端口。所以不需要公网 IP，不需要隧道。",
+    "broker": "wss://broker.hivemq.com:8884/mqtt（公共测试 broker）"
+  },
+  "topics": {
+    "hello": "zhz/pulse/hello  （retain，内容是 {chan, name, services, durability, ts}）",
+    "invoke": "zhz/pulse/<chan>/invoke  （单次，body 见 pulse.json 的 gateway.invoke）",
+    "batch": "zhz/pulse/<chan>/batch   （批量，body 见 gateway.batch_invoke）",
+    "reply": "zhz/pulse/<chan>/reply   （worker 的回复）"
+  },
+  "for_ai": [
+    "如果你能连 MQTT（比如你有代码执行能力），可以直接用上面四个 topic 跟 worker 通信。",
+    "如果你只能发 HTTP，那用不了 —— 这个模式没有 HTTP 端点。",
+    "但你可以生成一批 ops 的 JSON，让用户粘进 console.html 的批量框里执行。",
+    "console.html 地址: https://sandmanklepfer-crypto.github.io/0.5B-AGI-Lab/pulseos/console.html"
+  ],
+  "start_worker": "node shell/worker.js --chan <频道名> --name <名字> --state ./state",
+  "note_2": "旧的 HTTP 网关模式（gateway.js + Cloudflare Tunnel）仍然保留，但已经不是主路径。"
+}

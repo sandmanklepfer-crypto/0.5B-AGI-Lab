@@ -1,0 +1,232 @@
+{
+  "$schema": "https://sandmanklepfer-crypto.github.io/0.5B-AGI-Lab/pulseos/pulse-schema.json",
+  "manifest_version": 1,
+  "name": "PulseOS",
+  "version": "1.0.0",
+  "description": "脉冲式边缘计算运行时。状态极小、按需唤醒。本文件是机器可读的能力清单（菜单），不是执行端点。",
+  "human_readable": "https://sandmanklepfer-crypto.github.io/0.5B-AGI-Lab/pulseos/",
+  "_readme": [
+    "给 AI 的说明：",
+    "1. 这个 JSON 只描述【能做什么】和【去哪里调】。它本身不执行任何东西。",
+    "2. 真正调用必须走 gateway 字段描述的端点。若 gateway.available 为 false，说明没有在线网关，调用会失败。",
+    "3. 不要假设这些能力已经在线。先 GET gateway.health_check 确认。",
+    "4. 【重要】批量调用用 gateway.batch_invoke，不要循环调 gateway.invoke。实测网络层快 4.2x，端到端快 182x。",
+    "5. 【传输方式】优先用 MQTT 直连（gateway.mqtt），不需要隧道。worker 主动出站，跟天泪纪元的联机方式一样。若你只能发 HTTP，改用 console.html 让用户手动执行。"
+  ],
+  "gateway": {
+    "available": false,
+    "reason": "没有常驻公网网关。需要有人运行 shell/gateway.js 并暴露到公网。",
+    "health_check": {
+      "method": "GET",
+      "url": "https://sandmanklepfer-crypto.github.io/0.5B-AGI-Lab/pulseos/pulse-health.json",
+      "note": "静态文件。返回 { online: bool, checked_at, gateway_url }。由运维手动或定时任务更新。"
+    },
+    "invoke": {
+      "method": "POST",
+      "url": null,
+      "content_type": "application/json",
+      "body_schema": {
+        "capability": "string, 见 capabilities[].id",
+        "params": "object, 见 capabilities[].params",
+        "request_id": "string, 可选，用于幂等"
+      },
+      "response_schema": {
+        "ok": "boolean",
+        "result": "any",
+        "ms": "number, 服务端耗时",
+        "error": "string, 仅 ok=false 时"
+      }
+    },
+    "batch_invoke": {
+      "method": "POST",
+      "url": null,
+      "content_type": "application/json",
+      "why": "AI 应该用这个，不要逐条调用。逐条=每条一次网络往返+AI重新思考；批量=一次往返。实测网络层快 4.2x，算上 AI 思考端到端快 182x。",
+      "body_schema": {
+        "ops": "array, 见下方。最多 1000 条",
+        "request_id": "string, 可选"
+      },
+      "response_schema": {
+        "ok": "boolean, 全部成功才 true",
+        "total": "number",
+        "okCount": "number",
+        "failCount": "number",
+        "totalMs": "number, 服务端内部总耗时",
+        "avgMs": "number, 每条平均",
+        "results": "[{ index, ok, result, ms, error }]"
+      },
+      "execution_semantics": "顺序执行。PulseScript 的状态有因果依赖，不能乱序。服务之间互不依赖时可以拆成多个 batch 并发发。",
+      "example": {
+        "ops": [
+          {
+            "capability": "invoke",
+            "params": {
+              "service": "w",
+              "op": "inc",
+              "args": [
+                1
+              ]
+            }
+          },
+          {
+            "capability": "invoke",
+            "params": {
+              "service": "w",
+              "op": "inc",
+              "args": [
+                2
+              ]
+            }
+          },
+          {
+            "capability": "invoke",
+            "params": {
+              "service": "w",
+              "op": "get"
+            }
+          }
+        ]
+      }
+    },
+    "transport": "mqtt",
+    "mqtt": {
+      "broker": "wss://broker.hivemq.com:8884/mqtt",
+      "why": "worker 主动出站连 broker，零入站端口。跟天泪纪元联机一样，不需要隧道、不需要公网 IP。",
+      "topics": {
+        "hello": "zhz/pulse/hello",
+        "invoke": "zhz/pulse/<chan>/invoke",
+        "batch": "zhz/pulse/<chan>/batch",
+        "reply": "zhz/pulse/<chan>/reply"
+      },
+      "hello_payload": {
+        "chan": "<频道>",
+        "name": "<worker名>",
+        "services": [
+          "echo"
+        ],
+        "durability": "batch",
+        "allow": "all",
+        "ts": 0
+      }
+    },
+    "http_fallback": {
+      "note": "旧的 gateway.js + 隧道模式仍在，但不是主路径"
+    }
+  },
+  "capabilities": [
+    {
+      "id": "status",
+      "name": "查询系统状态",
+      "description": "返回微内核数量、总脉冲次数、状态字节总数",
+      "params": {},
+      "expected_ms": 5,
+      "side_effects": "none",
+      "idempotent": true
+    },
+    {
+      "id": "list_services",
+      "name": "列出所有微内核",
+      "description": "返回每个微内核的名字、方法列表、状态大小",
+      "params": {},
+      "expected_ms": 5,
+      "side_effects": "none",
+      "idempotent": true
+    },
+    {
+      "id": "invoke",
+      "name": "调用某个微内核的方法",
+      "description": "对指定服务执行一次脉冲",
+      "params": {
+        "service": {
+          "type": "string",
+          "required": true,
+          "description": "微内核名"
+        },
+        "op": {
+          "type": "string",
+          "required": true,
+          "description": "方法名"
+        },
+        "args": {
+          "type": "array",
+          "required": false,
+          "default": []
+        }
+      },
+      "expected_ms": 7,
+      "side_effects": "writes_state",
+      "idempotent": false
+    },
+    {
+      "id": "deploy",
+      "name": "部署新微内核",
+      "description": "上传 PulseScript 源码，编译并注册",
+      "params": {
+        "src": {
+          "type": "string",
+          "required": true,
+          "description": "PulseScript 源码"
+        }
+      },
+      "expected_ms": 50,
+      "side_effects": "creates_service",
+      "idempotent": false
+    },
+    {
+      "id": "ai_chat",
+      "name": "调用用户自己的 AI（BYOK）",
+      "description": "通过用户的 vault 调用其配置的大模型。密钥不出用户设备。",
+      "params": {
+        "messages": {
+          "type": "array",
+          "required": true,
+          "description": "[{role, content}]"
+        },
+        "provider": {
+          "type": "string",
+          "required": false
+        },
+        "maxTokens": {
+          "type": "number",
+          "required": false,
+          "default": 800
+        }
+      },
+      "expected_ms": 2000,
+      "side_effects": "external_api_call",
+      "idempotent": false,
+      "note": "需要用户的 vault 在线。离线时返回 ok=false。"
+    }
+  ],
+  "limits": {
+    "max_state_bytes": 1048576,
+    "max_args_bytes": 65536,
+    "rate_limit_per_hour": 60,
+    "note": "超过 max_state_bytes 的微内核会退化为冷启动（p95 从 7ms 升到 300ms+）"
+  },
+  "signing": {
+    "method": "HMAC-SHA256",
+    "header": "X-Pulse-Signature",
+    "canonical": "request_id + '|' + capability + '|' + timestamp",
+    "note": "启用后，未签名的请求会被拒绝。当前未启用。"
+  },
+  "alternatives": {
+    "note": "如果 gateway.available 为 false，可以自己跑一份：",
+    "local": {
+      "steps": [
+        "git clone https://github.com/sandmanklepfer-crypto/0.5B-AGI-Lab",
+        "cd 0.5B-AGI-Lab/pulseos",
+        "node shell/gateway.js --port 8899",
+        "然后 POST http://127.0.0.1:8899/invoke"
+      ]
+    },
+    "library": {
+      "note": "不需要网络时，直接当库用（p50 = 417ns）",
+      "code": "const pulse = require('./index'); const rt = pulse.create({dir:'./state'}); rt.invoke('svc','op',[]);"
+    }
+  },
+  "contact": {
+    "repo": "https://github.com/sandmanklepfer-crypto/0.5B-AGI-Lab",
+    "docs": "https://sandmanklepfer-crypto.github.io/0.5B-AGI-Lab/pulseos/"
+  }
+}
