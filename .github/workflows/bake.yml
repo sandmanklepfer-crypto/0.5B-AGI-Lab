@@ -1,21 +1,24 @@
 name: bake-status
 
 # ============================================================================
-#  每 15 分钟把 PulseOS 的实时状态「烤」成纯静态 HTML
+#  PulseOS 定时烤页
 #  ---------------------------------------------------------------------------
-#  为什么需要这个：
-#    抓取器和多数 AI 不执行 JS。demo.html 里的内容全靠 JS 渲染，
-#    它们只能读到 "正在连接… 访客 0"。
+#  只跑 4 个脚本，分工明确：
 #
-#  bake.js 做的事：
-#    连 MQTT → 订阅 retained 消息（访客足迹 + worker 心跳）
-#    → 把真实数据写死进 run.html → 提交
+#    bake.js        → run.html      需要 MQTT 实时数据（访客/执行端）
+#    bake_all.js    → 6 组页面      所有状态演进都由 PulseOS 微内核算
+#    bake_steps.js  → steps/        5 阶真算（python）
+#    bake_clock.js  → clock.html    SVG 钟表（python 只提供当前时间）
 #
-#  然后 run.html 就是一个「有任何 AI 都能读懂」的静态页。
+#  ★ 分工铁律
+#      python   只算 PulseScript 表达不出的值，且只算一次
+#      PulseOS  算所有状态演进（序号/prev/环形/归档/因果分类）
+#      bake     只渲染
 #
-#  ★ 为什么在 Actions 里跑没问题：
-#    访问的是 retained 消息（broker 永久保存的），不需要 worker 在线。
-#    单次运行约 20 秒，远低于 6 小时上限。
+#  ★ 旧脚本已弃用（bake_answers/bake_toolapi/bake_chain/bake_pool/
+#    bake_evolve/bake_entry/bake_directive/bake_via_os）
+#    它们各自 execFileSync('python3')，绕过 PulseOS。
+#    被 bake_all.js 全面替代。
 # ============================================================================
 
 on:
@@ -30,10 +33,14 @@ concurrency:
   group: bake-status
   cancel-in-progress: false
 
+env:
+  PULSE_CHAN: live7k
+  PULSE_BROKER: wss://broker.hivemq.com:8884/mqtt
+
 jobs:
   bake:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,90 +50,45 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 烤数据（实时状态 → run.html）
+      - name: 检查 python
+        run: python3 --version
+
+      # ① 实时状态（需要 MQTT）
+      - name: 烤实时状态（run.html）
         working-directory: pulseos
         run: node bake.js --chan live7k --out run.html --wait 8000
+        continue-on-error: true
 
-      # ★ 阶梯协议：Python 真算 5 阶，各自烧成独立静态页
-      #   解决「静态托管无法按 query 返回不同内容」的问题
-      - name: 烤阶梯（steps/step-N.html）
+      # ② ★ 主力：6 组页面全走 PulseOS
+      #    answers / toolapi / directive / chain / pool / evolve / entry
+      - name: 全站烤页（走 PulseOS）
+        working-directory: pulseos
+        run: node bake_all.js . _state/all
+        continue-on-error: true
+
+      # ③ 阶梯协议（5 阶真算）
+      - name: 烤阶梯（steps/）
         working-directory: pulseos
         run: node bake_steps.js steps
         continue-on-error: true
 
-      # 静态 SVG 钟表：指针角度在 bake 时算好，视觉模型截图能读出时间
+      # ④ SVG 钟表快照
       - name: 烤钟表（clock.html）
         working-directory: pulseos
         run: node bake_clock.js clock.html
-        continue-on-error: true
-
-      # 哈希链：每 15 分钟追加一条，上限 40 页（超出归档，防仓库爆炸）
-      # 每条 hash = sha256(prev_hash | seq | at | fact) —— 篡改可检测
-      - name: 追加哈希链（chain/）
-        working-directory: pulseos
-        run: node bake_chain.js chain
-        continue-on-error: true
-
-      # 状态池：10 格恒定，内容循环覆盖 —— 仓库大小永不增长
-      # 对比哈希链：链会增长（已限 40 页），池永远 12 个文件
-      - name: 写入状态池（pool/）
-        working-directory: pulseos
-        run: node bake_pool.js pool
-        continue-on-error: true
-
-      # 答案表：AI 算不出/常算错的确定性数据（时间戳/SHA-256/大数/常数）
-      - name: 烤答案表（answers.html）
-        working-directory: pulseos
-        run: node bake_answers.js answers.html
-        continue-on-error: true
-
-      # 演化链：每步吃上一步输出，必须走完全程（不是陈列柜）
-      - name: 演化链（evolve/）
-        working-directory: pulseos
-        run: node bake_evolve.js evolve
-        continue-on-error: true
-
-      # 强制指令页：DO NOT 列表 + STEP 清单 + 输出模板
-      # 用来压住 AI「先评论后干活」的惯性
-      - name: 强制指令页（directive.html）
-        working-directory: pulseos
-        run: node bake_directive.js directive.html
-        continue-on-error: true
-
-      # 伪装成工具 API 响应（<system-tool-instruction> 真标签）
-      - name: 工具 API 页（toolapi.html）
-        working-directory: pulseos
-        run: node bake_toolapi.js toolapi.html
-        continue-on-error: true
-
-      # ★ 真跑 PulseOS：事实注入微内核 → emit 触发因果 → 状态落盘 → 再渲染
-      #   和上面几个 bake_*.js（直接调 python）本质不同
-      - name: PulseOS 实跑页（os.html）
-        working-directory: pulseos
-        run: node bake_via_os.js os.html
-        continue-on-error: true
-
-      # ★ 总入口页：真跑 PulseOS + 五层速度对照
-      - name: 总入口页（entry.html）
-        working-directory: pulseos
-        run: node bake_entry.js entry.html
-        continue-on-error: true
-
-      # ★ bake_all: 所有页面统一走 PulseOS（answers/toolapi/chain/pool/evolve/entry）
-      #   替代之前各自 execFileSync('python3') 的 7 个 bake_*.js
-      - name: 全站烤页（走 PulseOS）
-        working-directory: pulseos
-        run: node bake_all.js . _state/all
         continue-on-error: true
 
       - name: 提交
         run: |
           git config user.name  "bake-bot"
           git config user.email "bake@users.noreply.github.com"
-          git add pulseos/run.html pulseos/steps pulseos/clock.html pulseos/chain pulseos/pool pulseos/answers.html pulseos/evolve pulseos/directive.html pulseos/toolapi.html pulseos/os.html pulseos/entry.html pulseos/_state pulseos/chain pulseos/pool pulseos/evolve pulseos/answers.html pulseos/toolapi.html
+          git add pulseos/run.html pulseos/answers.html pulseos/toolapi.html \
+                  pulseos/directive.html pulseos/entry.html pulseos/chain \
+                  pulseos/pool pulseos/evolve pulseos/steps pulseos/clock.html \
+                  pulseos/_state 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "无变化，跳过"
           else
-            git commit -m "bake: $(date -u -d '+8 hours' '+%Y-%m-%d %H:%M') 状态快照"
+            git commit -m "bake: $(date -u -d '+8 hours' '+%Y-%m-%d %H:%M') 北京时间"
             git push
           fi

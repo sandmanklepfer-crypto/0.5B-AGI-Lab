@@ -1,6 +1,6 @@
 {
-  "at": "2026-10-26T06:49:52Z",
-  "bj": "2026-10-26 14:49:52",
+  "at": "2026-10-26T06:53:17Z",
+  "bj": "2026-10-26 14:53:17",
   "deployed": [
     "chain",
     "pool",
@@ -10,8 +10,8 @@
     "build"
   ],
   "warmup": {
-    "pyMs": 323.531,
-    "injectMs": 108.515,
+    "pyMs": 394.625,
+    "injectMs": 150.471,
     "facts": 17,
     "causal": 17
   },
@@ -26,114 +26,114 @@
   },
   "chain": {
     "seq": 20,
-    "head": "dea8a4f1f3b13789f038003c91c273557f4de6f96b47da67b4153f1864908d4b",
+    "head": "6b012c4e9019c1605a7ba247ddfc25a6493b2da28f5275e02733243c9d0b8a91",
     "n": 20,
     "archive": 5,
     "keep": 15,
     "list": [
       {
         "seq": 6,
-        "prev": "d048b2fb2b6e72f5a988f4cad37b055f97921ef0730d89e886d02dd4475d1728",
-        "hash": "cd394f4902d889cfb28829c787e892cfeb040afd392eefeb7adf2f2754d8c75e",
-        "at": 1792997393864,
+        "prev": "b9ab1c3bf9d98f1324c03baa4a8a0df060bead13b8deb4a8705717502447a7e2",
+        "hash": "9ad3bc93ec2bb182cf0e706020d5f9ea090df709abb186ec0d55e3375fbd754d",
+        "at": 1792997599918,
         "task": "第 6 条"
       },
       {
         "seq": 7,
-        "prev": "cd394f4902d889cfb28829c787e892cfeb040afd392eefeb7adf2f2754d8c75e",
-        "hash": "2021299654c7c74f3c83de8d66888a663f3ad39eda84c1884dc3651af0534cf8",
-        "at": 1792997394165,
+        "prev": "9ad3bc93ec2bb182cf0e706020d5f9ea090df709abb186ec0d55e3375fbd754d",
+        "hash": "ff3ef0651104cfcd315060169ec6f3e2d0b390c8e09baad97c60e79ce1e49c96",
+        "at": 1792997600293,
         "task": "第 7 条"
       },
       {
         "seq": 8,
-        "prev": "2021299654c7c74f3c83de8d66888a663f3ad39eda84c1884dc3651af0534cf8",
-        "hash": "00e2096f4e646cc8e6e259c22c80f540c22cd4d1d8d7792365715c106a512b31",
-        "at": 1792997394456,
+        "prev": "ff3ef0651104cfcd315060169ec6f3e2d0b390c8e09baad97c60e79ce1e49c96",
+        "hash": "68cc4729f6dcbfe5080f895309bc8fdcc23589b48c1ab4c5b5e1c72f101eab4a",
+        "at": 1792997600589,
         "task": "第 8 条"
       },
       {
         "seq": 9,
-        "prev": "00e2096f4e646cc8e6e259c22c80f540c22cd4d1d8d7792365715c106a512b31",
-        "hash": "c9fae09a00d30c8c8113fe236506b7afdf227af655368f10950c211eb2a79ea0",
-        "at": 1792997394760,
+        "prev": "68cc4729f6dcbfe5080f895309bc8fdcc23589b48c1ab4c5b5e1c72f101eab4a",
+        "hash": "6cf2d6d6beab54a46faa1657066d156c29d2d8908893407b4fc5a9e7e565477e",
+        "at": 1792997601024,
         "task": "第 9 条"
       },
       {
         "seq": 10,
-        "prev": "c9fae09a00d30c8c8113fe236506b7afdf227af655368f10950c211eb2a79ea0",
-        "hash": "887b429bf55044da5a7d147b3bc7760354ead9885faa429888f85c7dd348a99d",
-        "at": 1792997395066,
+        "prev": "6cf2d6d6beab54a46faa1657066d156c29d2d8908893407b4fc5a9e7e565477e",
+        "hash": "4746df4ae837a303e57c5f7ffad3e72fd0c08c98344c347e16907e75649a7383",
+        "at": 1792997601392,
         "task": "第 10 条"
       },
       {
         "seq": 11,
-        "prev": "887b429bf55044da5a7d147b3bc7760354ead9885faa429888f85c7dd348a99d",
-        "hash": "6edb06ed109861f3272b51b6fd3c7818344db59d51d76d5bc88a7bfd66c6e33d",
-        "at": 1792997395386,
+        "prev": "4746df4ae837a303e57c5f7ffad3e72fd0c08c98344c347e16907e75649a7383",
+        "hash": "3fe25e55ca46e4600942b5b00124b16835d90cbb1c42c08a359460f51642bc09",
+        "at": 1792997601856,
         "task": "第 11 条"
       },
       {
         "seq": 12,
-        "prev": "6edb06ed109861f3272b51b6fd3c7818344db59d51d76d5bc88a7bfd66c6e33d",
-        "hash": "1f9fe16049b756d6425dd8e3706cd0c54d80d2d03570c77b9768e2bca1e43c56",
-        "at": 1792997395746,
+        "prev": "3fe25e55ca46e4600942b5b00124b16835d90cbb1c42c08a359460f51642bc09",
+        "hash": "31c45ec6d7ab673f35af14bdec161d91d4f80ef5bd425148ca336aebcf7f8314",
+        "at": 1792997602170,
         "task": "第 12 条"
       },
       {
         "seq": 13,
-        "prev": "1f9fe16049b756d6425dd8e3706cd0c54d80d2d03570c77b9768e2bca1e43c56",
-        "hash": "f2ad8fb1cb464560ab88ba02fd6c18155bb95cc55e58e4510177568b9b9bb5e8",
-        "at": 1792997396081,
+        "prev": "31c45ec6d7ab673f35af14bdec161d91d4f80ef5bd425148ca336aebcf7f8314",
+        "hash": "aab7257ee5252ca21c6f680f250e14a19fd2998c7c86246f785e39a5b5dca8b9",
+        "at": 1792997602521,
         "task": "第 13 条"
       },
       {
         "seq": 14,
-        "prev": "f2ad8fb1cb464560ab88ba02fd6c18155bb95cc55e58e4510177568b9b9bb5e8",
-        "hash": "f72da978108d88c1289e9fa237587a59a2da3e9b34406a95fa5ba807bbd2e471",
-        "at": 1792997396385,
+        "prev": "aab7257ee5252ca21c6f680f250e14a19fd2998c7c86246f785e39a5b5dca8b9",
+        "hash": "430229b5a62eab0376e8d7318b565ec7479b0a0f09ca3a1809daf3669167994d",
+        "at": 1792997602952,
         "task": "第 14 条"
       },
       {
         "seq": 15,
-        "prev": "f72da978108d88c1289e9fa237587a59a2da3e9b34406a95fa5ba807bbd2e471",
-        "hash": "22a2f2af56204623c2a2c64572a50ed5c2be8bdafb0b750cdb095d6ec4aa6fd7",
-        "at": 1792997396613,
+        "prev": "430229b5a62eab0376e8d7318b565ec7479b0a0f09ca3a1809daf3669167994d",
+        "hash": "d28ccde64d91d5dd99db7325162c3fa202d3bc07ed7cd593b89ebf7762221e66",
+        "at": 1792997603333,
         "task": "第 15 条"
       },
       {
         "seq": 16,
-        "prev": "22a2f2af56204623c2a2c64572a50ed5c2be8bdafb0b750cdb095d6ec4aa6fd7",
-        "hash": "df2a3b6bb4ea94002d2e44d5692bc7e81ac56858336cc733f6d029488ba89e1b",
-        "at": 1792997396824,
+        "prev": "d28ccde64d91d5dd99db7325162c3fa202d3bc07ed7cd593b89ebf7762221e66",
+        "hash": "81b001c93550483583cbf7fc1a25881edfc055e4ae7790f0c6579b70e491d5b7",
+        "at": 1792997603606,
         "task": "第 16 条"
       },
       {
         "seq": 17,
-        "prev": "df2a3b6bb4ea94002d2e44d5692bc7e81ac56858336cc733f6d029488ba89e1b",
-        "hash": "5c056b1e2f81ecfa5bcff8c55fa6b71895967089a60d8e27a8b5f1195e45f118",
-        "at": 1792997397095,
+        "prev": "81b001c93550483583cbf7fc1a25881edfc055e4ae7790f0c6579b70e491d5b7",
+        "hash": "705f155441c3da1bc840942d920a92b55e857b528fde6f7441ec50931d1810dc",
+        "at": 1792997603900,
         "task": "第 17 条"
       },
       {
         "seq": 18,
-        "prev": "5c056b1e2f81ecfa5bcff8c55fa6b71895967089a60d8e27a8b5f1195e45f118",
-        "hash": "10e1ecf6bfba6269a6092e1ce5df22f2d6cd3d83c923e27162f0d7984287cbbe",
-        "at": 1792997397370,
+        "prev": "705f155441c3da1bc840942d920a92b55e857b528fde6f7441ec50931d1810dc",
+        "hash": "d0e9db4044c8b75e1d5ae04c7721368a47153c174c65eb1b6626ae0ab12aa31c",
+        "at": 1792997604180,
         "task": "第 18 条"
       },
       {
         "seq": 19,
-        "prev": "10e1ecf6bfba6269a6092e1ce5df22f2d6cd3d83c923e27162f0d7984287cbbe",
-        "hash": "51ea20292c1df446d25984134242ccf957f0845e2022306eb343826e9014b1fc",
-        "at": 1792997397702,
+        "prev": "d0e9db4044c8b75e1d5ae04c7721368a47153c174c65eb1b6626ae0ab12aa31c",
+        "hash": "b8d77e4593a8e145f16db680121d664173ff421e072460ee608495a29a1c740b",
+        "at": 1792997604364,
         "task": "第 19 条"
       },
       {
         "seq": 20,
-        "prev": "51ea20292c1df446d25984134242ccf957f0845e2022306eb343826e9014b1fc",
-        "hash": "dea8a4f1f3b13789f038003c91c273557f4de6f96b47da67b4153f1864908d4b",
-        "at": 1792997398001,
+        "prev": "b8d77e4593a8e145f16db680121d664173ff421e072460ee608495a29a1c740b",
+        "hash": "6b012c4e9019c1605a7ba247ddfc25a6493b2da28f5275e02733243c9d0b8a91",
+        "at": 1792997604536,
         "task": "第 20 条"
       }
     ]
@@ -147,71 +147,71 @@
       {
         "seq": 4,
         "slot": 3,
-        "hash": "4b1ccf0cda7e04353b683f53c99f4e6f2814bcb39d279fd69df3b6cb3d9c5e63",
-        "at": 1792997399231,
+        "hash": "3c95c7c671fd7a62988d93510c135a3640aaa91532a942ad207bb296035cd683",
+        "at": 1792997605344,
         "task": "第 4 条"
       },
       {
         "seq": 5,
         "slot": 4,
-        "hash": "307a0cd4cc1d1fc35bde8a9e4b231fc551cdf5b5f7e00d87e667b904bd28952e",
-        "at": 1792997399553,
+        "hash": "105f784da6168fa093818c4f5a8df291640491d31a50ca30203b899760ddd4b9",
+        "at": 1792997605777,
         "task": "第 5 条"
       },
       {
         "seq": 6,
         "slot": 5,
-        "hash": "c2f8b50a8155d0296a8f4c22c469e8c666669b05c69f8553146a9a470962d2aa",
-        "at": 1792997399880,
+        "hash": "f3f6ebf865fd77d35f7d4db5f88be9904ab1179aa5703275ab6e07dd9160c006",
+        "at": 1792997606142,
         "task": "第 6 条"
       },
       {
         "seq": 7,
         "slot": 6,
-        "hash": "0c32456f29c08d0d4e18925e4f4221c6c5bf7aafb692cf5e6de16baa08a4a709",
-        "at": 1792997400166,
+        "hash": "9441b62165db003bfa0975cca8cc4258840e8c7ed8956c224a0250de3bcc8e7a",
+        "at": 1792997606499,
         "task": "第 7 条"
       },
       {
         "seq": 8,
         "slot": 7,
-        "hash": "4cdb74c8c2854370e53e29d68d168edd8bcf483cad2def0d384ced166f131585",
-        "at": 1792997400492,
+        "hash": "c089c49ea36a7b2581d7f11dd5392163e0105f186fa9aa39f10bc96f567481ba",
+        "at": 1792997606852,
         "task": "第 8 条"
       },
       {
         "seq": 9,
         "slot": 8,
-        "hash": "d2f94debd2b1dec24e117dd967b91cbd5b5a397109db1eede667287b492d2cb1",
-        "at": 1792997400809,
+        "hash": "1f178ae29d29e49aafe5bf17bd4d0e11129f7f75e70a6eeb3d0f4acb145f0e9f",
+        "at": 1792997607105,
         "task": "第 9 条"
       },
       {
         "seq": 10,
         "slot": 9,
-        "hash": "e664574ebbde1face9b759eb123d8f3313b09a5670f9bb5c3b2660eb88f4d323",
-        "at": 1792997401119,
+        "hash": "cdfeda06df8f1147cffdbc1f647b3fe9a4d337faef72cb7afa1af139a88b210d",
+        "at": 1792997607456,
         "task": "第 10 条"
       },
       {
         "seq": 11,
         "slot": 0,
-        "hash": "704524fd4896e7d6c0e4d73cba317fd2764971a40c8123c32fb6469d407008eb",
-        "at": 1792997401416,
+        "hash": "e60c54082c54986d3c2b4cbee7d1286add749a51f776b8029d89253558c51d7b",
+        "at": 1792997607897,
         "task": "第 11 条"
       },
       {
         "seq": 12,
         "slot": 1,
-        "hash": "e41f394f001a5e50595a5d71b488acb5c90eda63f9f957d60de4ed1fe1e5116a",
-        "at": 1792997401682,
+        "hash": "1ded932a420cb8272fbf81ccf8e6a5733f347aaf96871f0d5dc93cbb16759020",
+        "at": 1792997608231,
         "task": "第 12 条"
       },
       {
         "seq": 13,
         "slot": 2,
-        "hash": "a0375e2d10e55f4d40de06ed8e178495af2a9ab59a5d07d10026f5cd775012fe",
-        "at": 1792997401974,
+        "hash": "2b0ec90a74a0c2eb9c1bf045af68f3217afdcce7156350d5057e10633bdd6126",
+        "at": 1792997608598,
         "task": "第 13 条"
       }
     ]
@@ -222,13 +222,14 @@
   "pages": [
     "answers.html",
     "toolapi.html",
+    "directive.html",
     "chain/*",
     "pool/*",
     "evolve/*"
   ],
   "sys": {
     "services": 6,
-    "totalPulses": 239,
-    "totalStateBytes": 8147
+    "totalPulses": 241,
+    "totalStateBytes": 8164
   }
 }
