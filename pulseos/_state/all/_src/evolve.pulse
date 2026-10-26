@@ -35,7 +35,7 @@ service chain {
   }
 
   on "stat" {
-    return { seq: seq, head: head, n: n, archive: archive, list: list }
+    return { seq: seq, head: head, n: n, archive: archive, keep: keep, list: list }
   }
 }
 

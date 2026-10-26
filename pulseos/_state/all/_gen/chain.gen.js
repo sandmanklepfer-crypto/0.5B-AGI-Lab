@@ -2,7 +2,7 @@
 /* ══════════════════════════════════════════════════════════
  *  由 PulseScript 编译生成 —— 不要手改
  *  源码服务: chain
- *  生成时间: 2026-10-26T06:49:11.282Z
+ *  生成时间: 2026-10-26T06:49:51.732Z
  * ══════════════════════════════════════════════════════════
  */
 
@@ -97,7 +97,7 @@ const handlers = {
 },
     "stat": function ($S, $E) {
   "use strict";
-  return {"seq": $S["seq"], "head": $S["head"], "n": $S["n"], "archive": $S["archive"], "list": $S["list"]};
+  return {"seq": $S["seq"], "head": $S["head"], "n": $S["n"], "archive": $S["archive"], "keep": $S["keep"], "list": $S["list"]};
 }
 };
 
