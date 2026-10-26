@@ -49,7 +49,16 @@ async function status() {
   for (let i = 0; i < 15 && !hb; i++) { await new Promise(r => setTimeout(r, 200)); }
   c.close();
   if (!hb) { console.log('✗ vault 不在线（手机上的 vault.js 没跑？）'); process.exit(3); }
-  console.log('✓ vault 在线');
+  // ★ 关键：心跳是 retained 消息，vault 死后仍留在 broker 上。
+  //    必须检查时间戳，否则会误报"在线"。
+  const age = Math.round((Date.now() - (hb.ts || 0)) / 1000);
+  if (age > 90) {
+    console.log('✗ vault 已离线（最后心跳 ' + age + ' 秒前，超过 90 秒）');
+    console.log('  手机上的 vault.js 可能被系统杀掉了，重新启动：');
+    console.log('    cd aivault && VAULT_CHAN=' + CHAN + ' node vault.js');
+    process.exit(3);
+  }
+  console.log('✓ vault 在线（心跳 ' + age + ' 秒前）');
   console.log('  provider : ' + (hb.providers || []).join(', '));
   console.log('  本小时已用: ' + (hb.calls || 0) + ' 次');
   console.log('  限额      : ' + JSON.stringify(hb.limits || {}));
