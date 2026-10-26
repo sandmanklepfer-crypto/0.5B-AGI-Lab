@@ -222,6 +222,33 @@ class AggregatedShell {
     }
   }
 
+  /* ---------- 同步派发 emit（供 index.js 快路径用） ---------- */
+  /* 为什么需要同步版：index.js 的 invoke() 是同步的，
+     不能 await。而本地内核的 pulse() 本身也是同步的，所以可以同步递归。 */
+  dispatchEmits(fromService, emits, depth = 0) {
+    const trace = [];
+    if (!emits || !emits.length || depth > 8) return trace;
+
+    for (const e of emits) {
+      const target = (e.payload && e.payload.__to) || this.resolveTarget(fromService, e.op);
+      if (!target) continue;
+      const k = this.kernels.get(target);
+      if (!k) continue;
+
+      const r = k.pulse(e.op, [e.payload], depth + 1);
+      trace.push({
+        from: fromService, to: target, op: e.op,
+        ok: r.ok, ms: r.totalMs, result: r.result, error: r.error,
+      });
+
+      /* 递归：下游自己也可以 emit */
+      if (r.ok && r.spawned && r.spawned.length) {
+        trace.push(...this.dispatchEmits(target, r.spawned, depth + 1));
+      }
+    }
+    return trace;
+  }
+
   /* ---------- 派生路由：先本服务，再全局唯一匹配 ---------- */
   resolveTarget(fromService, op) {
     const self = this.kernels.get(fromService);

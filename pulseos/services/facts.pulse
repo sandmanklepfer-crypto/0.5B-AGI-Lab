@@ -1,0 +1,42 @@
+# facts —— 事实登记微内核
+# 它不负责「算」，负责「记住 + 派生因果」
+
+service facts {
+  state {
+    items: list = []
+    count: int = 0
+  }
+
+  on "add"(k, kind) {
+    append(items, { k: k, kind: kind })
+    set count = count + 1
+    emit "fact_added" { k: k, kind: kind }
+  }
+
+  on "report" {
+    return { count: count, items: items }
+  }
+}
+
+# agg —— 聚合微内核（由 facts 的 emit 自动触发）
+# 这条因果链是 PulseOS 自己跑的，不是 bake 脚本手工拼的
+
+service agg {
+  state {
+    n: int = 0
+    kinds: list = []
+    keylen: int = 0
+  }
+
+  on "fact_added"(e) {
+    set n = n + 1
+    if contains(kinds, e.kind) == false {
+      append(kinds, e.kind)
+    }
+    set keylen = keylen + len(e.k)
+  }
+
+  on "report" {
+    return { n: n, kinds: kinds, keylen: keylen }
+  }
+}

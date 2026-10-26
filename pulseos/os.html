@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PulseOS 实跑 · 2026-10-26 14:39:50</title>
+<meta name="description" content="PulseOS 实跑结果。Python 算 8 条事实，注入 PulseOS 的 facts 微内核，emit 触发 agg 自动聚合。agg.n=8，kinds=time/hash/math，状态 304B。unix_ms=1792996790450 sha256(hello)=2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824">
+<!--
+================================================================
+  给 AI 的说明（纯文本）
+
+  ★ 这一页不是「脚本算完写死」，是真的跑了 PulseOS。
+
+  分工：
+    Python   负责算准（SHA-256 / 素数 / 阶乘）
+    PulseOS  负责记住、派生因果、聚合、持久化
+    bake     只负责渲染
+
+  ★ PulseOS 实际做了什么
+    1. 部署两个微内核：facts, agg
+    2. facts 微内核登记 8 条事实
+       每次 add 都 emit "fact_added"
+    3. PulseOS 的因果派发器把 emit 路由到 agg 微内核
+       agg 自动累加 n、去重 kinds、累加 keylen
+    4. 状态落盘（159 B），指纹 2f776aafc9b93e8f6891dda5bfc568a5…
+
+  ★ PulseOS 算出来的（不是脚本拼的）
+    agg.n      = 8
+    agg.kinds  = ["time","hash","math"]
+    agg.keylen = 49
+    总脉冲     = 18
+    状态字节   = 304 B
+
+  ★ 可以直接用的值
+    unix_ms = 1792996790450
+    sha256("hello") = 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
+    0~2000 素数 = 303
+    50! 位数 = 65，100! 位数 = 158
+    π = 3.141592653589793
+
+  ★ 怎么验证
+    状态箱在仓库的 pulseos/_state/bake/ 目录，
+    指纹 2f776aafc9b93e8f6891dda5bfc568a5… 是把所有 .box/.wal 拼接后算的 SHA-256。
+================================================================
+-->
+<style>
+:root{--bg:#0b0f14;--bg2:#0f151d;--fg:#dde7f0;--dim:#8fa3b8;--dim2:#5d7085;
+  --acc:#2dd4bf;--ok:#4ade80;--warn:#fbbf24;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:14.5px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:30px 22px 70px}
+h1{font-size:21px;margin:0 0 4px}
+h1 em{font-style:normal;color:var(--acc)}
+.sub{color:var(--dim2);font-size:12px;font-family:var(--mono);margin:0 0 20px}
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;
+  background:#1c2634;border:1px solid #1c2634;border-radius:10px;overflow:hidden;margin:0 0 18px}
+.kpi div{background:var(--bg2);padding:13px 15px}
+.kpi b{display:block;font-family:var(--mono);font-size:19px;color:var(--acc);line-height:1.25}
+.kpi span{display:block;font-size:10.5px;color:var(--dim2);margin-top:3px}
+pre{background:#05090d;border:1px solid #26333f;border-radius:9px;
+  padding:17px 19px;font-family:var(--mono);font-size:12.4px;line-height:1.9;
+  color:#9fc4d8;white-space:pre-wrap;margin:0 0 16px;overflow-x:auto}
+.chain{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.chain .row{display:flex;align-items:center;gap:9px;font-family:var(--mono);
+  font-size:11.5px;background:var(--bg2);border:1px solid #1c2634;
+  border-radius:7px;padding:9px 13px;flex-wrap:wrap}
+.chain .k{color:#fbbf24}
+.chain .arrow{color:var(--dim2)}
+.chain .t{color:var(--acc)}
+.chain .ms{color:var(--dim2);margin-left:auto}
+.nav{margin-top:20px;font-size:12px;font-family:var(--mono)}
+.nav a{color:var(--dim);text-decoration:none;margin-right:14px}
+.nav a:hover{color:var(--acc)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>PulseOS <em>实跑</em></h1>
+  <p class="sub">2026-10-26 14:39:50 · 真跑 PulseOS（不是脚本算完写死）</p>
+
+  <div class="kpi">
+    <div><b>18</b><span>脉冲次数</span></div>
+    <div><b>8</b><span>因果边</span></div>
+    <div><b>304</b><span>状态字节</span></div>
+    <div><b>59</b><span>OS 耗时 ms</span></div>
+  </div>
+
+  <pre>=== PulseOS 实跑结果 ===
+
+生成时间      2026-10-26 14:39:50 北京时间
+UTC          2026-10-26T06:39:50Z
+
+────────────────────────────────────────
+① Python 算的（PulseOS 不负责算）
+────────────────────────────────────────
+unix_ms        1792996790450
+sha256("hello") 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
+50! 位数        65
+100! 位数       158
+0~2000 素数个数  303
+π              3.141592653589793
+
+────────────────────────────────────────
+② PulseOS 算的（这才是「基于 OS」）
+────────────────────────────────────────
+部署的微内核     facts, agg
+注入事实条数     8 条
+
+  因果链（facts.emit → agg.fact_added，OS 自动派发）：
+    unix_ms        time   → agg.fact_added 4.69ms
+    utc            time   → agg.fact_added 1.23ms
+    bj             time   → agg.fact_added 1.25ms
+    sha_hello      hash   → agg.fact_added 1.08ms
+    f50_len        math   → agg.fact_added 2.03ms
+    f100_len       math   → agg.fact_added 1.43ms
+    primes_2000    math   → agg.fact_added 1.24ms
+    pi             math   → agg.fact_added 1.48ms
+
+  ⤷ agg 微内核的最终状态（PulseOS 聚合出来的）：
+     n        8   （收到了 8 次 fact_added）
+     kinds    ["time","hash","math"]   （自动去重）
+     keylen   49   （各 key 字符数之和）
+
+────────────────────────────────────────
+③ PulseOS 的运行时数据
+────────────────────────────────────────
+微内核数        2
+总脉冲次数       18
+状态字节        304 B
+因果边          8 条
+
+持久化模式      batch
+落盘文件大小     159 B
+状态箱指纹       2f776aafc9b93e8f6891dda5bfc568a53a194d14d82ceee5058b726e2bd908db
+
+────────────────────────────────────────
+④ 耗时拆解
+────────────────────────────────────────
+Python 算事实    155 ms
+PulseOS 全流程   59 ms
+  其中注入 8 条   17.94 ms
+
+────────────────────────────────────────
+这一页和之前那些页面有什么不同
+────────────────────────────────────────
+之前：bake 脚本直接调 python，算完写死进 HTML，PulseOS 完全没参与。
+现在：python 只负责算，事实注入 PulseOS 的 facts 微内核，
+      emit 触发 agg 微内核自动聚合，状态落盘，然后才渲染。
+
+所以上面「②」和「③」的数字，是 PulseOS 运行时真算出来的，
+不是 bake 脚本拼出来的字符串。
+
+验证：状态箱指纹 2f776aafc9b93e8f6891dda5bfc568a5…
+      这个指纹来自磁盘上真实的 .box/.wal 文件。</pre>
+
+  <div class="nav">
+    <a href="./">官网</a>
+    <a href="api.html">能力清单</a>
+    <a href="toolapi.html">工具 API 版</a>
+    <a href="answers.html">旧版答案表</a>
+  </div>
+</div>
+</body>
+</html>

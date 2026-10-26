@@ -167,10 +167,20 @@ class PulseOS {
       } catch (e) { error = e.message; }
     }
 
-    /* 落到解释器（含因果链） */
+    /* 落到解释器 */
     if (!ok && !error) {
       const r = k.pulse(op, args);
-      ok = r.ok; result = r.result; error = r.error; emits = r.emits;
+      ok = r.ok; result = r.result; error = r.error; emits = r.spawned || r.emits || [];
+    }
+
+    /* ---------------- ★ 因果派发 ----------------
+       这是 PulseOS 和「自己调 python」的本质区别：
+       一次 invoke 可能触发下游微内核，形成真因果链。
+       之前两条路径都只收了 emits 却从未派发 —— 因果是死的。 */
+    let causal = [];
+    if (ok && emits && emits.length) {
+      try { causal = this.shell.dispatchEmits(service, emits); }
+      catch (e) { causal = [{ error: 'dispatch 失败: ' + e.message }]; }
     }
 
     /* ---------------- 持久化分支 ---------------- */
@@ -207,6 +217,7 @@ class PulseOS {
 
     return {
       ok, service, op, result, emits, error,
+      causal: causal.length ? causal : undefined,
       stateBytes: sizes ? sizes.raw : null,
       ms,
       durability: this.durability,
