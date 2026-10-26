@@ -26,11 +26,14 @@ const SRC = arg('src', null);          // 可选：从 .pulse 文件加载
 
 const sh = new AggregatedShell({ root: DIR });
 const loaded = [];
+const frozen = new Set();
+const sources = new Map();
 
 if (SRC && fs.existsSync(SRC)) {
   try {
-    const added = sh.registerAll(fs.readFileSync(SRC, 'utf8'));
-    for (const a of added) loaded.push(a.name);
+    const text = fs.readFileSync(SRC, 'utf8');
+    const added = sh.registerAll(text);
+    for (const a of added) { loaded.push(a.name); sources.set(a.name, text); }
   } catch (e) {
     console.error('加载失败: ' + e.message);
     process.exit(1);
@@ -76,7 +79,8 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, {
         node: NAME, port: PORT, dir: DIR,
         services: sh.list().map(k => ({ name: k.name, handlers: k.handlers.map(h => h.op),
-          stateBytes: k.stateBytes, pulses: k.pulses })),
+          stateBytes: k.stateBytes, pulses: k.pulses, frozen: frozen.has(k.name) })),
+        frozen: [...frozen],
         system: sh.systemInfo(),
         ts: Date.now(),
       });
@@ -98,8 +102,52 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/api/pulse' && req.method === 'POST') {
       const b = await readBody(req);
+      if (frozen.has(b.service)) {
+        return json(res, 200, { ok: false, error: '服务 ' + b.service + ' 已冻结（迁移中）', frozen: true });
+      }
       const r = await sh.callAsync(b.service, b.op || 'ping', b.args || []);
       return json(res, 200, r);
+    }
+
+    if (p === '/api/freeze' && req.method === 'POST') {
+      const b = await readBody(req);
+      if (!sh.kernels.has(b.service)) return json(res, 200, { ok: false, error: '没有服务 ' + b.service });
+      frozen.add(b.service);
+      return json(res, 200, { ok: true, service: b.service, frozen: true });
+    }
+    if (p === '/api/unfreeze' && req.method === 'POST') {
+      const b = await readBody(req);
+      frozen.delete(b.service);
+      return json(res, 200, { ok: true, service: b.service, frozen: false });
+    }
+
+    if (p.startsWith('/api/source/')) {
+      const n = decodeURIComponent(p.slice('/api/source/'.length));
+      const src = sources.get(n);
+      if (!src) return json(res, 200, { ok: false, error: '没有 ' + n + ' 的源码' });
+      const k = sh.kernels.get(n);
+      return json(res, 200, {
+        ok: true, service: n, source: src,
+        meta: { handlers: k.svc.handlers.map(h => h.op), fields: k.svc.state.map(f => f.name) },
+      });
+    }
+
+    if (p === '/api/restore' && req.method === 'POST') {
+      const b = await readBody(req);
+      try {
+        const added = sh.registerAll(b.source || '');
+        sources.set(b.service, b.source);
+        const k = sh.kernels.get(b.service);
+        if (!k) return json(res, 200, { ok: false, error: '源码里没有 ' + b.service });
+        if (b.state) { k.state = b.state; k._save(); }
+        return json(res, 200, {
+          ok: true, service: b.service,
+          services: added.map(a => a.name),
+          stateBytes: ps.stateSize(k.state).raw,
+        });
+      } catch (e) {
+        return json(res, 200, { ok: false, error: e.message });
+      }
     }
 
     if (p === '/api/compile' && req.method === 'POST') {
@@ -124,6 +172,22 @@ const server = http.createServer(async (req, res) => {
         const added = sh.registerAll(b.src || '');
         return json(res, 200, { ok: true, services: added.map(a => a.name) });
       } catch (e) { return json(res, 200, { ok: false, error: e.message }); }
+    }
+
+    /* ---- 删除服务（迁移 drop 阶段需要）---- */
+    if (p.startsWith('/api/service/') && req.method === 'DELETE') {
+      const n = decodeURIComponent(p.slice('/api/service/'.length));
+      if (!sh.kernels.has(n)) return json(res, 200, { ok: false, error: '没有 ' + n });
+      try {
+        sh.unregister(n);
+        sources.delete(n);
+        frozen.delete(n);
+        loaded.length = 0;
+        for (const k of sh.kernels.keys()) loaded.push(k);
+        return json(res, 200, { ok: true, removed: n, remaining: [...sh.kernels.keys()] });
+      } catch (e) {
+        return json(res, 200, { ok: false, error: e.message });
+      }
     }
 
     if (p.startsWith('/api/export/')) {
