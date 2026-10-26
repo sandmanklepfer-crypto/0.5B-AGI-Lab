@@ -1,0 +1,110 @@
+{
+  "chain": "live7k",
+  "steps": 10,
+  "generated": "2026-10-26T06:18:25.357Z",
+  "final": "c34e79250976bf2930a9db8678ba8c507b3c181d1de412c4c02d67e427c11fad",
+  "self_consistent": true,
+  "errors": [],
+  "data": [
+    {
+      "seq": 0,
+      "input_prev": "GENESIS",
+      "value": "6a01f02b3f221d9c4690f75e8739e06c06328fba937ee8c9671a424c4a8c20fe",
+      "derived_n": 3485,
+      "hash_rounds": 22,
+      "prime_count": 487,
+      "checksum": 4393,
+      "at_bj": "2026-10-26 14:18:23"
+    },
+    {
+      "seq": 1,
+      "input_prev": "6a01f02b3f221d9c4690f75e8739e06c06328fba937ee8c9671a424c4a8c20fe",
+      "value": "b1f1669fcfb9d220bb1086af2d7c029ca7dc9a140b1274b363a597d01b33f67d",
+      "derived_n": 3314,
+      "hash_rounds": 23,
+      "prime_count": 466,
+      "checksum": 4511,
+      "at_bj": "2026-10-26 14:18:23"
+    },
+    {
+      "seq": 2,
+      "input_prev": "b1f1669fcfb9d220bb1086af2d7c029ca7dc9a140b1274b363a597d01b33f67d",
+      "value": "586e315bb83acd4f1b9e423461543b4846a634c488bf26362b906db502331797",
+      "derived_n": 1065,
+      "hash_rounds": 55,
+      "prime_count": 179,
+      "checksum": 4151,
+      "at_bj": "2026-10-26 14:18:23"
+    },
+    {
+      "seq": 3,
+      "input_prev": "586e315bb83acd4f1b9e423461543b4846a634c488bf26362b906db502331797",
+      "value": "0f2ee748b052d762d433ded0eec48f7620581144890ca11d838cb926b2a6353a",
+      "derived_n": 3329,
+      "hash_rounds": 49,
+      "prime_count": 468,
+      "checksum": 4332,
+      "at_bj": "2026-10-26 14:18:24"
+    },
+    {
+      "seq": 4,
+      "input_prev": "0f2ee748b052d762d433ded0eec48f7620581144890ca11d838cb926b2a6353a",
+      "value": "6477911736b1a6e450fbf52b637cbbfd268a14ea421a39ece7a5239b4237457e",
+      "derived_n": 1449,
+      "hash_rounds": 53,
+      "prime_count": 229,
+      "checksum": 4386,
+      "at_bj": "2026-10-26 14:18:24"
+    },
+    {
+      "seq": 5,
+      "input_prev": "6477911736b1a6e450fbf52b637cbbfd268a14ea421a39ece7a5239b4237457e",
+      "value": "6d65058e5907093e00501d58291e2b01d15faed17852bfc36b42c8ebd7ad16f4",
+      "derived_n": 3337,
+      "hash_rounds": 32,
+      "prime_count": 470,
+      "checksum": 4378,
+      "at_bj": "2026-10-26 14:18:24"
+    },
+    {
+      "seq": 6,
+      "input_prev": "6d65058e5907093e00501d58291e2b01d15faed17852bfc36b42c8ebd7ad16f4",
+      "value": "7a86a05d319bf1e18815bbc8e81513313e056e9528198d0ee07397b99ed409bc",
+      "derived_n": 1011,
+      "hash_rounds": 35,
+      "prime_count": 169,
+      "checksum": 4309,
+      "at_bj": "2026-10-26 14:18:24"
+    },
+    {
+      "seq": 7,
+      "input_prev": "7a86a05d319bf1e18815bbc8e81513313e056e9528198d0ee07397b99ed409bc",
+      "value": "3e66b407b17f6583b86d37e6f966dfd258d20349abebc6aa003ae2abe2d718d6",
+      "derived_n": 2162,
+      "hash_rounds": 23,
+      "prime_count": 326,
+      "checksum": 4582,
+      "at_bj": "2026-10-26 14:18:24"
+    },
+    {
+      "seq": 8,
+      "input_prev": "3e66b407b17f6583b86d37e6f966dfd258d20349abebc6aa003ae2abe2d718d6",
+      "value": "4a4aabaf632a5e38e9afb7d4095902c6d41093d98c661809db91a23b898c9b09",
+      "derived_n": 1214,
+      "hash_rounds": 59,
+      "prime_count": 198,
+      "checksum": 4448,
+      "at_bj": "2026-10-26 14:18:25"
+    },
+    {
+      "seq": 9,
+      "input_prev": "4a4aabaf632a5e38e9afb7d4095902c6d41093d98c661809db91a23b898c9b09",
+      "value": "c34e79250976bf2930a9db8678ba8c507b3c181d1de412c4c02d67e427c11fad",
+      "derived_n": 2860,
+      "hash_rounds": 34,
+      "prime_count": 415,
+      "checksum": 4431,
+      "at_bj": "2026-10-26 14:18:25"
+    }
+  ]
+}
