@@ -428,23 +428,17 @@ class OpenAIBrain {
       this._toolDefs = toolDefs;
     }
 
-    /* 把上一步 observation 作为 tool 结果灌回去 */
-    if (history.length) {
-      const last = history[history.length - 1];
-      this.history.push({
-        role: 'assistant',
-        content: null,
-        tool_calls: [{
-          id: 'call_' + last.step,
-          type: 'function',
-          function: { name: last.tool, arguments: JSON.stringify(last.args || {}) },
-        }],
-      });
+    /* ★ 把上一步 observation 作为 tool 消息灌回去。
+       注意：assistant(tool_calls) 消息在【上一轮结束时已经 push 过】，
+       这里只能补 role:'tool' 那一条，否则会出现连续两条 assistant+tool_calls，
+       DeepSeek 直接 400。 */
+    if (history.length && this._pendingCall) {
       this.history.push({
         role: 'tool',
-        tool_call_id: 'call_' + last.step,
-        content: JSON.stringify(last.obs).slice(0, 6000),
+        tool_call_id: this._pendingCall.id,
+        content: JSON.stringify(history[history.length - 1].obs).slice(0, 6000),
       });
+      this._pendingCall = null;
     }
 
     const body = {
@@ -466,6 +460,8 @@ class OpenAIBrain {
       const tc = msg.tool_calls[0];
       let args = {};
       try { args = JSON.parse(tc.function.arguments || '{}'); } catch (e) {}
+      /* ★ 记住这个 tool_call 的 id，下一轮要用它补 role:'tool' 消息 */
+      this._pendingCall = { id: tc.id, name: tc.function.name };
       return { thought: msg.content || '', tool: tc.function.name, args };
     }
 

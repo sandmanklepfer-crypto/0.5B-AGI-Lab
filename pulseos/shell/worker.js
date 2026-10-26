@@ -32,6 +32,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const pulse = require('../index');
 const { MqttWs } = require('../agent/mqttws');
+const { createAgentBridge } = require('./agent_worker_patch');
 
 const argv = process.argv.slice(2);
 const arg = (k, d) => { const i = argv.indexOf('--' + k); return i >= 0 ? argv[i + 1] : d; };
@@ -48,6 +49,9 @@ const DUR = arg('durability', 'batch');
 const BROKER = arg('broker', 'wss://broker.hivemq.com:8884/mqtt');
 const HMAC = arg('hmac', process.env.PULSE_HMAC || '');
 const ALLOW = (arg('allow', '') || '').split(',').filter(Boolean);   // 空 = 全部
+/* ★ Agent 能力默认关闭。开了就等于把「AI 决策 + 沙箱执行」暴露到 MQTT 上 */
+const ALLOW_AGENT = argv.includes('--allow-agent');
+const AGENT_ROOTFS = arg('rootfs', '/workspace/_cx/rootfs-ubuntu/root');
 
 const NS = 'zhz/pulse/' + CHAN + '/';
 const HELLO = 'zhz/pulse/hello';
@@ -77,15 +81,37 @@ function verify(msg) {
   return { ok: a.length === b.length && crypto.timingSafeEqual(a, b) };
 }
 
+/* ---------------- Agent 桥接（延迟初始化，需要 mq） ---------------- */
+let agentBridge = null;
+function ensureAgentBridge() {
+  if (agentBridge) return agentBridge;
+  agentBridge = createAgentBridge({
+    rootfs: AGENT_ROOTFS,
+    allowAgent: ALLOW_AGENT,
+    NS,
+    brainOpts: { keyEnvFile: '/workspace/.secrets/deepseek.env' },
+    pub: (t, o, r) => { if (mq && mq.ready) mq.pub(t, o, r); },
+  });
+  return agentBridge;
+}
+
 /* ---------------- 能力分发 ---------------- */
-function dispatch(capability, params) {
+async function dispatch(capability, params) {
   const t0 = Date.now();
   if (ALLOW.length && !ALLOW.includes(capability)) {
     return { ok: false, error: '此 worker 不允许 ' + capability + '（只允许 ' + ALLOW.join(',') + '）' };
   }
 
   if (capability === 'status') {
-    return { ok: true, result: Object.assign(rt.stat(), { worker: NAME }), ms: Date.now() - t0 };
+    const br = ensureAgentBridge();
+    return {
+      ok: true,
+      result: Object.assign(rt.stat(), {
+        worker: NAME,
+        agent: br.enabled ? br.info() : { enabled: false },
+      }),
+      ms: Date.now() - t0,
+    };
   }
   if (capability === 'list_services') {
     return {
@@ -122,6 +148,22 @@ function dispatch(capability, params) {
   if (capability === 'flush') {
     const f = rt.flush();
     return { ok: f.ok, result: f, ms: Date.now() - t0 };
+  }
+
+  /* ★ Agent 能力（三个） */
+  if (capability === 'run_agent' || capability === 'agent_log' || capability === 'agent_cancel') {
+    const br = ensureAgentBridge();
+    if (!br.enabled) {
+      return {
+        ok: false,
+        error: 'Agent 未启用。worker 启动时加 --allow-agent 才开',
+        hint: 'node shell/worker.js --chan xxx --allow-agent --rootfs /path/to/rootfs',
+      };
+    }
+    const fn = br.capabilities[capability];
+    if (!fn) return { ok: false, error: 'bridge 里没有 ' + capability };
+    /* runAgent 是 async —— 这里 await 它，让 dispatch 的返回值是纯对象 */
+    return await fn.run(params || {});
   }
 
   return { ok: false, error: '未知能力: ' + capability };
@@ -203,7 +245,7 @@ function connectLoop() {
 }
 
 /* ---------------- 消息处理 ---------------- */
-function onMsg(topic, payload) {
+async function onMsg(topic, payload) {
   if (mq) mq.lastInboundAt = Date.now();
   let m;
   try { m = JSON.parse(payload); } catch (e) { return; }
@@ -216,8 +258,10 @@ function onMsg(topic, payload) {
       return mq.pub(NS + 'reply', JSON.stringify({ request_id: rid, ok: false, error: sig.error, worker: NAME }));
     }
 
+    /* ★ dispatch 可能有 async 能力（run_agent），必须 await，
+       否则把 Promise 对象 stringify 出去（run_id 就丢了） */
     let out;
-    try { out = dispatch(m.capability, m.params || {}); }
+    try { out = await dispatch(m.capability, m.params || {}); }
     catch (e) { out = { ok: false, error: String(e.message) }; }
 
     mq.pub(NS + 'reply', JSON.stringify(Object.assign({ request_id: rid, worker: NAME }, out)));
@@ -237,7 +281,7 @@ function onMsg(topic, payload) {
     for (let i = 0; i < ops.length; i++) {
       const op = ops[i] || {};
       try {
-        const r = dispatch(op.capability, op.params || {});
+        const r = await dispatch(op.capability, op.params || {});
         results.push({ index: i, ok: r.ok, result: r.result, ms: r.ms, error: r.error });
         if (r.ok) okCount++; else failCount++;
       } catch (e) {
@@ -265,6 +309,12 @@ console.log('  持久化    ' + DUR);
 console.log('  Broker    ' + BROKER);
 console.log('  签名      ' + (HMAC ? '已启用' : '未启用'));
 console.log('  允许能力  ' + (ALLOW.length ? ALLOW.join(',') : '全部'));
+if (ALLOW_AGENT) {
+  console.log('  Agent     ✓ 已启用（run_agent / agent_log / agent_cancel）');
+  console.log('  沙箱      ' + AGENT_ROOTFS);
+} else {
+  console.log('  Agent     ✗ 未启用（加 --allow-agent 才开）');
+}
 console.log('  ─────────────────────────────────────');
 console.log('  ★ 本进程【不监听任何端口】，只主动出站');
 console.log('');
