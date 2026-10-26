@@ -1,0 +1,67 @@
+name: bake-status
+
+# ============================================================================
+#  每 15 分钟把 PulseOS 的实时状态「烤」成纯静态 HTML
+#  ---------------------------------------------------------------------------
+#  为什么需要这个：
+#    抓取器和多数 AI 不执行 JS。demo.html 里的内容全靠 JS 渲染，
+#    它们只能读到 "正在连接… 访客 0"。
+#
+#  bake.js 做的事：
+#    连 MQTT → 订阅 retained 消息（访客足迹 + worker 心跳）
+#    → 把真实数据写死进 run.html → 提交
+#
+#  然后 run.html 就是一个「有任何 AI 都能读懂」的静态页。
+#
+#  ★ 为什么在 Actions 里跑没问题：
+#    访问的是 retained 消息（broker 永久保存的），不需要 worker 在线。
+#    单次运行约 20 秒，远低于 6 小时上限。
+# ============================================================================
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bake-status
+  cancel-in-progress: false
+
+jobs:
+  bake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 烤数据（实时状态 → run.html）
+        working-directory: pulseos
+        run: node bake.js --chan live7k --out run.html --wait 8000
+
+      # ★ 阶梯协议：Python 真算 5 阶，各自烧成独立静态页
+      #   解决「静态托管无法按 query 返回不同内容」的问题
+      - name: 烤阶梯（steps/step-N.html）
+        working-directory: pulseos
+        run: node bake_steps.js steps
+        continue-on-error: true
+
+      - name: 提交
+        run: |
+          git config user.name  "bake-bot"
+          git config user.email "bake@users.noreply.github.com"
+          git add pulseos/run.html pulseos/steps
+          if git diff --cached --quiet; then
+            echo "无变化，跳过"
+          else
+            git commit -m "bake: $(date -u -d '+8 hours' '+%Y-%m-%d %H:%M') 状态快照"
+            git push
+          fi
