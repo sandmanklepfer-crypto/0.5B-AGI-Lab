@@ -423,6 +423,19 @@ function loadLatestSnapshot(dir) {
   return null;
 }
 
+/* 读单个快照文件（供 SnapshotChain 用） */
+function loadLatestSnapshotFile(p) {
+  const buf = fs.readFileSync(p);
+  if (buf.length < 12) return null;
+  const len = buf.readUInt32BE(0);
+  const crc = buf.readUInt32BE(4);
+  const magic = buf.readUInt32BE(8);
+  if (magic !== MAGIC || 12 + len > buf.length) return null;
+  const packed = buf.subarray(12, 12 + len);
+  if (crc32(packed) !== crc) return null;
+  return JSON.parse(zlib.inflateRawSync(packed).toString('utf8'));
+}
+
 /* 清理多余快照，只留最新 N 个 */
 function pruneSnapshots(dir, keep = 2) {
   const snaps = fs.readdirSync(dir)
@@ -557,5 +570,5 @@ class WalStore {
 module.exports = {
   SegmentLog, WalStore, WriteAheadLog: SegmentLog,
   encodeRecord, decodeAt, crc32,
-  writeSnapshot, loadLatestSnapshot, pruneSnapshots, cleanTmp,
+  writeSnapshot, loadLatestSnapshot, loadLatestSnapshotFile, pruneSnapshots, cleanTmp,
 };
