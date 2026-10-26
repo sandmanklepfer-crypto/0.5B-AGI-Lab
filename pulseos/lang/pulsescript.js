@@ -351,14 +351,6 @@ function check(prog) {
   for (const svc of prog.services) {
     const fieldNames = new Set(svc.state.map(f => f.name));
 
-    /* ★ 字段名和内置函数同名 → 警告（字段赢，但内置函数在该服务里就不可用了） */
-    for (const f of svc.state) {
-      if (BUILTINS[f.name]) {
-        warnings.push('[' + svc.name + '] 字段 "' + f.name + '" 与内置函数同名，' +
-          '该服务内 "' + f.name + '()" 将不可用（字段优先）');
-      }
-    }
-
     // 状态默认值类型检查
     for (const f of svc.state) {
       const ty = f.type;
@@ -419,12 +411,9 @@ function evalExpr(e, st, env) {
     case 'str': return e.v;
     case 'bool': return e.v;
     case 'id':
-      /* ★ 作用域优先级：局部/参数 → 状态字段 → 内置函数
-         反过来的话，用户把字段命名为 sum/len/max 就会被内置函数遮蔽，
-         结果写成 { "sum": "<function>" } 这种静默错误。 */
-      if (env && e.v in env) return env[e.v];
-      if (st && Object.prototype.hasOwnProperty.call(st, e.v)) return st[e.v];
+      if (e.v in env) return env[e.v];
       if (e.v in BUILTINS) return BUILTINS[e.v];
+      if (st && e.v in st) return st[e.v];
       return undefined;
     case 'list': return e.items.map(x => evalExpr(x, st, env));
     case 'obj': {

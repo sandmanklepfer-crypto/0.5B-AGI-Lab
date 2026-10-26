@@ -44,12 +44,9 @@ class Codegen {
       case 'str': return JSON.stringify(e.v);
       case 'bool': return String(e.v);
       case 'id': {
-        /* ★ 优先级：局部/参数 → 状态字段 → 内置函数
-           必须让字段赢，否则把字段命名为 sum/len/max 会静默变成函数引用 */
-        if (ctx && ctx.locals && ctx.locals.has(e.v)) return e.v;
-        if (ctx && ctx.fields && ctx.fields.has(e.v)) return '$S[' + JSON.stringify(e.v) + ']';
         if (ps.BUILTINS[e.v]) { this.usedBuiltins.add(e.v); return '$B.' + e.v; }
-        return e.v;
+        if (ctx && ctx.fields && ctx.fields.has(e.v)) return '$S[' + JSON.stringify(e.v) + ']';
+        return e.v;   // 局部变量或参数
       }
       case 'list': return '[' + e.items.map(x => this.expr(x, ctx)).join(', ') + ']';
       case 'obj': return '{' + e.props.map(([k, v]) => JSON.stringify(k) + ': ' + this.expr(v, ctx)).join(', ') + '}';
@@ -68,10 +65,7 @@ class Codegen {
       }
       case 'call': {
         const f = e.callee;
-        /* 字段/局部不是函数，只有内置函数能直接调用 */
-        const shadowed = f.k === 'id' && ctx && (
-          (ctx.locals && ctx.locals.has(f.v)) || (ctx.fields && ctx.fields.has(f.v)));
-        if (f.k === 'id' && ps.BUILTINS[f.v] && !shadowed) {
+        if (f.k === 'id' && ps.BUILTINS[f.v]) {
           this.usedBuiltins.add(f.v);
           return '$B.' + f.v + '(' + e.args.map(a => this.expr(a, ctx)).join(', ') + ')';
         }
