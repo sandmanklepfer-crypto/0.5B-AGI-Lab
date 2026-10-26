@@ -1,0 +1,67 @@
+name: AI 摘要（AI 跑在你手机上）
+
+# ============================================================================
+#  它和 snapshot.yml 是同一类东西：定时跑一次、干点活、把结果写回仓库。
+#
+#  区别只有一个：干活时如果要"用脑子"，它不去调云端 API，
+#  而是通过 MQTT 问你手机上的 vault.js —— API key 全程不出那台手机。
+#
+#  ⚠️ 为什么不用 Secrets：
+#     VAULT_CHAN 只是"频道名"，不是密钥。真正的护栏在 vault 那端：
+#       · 每小时最多 60 次
+#       · 单次输入最多 8000 字符
+#       · 每笔调用都写审计日志
+#     别人就算看到频道名，也只能帮你消耗这 60 次里的名额，做不了别的。
+#
+#  ⚠️ 手机不在线时：
+#     自动降级成"规则摘要"，任务照样成功。这个 workflow 永远不会红。
+# ============================================================================
+
+on:
+  schedule:
+    - cron: '20 1 * * *'        # 北京 09:20（错开 snapshot 的时间）
+  workflow_dispatch:            # 也支持手动触发
+
+permissions:
+  contents: write
+
+concurrency:
+  group: aivault
+  cancel-in-progress: false
+
+env:
+  # 频道名：和手机上 vault.js 的 VAULT_CHAN 保持一致
+  # 想换就改这里 + 手机上重启 vault，改完提交即可，不需要任何 token
+  VAULT_CHAN: 'luhuo-aivault-7f3k9x'
+  VAULT_BROKER: 'wss://broker.hivemq.com:8884/mqtt'
+  VAULT_TIMEOUT: '60000'
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: 取出代码
+        uses: actions/checkout@v4
+
+      - name: 装 node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 生成摘要
+        env:
+          OUT_FILE: aivault/DIGEST.md
+        run: node aivault/agent/daily.js
+
+      - name: 提交
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add aivault/DIGEST.md
+          if git diff --cached --quiet; then
+            echo "没有变化，跳过提交"
+          else
+            git commit -m "aivault: 摘要 $(date -u -d '+8 hours' +%Y-%m-%d)"
+            git push
+          fi
