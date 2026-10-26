@@ -24,6 +24,8 @@
       <a href="#arch">架构</a>
       <a href="#bench">数据</a>
       <a href="#start">部署</a>
+      <a href="#lang">语言</a>
+      <a href="#shell">外壳</a>
       <a href="#cli">CLI</a>
       <a href="#faq">问答</a>
     </nav>
@@ -315,10 +317,136 @@ node vault.js</pre>
   </div>
 </section>
 
+
+<!-- ============ PulseScript 语言 ============ -->
+<section id="lang" class="sec">
+  <div class="wrap">
+    <h2><span class="num">06</span>PulseScript 语言</h2>
+    <p class="sub">系统做出来了，谁来写应用？C++ 和 Java 假设「程序常驻内存」，与 7ms 脉冲的范式不匹配。<br>
+    所以需要一门原生的语言——它只描述<strong>因果与时序</strong>，不描述内存与指针。</p>
+
+    <div class="feat">
+      <div class="feat-l">
+        <h3>完整语法，就这些</h3>
+        <p>没有继承、没有泛型、没有生命周期标注、<strong>没有循环</strong>。</p>
+        <p class="em">PulseScript 描述单向因果，不做迭代。需要重复，就多次脉冲。</p>
+      </div>
+      <div class="feat-r">
+<pre class="code">service sensor {
+  state {
+    window: list = []
+    total:  int  = 0
+    n:      int  = 0
+  }
+
+  on "push"(v) {
+    append(window, v)
+    if len(window) &gt; 8 {
+      set window = slice(window,
+        len(window) - 8, len(window))
+    }
+    set total = total + v
+    set n = n + 1
+    emit "sampled" { v: v, n: n }
+  }
+
+  on "report" {
+    return { avg: int(total / max(n,1)) }
+  }
+}</pre>
+      </div>
+    </div>
+
+    <h3 class="mt">语句与类型</h3>
+    <table class="tbl wide">
+      <thead><tr><th>语句</th><th>作用</th></tr></thead>
+      <tbody>
+        <tr><td><code>set 字段 = 表达式</code></td><td>改状态（会持久化）</td></tr>
+        <tr><td><code>let 变量 = 表达式</code></td><td>局部变量（不持久化）</td></tr>
+        <tr><td><code>append 列表, 值</code></td><td>追加</td></tr>
+        <tr><td><code>return 表达式</code></td><td>返回值</td></tr>
+        <tr><td><code>emit "事件" { k: v }</code></td><td><b>派生：触发其他服务</b></td></tr>
+        <tr><td><code>if 条件 { } else { }</code></td><td>分支</td></tr>
+      </tbody>
+    </table>
+    <p class="note">类型：<code>int</code> <code>str</code> <code>list</code> <code>map</code> <code>bool</code><br>
+    内置函数：<code>len</code> <code>now</code> <code>int</code> <code>str</code> <code>min</code> <code>max</code> <code>slice</code> <code>sum</code></p>
+
+    <h3 class="mt">核心机制：因果自动路由</h3>
+    <p>你<strong>不写</strong>「我要调用 audit」，你只写「发生了一个 sampled 事件」。路由由系统解决。</p>
+<pre class="code out">sensor.push(97)
+  → sensor.push()      12.6 ms   42 B
+  → audit.sampled()     2.6 ms   24 B      ← 自动路由</pre>
+    <p class="note">规则优先级：① 有 <code>__to</code> 用它 → ② 本服务有这个 on 就地触发 → ③ 全局唯一匹配 → ④ 多个服务都有则不路由（避免歧义）</p>
+
+    <h3 class="mt">为什么强制小状态</h3>
+    <p>因为<strong>状态大小直接等于唤醒延迟</strong>。语言层面强制，比运行时优化有效得多。</p>
+<pre class="code">编译时报告：
+  ✓ sensor  · 2 个方法 [push, report] · 初始状态 38B · 极佳
+  ✓ counter · 2 个方法 [inc, get]     · 初始状态  9B · 极佳
+  ✓ big     · 1 个方法 [x]            · 初始状态 14B · 极佳</pre>
+  </div>
+</section>
+
+<!-- ============ 聚合态外壳 ============ -->
+<section id="shell" class="sec alt">
+  <div class="wrap">
+    <h2><span class="num">07</span>聚合态外壳</h2>
+    <p class="sub">散落的微内核，普通用户看不见、摸不着。需要一层外壳把它们<strong>聚合成一个系统</strong>。</p>
+
+    <div class="feat">
+      <div class="feat-l">
+        <h3>控制台里有什么</h3>
+        <ul style="margin:0;padding-left:20px;color:var(--dim);font-size:14px;line-height:2.1">
+          <li>系统总览：服务数 / 总脉冲 / 状态合计 / 因果边</li>
+          <li>微内核卡片：每个服务的状态大小、脉冲次数、p95 延迟</li>
+          <li><b>点方法名直接触发一次脉冲</b></li>
+          <li>因果链时间线</li>
+          <li>PulseScript 编辑器（编译 / 部署 / 诊断）</li>
+          <li>状态箱导出（base64）</li>
+        </ul>
+      </div>
+      <div class="feat-r">
+<pre class="code">$ node shell/server.js
+
+  ◈ PulseOS 聚合态外壳
+  ─────────────────────────────
+  已装载 audit（audit.pulse）
+  已装载 notes（notes.pulse）
+  已装载 sensor（sensor.pulse）
+  ─────────────────────────────
+  http://127.0.0.1:8899</pre>
+        <p class="note">零依赖。不需要 Docker、Nginx、面板。一个 node 进程就是一个系统。</p>
+      </div>
+    </div>
+
+    <h3 class="mt">HTTP API</h3>
+    <table class="tbl wide">
+      <thead><tr><th>方法</th><th>路径</th><th>作用</th></tr></thead>
+      <tbody>
+        <tr><td>GET</td><td><code>/api/state</code></td><td>系统总览 + 服务列表 + 因果链</td></tr>
+        <tr><td>POST</td><td><code>/api/pulse</code></td><td><code>{service, op, args}</code> 触发脉冲</td></tr>
+        <tr><td>POST</td><td><code>/api/compile</code></td><td><code>{src}</code> 编译检查 + 状态预估</td></tr>
+        <tr><td>POST</td><td><code>/api/deploy</code></td><td><code>{src}</code> 编译并注册</td></tr>
+        <tr><td>DELETE</td><td><code>/api/service/:n</code></td><td>卸载</td></tr>
+        <tr><td>GET</td><td><code>/api/export/:n</code></td><td>导出状态箱</td></tr>
+      </tbody>
+    </table>
+
+    <h3 class="mt">状态箱：全部要持久化的东西</h3>
+<pre class="code out">$ curl /api/export/counter
+
+  counter.box   9 字节
+  base64:  q1bKU7IyrgUA
+  状态:    {"n":3}</pre>
+    <p class="box"><strong>9 个字节。</strong>它小到可以放进一个 MQTT 消息、一个 Git 提交、一行数据库字段。这就是「状态驻留」的全部含义。</p>
+  </div>
+</section>
+
 <!-- ============ CLI ============ -->
 <section id="cli" class="sec alt">
   <div class="wrap">
-    <h2><span class="num">06</span>命令参考</h2>
+    <h2><span class="num">08</span>命令参考</h2>
 
     <h3>运行时可编程接口</h3>
 <pre class="code">const { Proc2 } = require('./proc2');
@@ -373,7 +501,7 @@ r = proc.pulse(box, 'list', 10);     // 从 118 字节恢复
 <!-- ============ 适用性 ============ -->
 <section class="sec">
   <div class="wrap">
-    <h2><span class="num">07</span>适用与不适用</h2>
+    <h2><span class="num">09</span>适用与不适用</h2>
     <div class="grid2">
       <div class="card ok-card">
         <h3>✅ 适合</h3>
@@ -417,7 +545,7 @@ r = proc.pulse(box, 'list', 10);     // 从 118 字节恢复
 <!-- ============ FAQ ============ -->
 <section id="faq" class="sec alt">
   <div class="wrap">
-    <h2><span class="num">08</span>常见问题</h2>
+    <h2><span class="num">10</span>常见问题</h2>
 
     <details>
       <summary>它是操作系统吗？</summary>
