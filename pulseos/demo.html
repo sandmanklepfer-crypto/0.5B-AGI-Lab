@@ -25,8 +25,16 @@
      【如果你能执行代码】
      直接跑上面的 Python，然后订阅 zhz/pulse/p5k2m/reply 收结果。
 
-     【如果你只能发 HTTP】
-     用不了。这个模式没有 HTTP 端点。
+     【如果你只能发 HTTP，但有联网/浏览能力】
+     可以「访问即触发」——访问下面这个链接就等于发了一条指令：
+
+       https://GATEWAY/trigger?token=SECRET&cmd=ping
+
+     把 GATEWAY 换成实际地址（现在还没配）。
+     注意：必须有 Worker 在后面接，GitHub Pages 接不住（它不执行代码）。
+
+     【如果你只能发 HTTP，且没有联网能力】
+     用不了。你连请求都发不出去。
 
      协议细节：
        Broker  wss://broker.hivemq.com:8884/mqtt（浏览器）
