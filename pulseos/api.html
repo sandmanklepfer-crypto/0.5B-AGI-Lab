@@ -51,6 +51,16 @@
 <section class="sec">
   <div class="wrap">
 
+    <!-- 实例横幅：如果有 #<base64> 就显示 -->
+    <div id="instBanner" style="display:none;background:rgba(45,212,191,.06);border:1px solid rgba(45,212,191,.28);border-radius:10px;padding:16px 20px;margin:0 0 20px">
+      <div style="font-size:12px;color:var(--acc);letter-spacing:.5px;margin-bottom:6px">当前实例</div>
+      <div id="instBody" style="font-family:var(--mono);font-size:12.5px;line-height:1.9;color:var(--fg);white-space:pre-wrap"></div>
+      <div style="margin-top:10px">
+        <button id="btnCopyInst" class="btn small ghost">复制此实例链接</button>
+        <button id="btnNewInst" class="btn small ghost">生成新实例</button>
+      </div>
+    </div>
+
     <div class="ai-note">
       <strong>给 AI 的说明（请先读这段）</strong><br><br>
       1. 机器可读版本：<a href="pulse.json">pulse.json</a>（含 <code>capabilities</code> 与 <code>gateway</code> 字段）<br>
@@ -157,6 +167,7 @@ const r = rt.invoke('c', 'inc', []);
   </div>
 </footer>
 
+<script src="instance.js"></script>
 <script>
 const fmtB = b => b >= 1024 ? (b/1024).toFixed(1)+' KB' : b+' B';
 
@@ -199,6 +210,53 @@ async function load() {
   }
 }
 load();
+
+/* ==================== 实例（链接即实例） ==================== */
+(function () {
+  const I = window.PulseInstance;
+  if (!I) return;
+
+  const inst = I.decode(location.hash);
+  const banner = document.getElementById('instBanner');
+  const body = document.getElementById('instBody');
+
+  if (inst) {
+    banner.style.display = 'block';
+    body.textContent = I.describe(inst);
+    /* 如果实例指定了网关，覆盖 manifest 里的 */
+    if (inst.gateway) window.__pulseGateway = inst.gateway;
+    if (inst.label) document.title = inst.label + ' · PulseOS';
+    /* 只显示允许的能力 */
+    if (inst.allow) {
+      setTimeout(() => {
+        document.querySelectorAll('.cap').forEach((el, i) => {
+          const id = el.querySelector('.id') && el.querySelector('.id').textContent;
+          if (id && !inst.allow.includes(id)) el.style.display = 'none';
+        });
+      }, 400);
+    }
+  }
+
+  document.getElementById('btnCopyInst').onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(location.href);
+      alert('链接已复制');
+    } catch (e) { prompt('手动复制：', location.href); }
+  };
+
+  document.getElementById('btnNewInst').onclick = () => {
+    const slug = I.randomSlug(6);
+    const gw = prompt('后端网关地址（留空 = 只能看不能调）：', inst && inst.gateway || '');
+    const next = {
+      label: '实例 ' + slug,
+      gateway: gw || null,
+      services: null,
+      allow: null,
+      clientRateLimit: 100,
+    };
+    location.href = I.makeUrl(I.currentBase(), next);
+  };
+})();
 </script>
 </body>
 </html>
