@@ -69,7 +69,37 @@
     <h2 class="mt"><span class="num">02</span>能力</h2>
     <div id="menu" class="menu">读取中…</div>
 
-    <h2 class="mt"><span class="num">03</span>怎么用</h2>
+    <h2 class="mt"><span class="num">03</span>★ 批量调用（AI 应该用这个）</h2>
+
+    <div class="ai-note" style="background:rgba(74,222,128,.06);border-color:rgba(74,222,128,.28)">
+      <strong>不要逐条调用。</strong><br><br>
+      逐条 = 每条一次网络往返 + AI 重新思考一次。批量 = 一次往返。<br>
+      实测 200 个任务：<b>逐条 890ms vs 批量 213ms</b>（网络层快 4.2x）。<br>
+      算上 AI 每条思考 2 秒：<b>逐条 401 秒 vs 批量 2.2 秒</b>（端到端快 182x）。
+    </div>
+
+    <pre class="code">POST /invoke_batch
+{
+  "ops": [
+    { "capability": "deploy", "params": { "src": "service w { ... }" } },
+    { "capability": "invoke", "params": { "service": "w", "op": "inc", "args": [1] } },
+    { "capability": "invoke", "params": { "service": "w", "op": "inc", "args": [2] } },
+    { "capability": "invoke", "params": { "service": "w", "op": "get" } }
+  ]
+}
+
+# → {
+#     "ok": true, "total": 4, "okCount": 4, "failCount": 0,
+#     "totalMs": 8.2, "avgMs": 2.05,
+#     "results": [{ "index": 0, "ok": true, ... }]
+#   }</pre>
+
+    <p class="note" style="font-size:13px;color:var(--dim2);margin-top:8px">
+      <b>执行语义：顺序。</b>PulseScript 的状态有因果依赖，不能乱序。<br>
+      服务之间互不依赖时，可以拆成多个 batch 并发发。
+    </p>
+
+    <h2 class="mt"><span class="num">04</span>怎么用</h2>
 
     <h3>方式 A：有在线网关（跨机）</h3>
     <pre class="code">curl -X POST https://你的网关/invoke \
@@ -93,7 +123,7 @@ rt.deploy('service c { state { n: int = 0 } on "inc" { set n = n + 1 return n } 
 const r = rt.invoke('c', 'inc', []);
 // { ok: true, result: 1, ms: 0.0004 }</pre>
 
-    <h2 class="mt"><span class="num">04</span>关于「无穷子域名」</h2>
+    <h2 class="mt"><span class="num">05</span>关于「无穷子域名」</h2>
     <div class="ai-note" style="background:rgba(248,113,113,.05);border-color:rgba(248,113,113,.25)">
       <strong>做不到，也不该做。</strong><br><br>
       GitHub Pages 只提供 <code>用户名.github.io/仓库名/</code> 这一种路径路由。

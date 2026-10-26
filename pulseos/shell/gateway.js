@@ -278,6 +278,67 @@ const server = http.createServer(async (req, res) => {
     return send(res, 200, MANIFEST);
   }
 
+  /* ==================== 批量调用 ====================
+     AI 应该把"要做的 N 件事"打包成一个数组，一次 POST 过来。
+     不要逐条调用 —— 每条都要一次网络往返 + AI 重新思考。
+     ★ 关键：批量是【顺序执行】的，因为 PulseScript 的状态有因果依赖。
+        真正并行需要 service 之间互不依赖，那要另一套语义。 */
+  if (p === '/invoke_batch' && req.method === 'POST') {
+    let body;
+    try { body = await readBody(req); }
+    catch (e) { return send(res, 413, { ok: false, error: e.message }); }
+
+    const ops = body.ops;
+    if (!Array.isArray(ops)) {
+      return send(res, 400, {
+        ok: false, error: '需要 ops 数组',
+        example: { ops: [
+          { capability: 'invoke', params: { service: 'echo', op: 'ping' } },
+          { capability: 'invoke', params: { service: 'calc', op: 'add', args: [1, 2] } },
+        ] },
+      });
+    }
+    if (ops.length > 1000) {
+      return send(res, 400, { ok: false, error: '单批最多 1000 条，收到 ' + ops.length });
+    }
+
+    const sig = verifySig(req, 'batch', body.request_id || 'batch');
+    if (!sig.ok) return send(res, 401, { ok: false, error: sig.error });
+
+    const rl = checkRate();
+    if (!rl.ok) return send(res, 429, { ok: false, error: rl.error, retry_after: rl.retryAfter });
+
+    const t0 = process.hrtime.bigint();
+    const results = [];
+    let okCount = 0, failCount = 0;
+
+    for (let i = 0; i < ops.length; i++) {
+      const op = ops[i];
+      if (!op || !op.capability) {
+        results.push({ index: i, ok: false, error: '缺少 capability' });
+        failCount++; continue;
+      }
+      try {
+        const r = await dispatch(op.capability, op.params || {});
+        results.push({ index: i, ok: r.ok, result: r.result, ms: r.ms, error: r.error });
+        if (r.ok) okCount++; else failCount++;
+      } catch (e) {
+        results.push({ index: i, ok: false, error: String(e.message) });
+        failCount++;
+      }
+    }
+
+    const totalMs = Number(process.hrtime.bigint() - t0) / 1e6;
+    return send(res, 200, {
+      ok: failCount === 0,
+      total: ops.length,
+      okCount, failCount,
+      totalMs: +totalMs.toFixed(3),
+      avgMs: +(totalMs / ops.length).toFixed(4),
+      results,
+    });
+  }
+
   /* 统一调用入口 */
   if (p === '/invoke' && req.method === 'POST') {
     let body;
@@ -309,7 +370,7 @@ const server = http.createServer(async (req, res) => {
   send(res, 404, {
     ok: false,
     error: '未知路径 ' + p,
-    available: ['GET /health', 'GET /manifest', 'POST /invoke'],
+    available: ['GET /health', 'GET /manifest', 'POST /invoke', 'POST /invoke_batch'],
   });
 });
 
@@ -326,6 +387,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log('  ─────────────────────────────────────');
   console.log('  GET  /health     健康检查');
   console.log('  GET  /manifest   能力清单');
-  console.log('  POST /invoke     调用');
+  console.log('  POST /invoke        单次调用');
+  console.log('  POST /invoke_batch  ★ 批量调用（AI 应该用这个）');
   console.log('');
 });
