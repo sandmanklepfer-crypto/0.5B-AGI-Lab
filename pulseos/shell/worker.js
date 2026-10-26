@@ -165,20 +165,46 @@ function connectLoop() {
     console.log('         服务 ' + (rt.services().join(', ') || '(无)'));
     console.log('         订阅 ' + NS + 'invoke');
 
-    /* 心跳刷新保留消息（让别人随时能发现） */
+    /* 心跳 + 假死检测
+       ★ 关键：socket 可能静默死亡（对端没了但本地 ready 还是 true）。
+          所以不只看 ready，还看「多久没收到 PINGRESP」。 */
+    const KEEP = 30;                     // 与 constructor 的 keepalive 一致
+    const DEAD_MS = KEEP * 2500;         // 2.5 倍 keepalive 没声音 = 假死
     const hb = setInterval(() => {
-      if (c.ready) c.pub(HELLO, JSON.stringify({
-        chan: CHAN, name: NAME, services: rt.services(),
-        durability: DUR, allow: ALLOW.length ? ALLOW : 'all', ts: Date.now(),
-      }), true);
-      if (!c.ready) { clearInterval(hb); connected = false; setTimeout(connectLoop, 2000); }
-    }, 30000);
+      const now = Date.now();
+      const lastPong = c.lastPongAt || c.lastInboundAt || 0;
+      const silent = lastPong ? (now - lastPong) : 0;
+
+      if (c.ready && silent > DEAD_MS) {
+        console.log('[worker] ⚠ 连接假死（' + Math.round(silent / 1000) + 's 无响应），强制重连');
+        clearInterval(hb);
+        connected = false;
+        try { c.close(); } catch (e) {}
+        mq = null;
+        setTimeout(connectLoop, 1500);
+        return;
+      }
+
+      if (c.ready) {
+        c.pub(HELLO, JSON.stringify({
+          chan: CHAN, name: NAME, services: rt.services(),
+          durability: DUR, allow: ALLOW.length ? ALLOW : 'all', ts: now,
+        }), true);
+      } else {
+        clearInterval(hb);
+        connected = false;
+        try { c.close(); } catch (e) {}
+        mq = null;
+        setTimeout(connectLoop, 2000);
+      }
+    }, 15000);
     if (hb.unref) hb.unref();
   });
 }
 
 /* ---------------- 消息处理 ---------------- */
 function onMsg(topic, payload) {
+  if (mq) mq.lastInboundAt = Date.now();
   let m;
   try { m = JSON.parse(payload); } catch (e) { return; }
 

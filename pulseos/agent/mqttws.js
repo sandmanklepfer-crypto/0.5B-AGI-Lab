@@ -49,6 +49,8 @@ class MqttWs {
     this._onMsg = null;
     this._keepTimer = null;
     this._closed = false;
+    this.lastInboundAt = 0;      // 最后一次收到任何字节
+    this.lastPongAt = 0;         // 最后一次收到 PINGRESP
   }
 
   connect() {
@@ -76,6 +78,7 @@ class MqttWs {
       this.sock = sock;
       sock.setTimeout(this.timeoutMs);
       sock.on('data', (d) => {
+        this.lastInboundAt = Date.now();
         this._wsBuf = Buffer.concat([this._wsBuf, d]);
         if (!this._upgraded) {
           const i = this._wsBuf.indexOf('\r\n\r\n');
@@ -164,6 +167,8 @@ class MqttWs {
         this._subs.forEach(t => this._rawSub(t));
         this._startKeep();
         if (this._readyCb) { const f = this._readyCb; this._readyCb = null; try { f(); } catch (e) {} }
+      } else if (type === 13) {                           // PINGRESP
+        this.lastPongAt = Date.now();
       } else if (type === 3) {                            // PUBLISH
         const tl = body.readUInt16BE(0);
         const topic = body.toString('utf8', 2, 2 + tl);
