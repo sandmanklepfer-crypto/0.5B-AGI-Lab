@@ -1,0 +1,178 @@
+# site —— 所有页面的状态机（都跑在 PulseOS 上）
+#
+# 分工铁律：
+#   python      只算「PulseScript 表达不出来的值」（SHA-256 / 素数 / 阶乘）
+#   PulseOS     算「状态演进」：序号、链指针、环形分配、归档、聚合
+#   bake        只负责把 PulseOS 的最终状态渲染成 HTML
+#
+# ★ PulseScript 没有 % 运算符，环形用 if 做
+
+# ============================================================
+# chain —— 哈希链（seq / prev 指针 / 归档计数 全由 OS 算）
+# ============================================================
+service chain {
+  state {
+    seq: int = 0
+    head: str = "GENESIS"
+    n: int = 0
+    archive: int = 0
+    keep: int = 15
+    list: list = []
+  }
+
+  on "append"(hash, at, task) {
+    set seq = seq + 1
+    append(list, { seq: seq, prev: head, hash: hash, at: at, task: task })
+    set head = hash
+    set n = n + 1
+    # 超上限 → 归档最旧的（这是 PulseOS 在算，不是脚本）
+    if len(list) > keep {
+      set list = slice(list, len(list) - keep, len(list))
+      set archive = archive + 1
+    }
+    emit "appended" { seq: seq }
+    return seq
+  }
+
+  on "stat" {
+    return { seq: seq, head: head, n: n, archive: archive, list: list }
+  }
+}
+
+# ============================================================
+# pool —— 环形状态池（slot 分配由 OS 算，不用 %）
+# ============================================================
+service pool {
+  state {
+    seq: int = 0
+    slot: int = 0
+    slots: int = 10
+    total: int = 0
+    ring: list = []
+  }
+
+  on "write"(hash, at, task) {
+    set seq = seq + 1
+    set total = total + 1
+    append(ring, { seq: seq, slot: slot, hash: hash, at: at, task: task })
+    # slot 环形递增（PulseScript 没 % ，用 if 归零）
+    set slot = slot + 1
+    if slot >= slots {
+      set slot = 0
+    }
+    # 只保留最近一轮
+    if len(ring) > slots {
+      set ring = slice(ring, len(ring) - slots, len(ring))
+    }
+    emit "written" { seq: seq }
+    return seq
+  }
+
+  on "stat" {
+    return { seq: seq, total: total, nextSlot: slot, slots: slots, ring: ring }
+  }
+}
+
+# ============================================================
+# evolve —— 演化链（每步吃上一步，由 OS 串起来）
+# ============================================================
+service evolve {
+  state {
+    step: int = 0
+    value: str = "GENESIS"
+    max: int = 10
+    steps: list = []
+  }
+
+  on "step"(out, at, task) {
+    set step = step + 1
+    append(steps, { step: step, input: value, output: out, at: at, task: task })
+    set value = out
+    emit "stepped" { step: step }
+    return step
+  }
+
+  on "stat" {
+    return { step: step, value: value, max: max, steps: steps }
+  }
+}
+
+# ============================================================
+# facts —— 事实登记（answers / toolapi 用）
+# ============================================================
+service facts {
+  state {
+    m: map = {}
+    n: int = 0
+    seq: int = 0
+  }
+
+  on "put"(k, v, kind) {
+    set m = put(m, k, { v: v, kind: kind, at: now() })
+    set n = n + 1
+    set seq = seq + 1
+    emit "put_done" { k: k, kind: kind }
+    return seq
+  }
+
+  on "get"(k) {
+    return get(m, k, null)
+  }
+
+  on "stat" {
+    return { n: n, seq: seq, m: m }
+  }
+}
+
+# ============================================================
+# index —— 按 kind 分类（由 facts 的 emit 驱动）
+# ============================================================
+service index {
+  state {
+    time: list = []
+    hash: list = []
+    math: list = []
+    other: list = []
+    total: int = 0
+  }
+
+  on "put_done"(e) {
+    set total = total + 1
+    if e.kind == "time" {
+      append(time, e.k)
+    }
+    if e.kind == "hash" {
+      append(hash, e.k)
+    }
+    if e.kind == "math" {
+      append(math, e.k)
+    }
+    if e.kind == "other" {
+      append(other, e.k)
+    }
+  }
+
+  on "stat" {
+    return { time: time, hash: hash, math: math, total: total }
+  }
+}
+
+# ============================================================
+# build —— 记录本次烤了哪些页面（证明都过 OS）
+# ============================================================
+service build {
+  state {
+    pages: list = []
+    n: int = 0
+  }
+
+  on "page"(name) {
+    append(pages, name)
+    set n = n + 1
+    return n
+  }
+
+  on "stat" {
+    return { pages: pages, n: n }
+  }
+}

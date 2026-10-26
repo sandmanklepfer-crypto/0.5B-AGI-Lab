@@ -3,131 +3,73 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>演化链 · 第 6 步 / 共 10</title>
-<meta name="description" content="演化链第 6 步。输入来自上一步，本步 value=7a86a05d319bf1e18815bbc8…，需迭代 SHA-256 35 次。下一步 step-7.html">
+<title>演化链 · 第 &lt;em&gt;7&lt;/em&gt; 步</title>
+<meta name="description" content="共 10 步 · 每步吃上一步 · 状态由 evolve 微内核维护">
 <!--
 ================================================================
-  给 AI 的说明（纯文本）
+  给 AI 的说明
 
-  ★ 这条链和你之前看到的「陈列柜」不一样：
+  数据来源：PulseOS <b>evolve</b> 微内核
+  当前 step=<b>10</b>　value=<b>df3f10729f18530e…</b>
+  「每步吃上一步」的指针链是 OS 维护的
 
-    陈列柜：每格独立，跳着看也行
-    演化链：第 N 步的输入 = 第 N-1 步的输出
-
-  ★ 本步（第 6 步）
-     input  = 6d65058e5907093e00501d58291e2b01…
-     output = 7a86a05d319bf1e18815bbc8e8151331…
-     校验和 = 4309
-
-  ★ 你现在需要的
-     去 step-7.html。它的输入就是本步的 output。
-     如果你跳过本步，第 7 步的 output 就对不上 —— 因为它需要本步的完整 value。
-
-  ★ 为什么这算「真链」
-     第 N 步 value = sha256^35("6d65058e5907093e…|6|1011|169")
-     迭代哈希是单向的：给了 output，你推不回 input。
-     所以想拿终值，只能老老实实走完 10 步。
+  ★ 本页所有状态数字都由 PulseOS 计算，不是脚本拼的。
 ================================================================
 -->
-<style>
-:root{--bg:#0b0f14;--bg2:#0f151d;--fg:#dde7f0;--dim:#8fa3b8;--dim2:#5d7085;
-  --acc:#2dd4bf;--ok:#4ade80;--warn:#fbbf24;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+<style>:root{--bg:#0b0f14;--bg2:#0f151d;--line:#1c2634;--line2:#26333f;
+--fg:#dde7f0;--dim:#8fa3b8;--dim2:#5d7085;--acc:#2dd4bf;--ok:#4ade80;--warn:#fbbf24;
+--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);
-  font:15px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
-.wrap{max-width:820px;margin:0 auto;padding:34px 22px 70px}
-h1{font-size:22px;margin:0 0 4px}
+body{margin:0;background:var(--bg);color:var(--fg);font:14.5px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:30px 22px 70px}
+h1{font-size:21px;margin:0 0 4px}
 h1 em{font-style:normal;color:var(--acc)}
-.sub{color:var(--dim2);font-size:12.5px;font-family:var(--mono);margin:0 0 18px}
-.bar{display:flex;gap:4px;margin-bottom:20px;flex-wrap:wrap}
-.bar a{flex:1;min-width:26px;height:24px;border-radius:5px;background:#0f151d;
-  border:1px solid #1c2634;display:flex;align-items:center;justify-content:center;
-  font-family:var(--mono);font-size:10px;color:var(--dim2);text-decoration:none}
-.bar a:hover{border-color:var(--acc);color:var(--acc)}
-.bar a.cur{background:rgba(45,212,191,.15);border-color:var(--acc);color:var(--acc);font-weight:600}
-.bar a.done{color:var(--ok);border-color:rgba(74,222,128,.35)}
-pre{background:#05090d;border:1px solid #26333f;border-radius:10px;
-  padding:18px 20px;font-family:var(--mono);font-size:12.8px;line-height:1.95;
-  color:#9fc4d8;white-space:pre-wrap;margin:0 0 16px;overflow-x:auto;word-break:break-all}
-.io{display:grid;gap:8px;margin-bottom:16px;font-family:var(--mono);font-size:11.5px}
-.io div{background:var(--bg2);border:1px solid #1c2634;border-radius:8px;
-  padding:10px 13px;word-break:break-all;line-height:1.7}
-.io b{color:var(--dim2);display:block;font-weight:400;font-size:10.5px;
-  letter-spacing:.5px;text-transform:uppercase;margin-bottom:2px}
-.io .in{color:#fbbf24}
-.io .out{color:#8fd9c9}
-.nxt{background:rgba(45,212,191,.07);border:1px solid rgba(45,212,191,.3);
-  border-radius:10px;padding:16px 20px;margin-bottom:16px}
-.nxt a{color:var(--acc);font-family:var(--mono);font-size:16px;text-decoration:none}
-.nxt a:hover{text-decoration:underline}
-.nxt .final{color:var(--ok);font-family:var(--mono);font-size:13px;word-break:break-all;line-height:1.9}
-.nav{margin-top:22px;font-size:12.5px;color:var(--dim2);font-family:var(--mono)}
+.sub{color:var(--dim2);font-size:12px;font-family:var(--mono);margin:0 0 18px}
+.origin{background:rgba(45,212,191,.07);border:1px solid rgba(45,212,191,.3);
+border-radius:9px;padding:11px 15px;margin:0 0 16px;font-family:var(--mono);
+font-size:11.5px;color:var(--acc);line-height:1.8}
+.origin b{color:var(--dim2);font-weight:400}
+pre{background:#05090d;border:1px solid var(--line2);border-radius:9px;padding:16px 18px;
+font-family:var(--mono);font-size:12.4px;line-height:1.9;color:#9fc4d8;
+white-space:pre-wrap;margin:0 0 14px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12.8px;
+border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-bottom:14px}
+th{text-align:left;padding:8px 12px;font-size:11px;color:var(--dim2);background:#131b26;
+border-bottom:1px solid var(--line2);font-weight:600}
+td{padding:8px 12px;border-bottom:1px solid var(--line);color:var(--dim)}
+tr:last-child td{border-bottom:0}
+td.n{font-family:var(--mono);color:var(--fg);text-align:right}
+.nav{margin-top:24px;font-size:12px;font-family:var(--mono)}
 .nav a{color:var(--dim);text-decoration:none;margin-right:14px}
-.nav a:hover{color:var(--acc)}
-</style>
+.nav a:hover{color:var(--acc)}</style>
 </head>
 <body>
 <div class="wrap">
-  <h1>演化链 · 第 <em>6</em> 步</h1>
-  <p class="sub">共 10 步 · 每步吃上一步的 output · 2026-10-26 14:18:24</p>
+  <h1>演化链 · 第 <em>7</em> 步</h1>
+  <p class="sub">共 10 步 · 每步吃上一步 · 状态由 evolve 微内核维护</p>
+  <div class="origin">数据来源：PulseOS <b>evolve</b> 微内核<br>当前 step=<b>10</b>　value=<b>df3f10729f18530e…</b><br>「每步吃上一步」的指针链是 OS 维护的</div>
+  <pre>=== 演化链 第 7 步 / 共 10 步（PulseOS 的 evolve 微内核）===
 
-  <div class="bar">
-    <a href="step-0.html" class="done">0</a>
-    <a href="step-1.html" class="done">1</a>
-    <a href="step-2.html" class="done">2</a>
-    <a href="step-3.html" class="done">3</a>
-    <a href="step-4.html" class="done">4</a>
-    <a href="step-5.html" class="done">5</a>
-    <a href="step-6.html" class="cur">6</a>
-    <a href="step-7.html" class="">7</a>
-    <a href="step-8.html" class="">8</a>
-    <a href="step-9.html" class="">9</a>
-  </div>
+时间      2026-10-26 14:49:19 北京时间
 
-  <div class="io">
-    <div><b>input（上一步的输出）</b><span class="in">6d65058e5907093e00501d58291e2b01d15faed17852bfc36b42c8ebd7ad16f4</span></div>
-    <div><b>output（本步 value = 下一步的 input）</b><span class="out">7a86a05d319bf1e18815bbc8e81513313e056e9528198d0ee07397b99ed409bc</span></div>
-  </div>
-
-  <pre>=== 演化链 第 6 步 / 共 10 步 ===
-
-生成时间      2026-10-26 14:18:24 北京时间
-CHAIN         live7k
-
---- 输入（来自上一步）---
-6d65058e5907093e00501d58291e2b01d15faed17852bfc36b42c8ebd7ad16f4
-
---- 本步派生 ---
-派生 n        1011
-哈希迭代轮数   35
-n 以内素数个数 169
-n 以内最大素数 1009
+--- 输入（上一步的 output）---
+7e6a278a90f7eda4cdedda72a7b98804f37ef5f3bb8438234969892e222fce2b
 
 --- 输出（下一步的输入）---
-7a86a05d319bf1e18815bbc8e81513313e056e9528198d0ee07397b99ed409bc
+e0688968122b93cddac60192a31c4817c90389184c784a86c90f82af870a6d5a
 
-校验和        4309（本步 value 所有字符的 ASCII 和 mod 100000）
+★ 这一串「上一步 → 这一步」的指针是 PulseOS 维护的。
+  python 只算每一步的 SHA-256 迭代值。
 
---- 怎么验证我没骗你 ---
-本步 value = sha256 迭代 35 次( "6d65058e5907093e…|6|1011|169" )
-你可以用任何语言重算，也可以对照校验和。
-
---- 下一步 ---
-访问 step-7.html 继续。
-注意：第 7 步的输入就是本步的 output 7a86a05d319bf1e18815bbc8…
-你跳过本步，第 7 步的 value 就对不上。</pre>
-
-  <div class="nxt">
-         <div style="color:var(--dim2);font-size:12px;margin-bottom:6px">下一步（输入就是本步 output）</div>
-         <a href="step-7.html">→ step-7.html</a>
-       </div>
-
+下一步：step-7.html（它的 input 就是本步的 output）</pre>
   <div class="nav">
-    <a href="step-5.html">← step-5</a>
-    <a href="index.html">链的索引</a>
-    <a href="../pool/">状态池</a>
-    <a href="../answers.html">答案表</a>
-    <a href="../clock.html">快照钟</a>
+    <a href="entry.html">总入口</a>
+    <a href="answers.html">答案表</a>
+    <a href="toolapi.html">工具 API</a>
+    <a href="chain/">哈希链</a>
+    <a href="pool/">状态池</a>
+    <a href="evolve/">演化链</a>
+    
   </div>
 </div>
 </body>

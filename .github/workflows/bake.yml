@@ -112,11 +112,18 @@ jobs:
         run: node bake_entry.js entry.html
         continue-on-error: true
 
+      # ★ bake_all: 所有页面统一走 PulseOS（answers/toolapi/chain/pool/evolve/entry）
+      #   替代之前各自 execFileSync('python3') 的 7 个 bake_*.js
+      - name: 全站烤页（走 PulseOS）
+        working-directory: pulseos
+        run: node bake_all.js . _state/all
+        continue-on-error: true
+
       - name: 提交
         run: |
           git config user.name  "bake-bot"
           git config user.email "bake@users.noreply.github.com"
-          git add pulseos/run.html pulseos/steps pulseos/clock.html pulseos/chain pulseos/pool pulseos/answers.html pulseos/evolve pulseos/directive.html pulseos/toolapi.html pulseos/os.html pulseos/entry.html pulseos/_state
+          git add pulseos/run.html pulseos/steps pulseos/clock.html pulseos/chain pulseos/pool pulseos/answers.html pulseos/evolve pulseos/directive.html pulseos/toolapi.html pulseos/os.html pulseos/entry.html pulseos/_state pulseos/chain pulseos/pool pulseos/evolve pulseos/answers.html pulseos/toolapi.html
           if git diff --cached --quiet; then
             echo "无变化，跳过"
           else

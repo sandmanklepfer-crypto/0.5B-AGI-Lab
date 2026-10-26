@@ -3,102 +3,65 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>PulseOS 链 · 索引（5 条）</title>
-<meta name="description" content="PulseOS 哈希链索引。共 5 条，最新第 5 条于 2026-10-26 14:08:21。每 15 分钟追加一条。">
+<title>PulseOS &lt;em&gt;哈希链&lt;/em&gt;</title>
+<meta name="description" content="15 条保留 · 归档 5 · 全部状态由 chain 微内核维护">
 <!--
 ================================================================
-  给 AI 的说明（纯文本）
+  给 AI 的说明
 
-  这是一条【哈希链】的索引。共 5 条，保留最近 40 页。
+  数据来源：PulseOS <b>chain</b> 微内核
+  序号/prev 指针/归档计数/上限策略 —— 全部由 PulseScript 算，不是脚本拼的
 
-  ★ 链是真的：
-      每条 hash = sha256(prev_hash | seq | at | fact)
-      你可以逐条验证 prev_hash 是否等于上一条的 hash
-
-  ★ 怎么用
-      · 想看全部：从这里点进任意一条
-      · 想看最新：link-000005.html
-      · 想看起点：link-000001.html（如果还在保留范围内）
-
-  ★ 这不是「访问即生成」
-      静态托管收不到访问事件。链由 GitHub Actions 每 15 分钟追加。
+  ★ 本页所有状态数字都由 PulseOS 计算，不是脚本拼的。
 ================================================================
 -->
-<style>
-:root{--bg:#0b0f14;--fg:#dde7f0;--dim:#8fa3b8;--dim2:#5d7085;--acc:#2dd4bf;
-  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+<style>:root{--bg:#0b0f14;--bg2:#0f151d;--line:#1c2634;--line2:#26333f;
+--fg:#dde7f0;--dim:#8fa3b8;--dim2:#5d7085;--acc:#2dd4bf;--ok:#4ade80;--warn:#fbbf24;
+--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);
-  font:15px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
-.wrap{max-width:760px;margin:0 auto;padding:34px 22px 70px}
-h1{font-size:22px;margin:0 0 4px}
+body{margin:0;background:var(--bg);color:var(--fg);font:14.5px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:30px 22px 70px}
+h1{font-size:21px;margin:0 0 4px}
 h1 em{font-style:normal;color:var(--acc)}
-.sub{color:var(--dim2);font-size:12.5px;font-family:var(--mono);margin:0 0 22px}
-pre{background:#05090d;border:1px solid #26333f;border-radius:10px;padding:16px 18px;
-  font-family:var(--mono);font-size:12.5px;line-height:1.9;color:#9fc4d8;
-  white-space:pre-wrap;margin:0 0 22px}
-ul{list-style:none;padding:0;margin:0}
-li{background:#0f151d;border:1px solid #1c2634;border-radius:9px;
-  padding:12px 16px;margin-bottom:8px}
-li a{color:var(--acc);text-decoration:none;font-family:var(--mono);font-size:14px}
-li a:hover{text-decoration:underline}
-.nav{margin-top:22px;font-size:12.5px;font-family:var(--mono)}
+.sub{color:var(--dim2);font-size:12px;font-family:var(--mono);margin:0 0 18px}
+.origin{background:rgba(45,212,191,.07);border:1px solid rgba(45,212,191,.3);
+border-radius:9px;padding:11px 15px;margin:0 0 16px;font-family:var(--mono);
+font-size:11.5px;color:var(--acc);line-height:1.8}
+.origin b{color:var(--dim2);font-weight:400}
+pre{background:#05090d;border:1px solid var(--line2);border-radius:9px;padding:16px 18px;
+font-family:var(--mono);font-size:12.4px;line-height:1.9;color:#9fc4d8;
+white-space:pre-wrap;margin:0 0 14px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12.8px;
+border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-bottom:14px}
+th{text-align:left;padding:8px 12px;font-size:11px;color:var(--dim2);background:#131b26;
+border-bottom:1px solid var(--line2);font-weight:600}
+td{padding:8px 12px;border-bottom:1px solid var(--line);color:var(--dim)}
+tr:last-child td{border-bottom:0}
+td.n{font-family:var(--mono);color:var(--fg);text-align:right}
+.nav{margin-top:24px;font-size:12px;font-family:var(--mono)}
 .nav a{color:var(--dim);text-decoration:none;margin-right:14px}
-.nav a:hover{color:var(--acc)}
-</style>
+.nav a:hover{color:var(--acc)}</style>
 </head>
 <body>
 <div class="wrap">
   <h1>PulseOS <em>哈希链</em></h1>
-  <p class="sub">共 5 条 · 保留 40 页 · 归档 0 条 · 每 15 分钟追加</p>
+  <p class="sub">15 条保留 · 归档 5 · 全部状态由 chain 微内核维护</p>
+  <div class="origin">数据来源：PulseOS <b>chain</b> 微内核<br>序号/prev 指针/归档计数/上限策略 —— 全部由 PulseScript 算，不是脚本拼的</div>
+  <pre>=== 哈希链索引（PulseOS chain 微内核）===
 
-  <pre>PulseOS 哈希链 · 索引
+共 15 条（上限 undefined），已归档 5 条
+最新 head = 51c2eca1506ce87543ed7088d7311b4e13914fb33b5cace94e799fd2919a17e2
 
-共 5 条   保留最近 40 页   归档 0 条
-最新: 第 5 条，2026-10-26 14:08:21
-
-每条 hash = sha256(prev_hash | seq | at | fact)
-改任何一条，后面的 hash 全对不上 —— 这就是不可变账本。
-
-访问 link-1.html 从创世条开始，或直接访问最新一条。</pre>
-
-  <ul>
-    <li>
-      <a href="link-000005.html">第 5 条</a>
-      <span style="color:#5d7085">2026-10-26 14:08:21</span>
-      <div style="color:#8fa3b8;font-size:12px;margin-top:2px">4923 以内有 657 个素数，其中 654 个与 70 互质</div>
-      <div style="color:#3f4f5f;font-size:10.5px;font-family:ui-monospace,monospace;margin-top:2px">fe8b8152e99591a0bb1d5f91a111ffff…</div>
-    </li>
-    <li>
-      <a href="link-000004.html">第 4 条</a>
-      <span style="color:#5d7085">2026-10-26 14:08:21</span>
-      <div style="color:#8fa3b8;font-size:12px;margin-top:2px">4019 以内有 554 个素数，其中 553 个与 3 互质</div>
-      <div style="color:#3f4f5f;font-size:10.5px;font-family:ui-monospace,monospace;margin-top:2px">20f04479d57656212ec0f70b9356ff30…</div>
-    </li>
-    <li>
-      <a href="link-000003.html">第 3 条</a>
-      <span style="color:#5d7085">2026-10-26 14:08:20</span>
-      <div style="color:#8fa3b8;font-size:12px;margin-top:2px">3643 以内有 509 个素数，其中 508 个与 32 互质</div>
-      <div style="color:#3f4f5f;font-size:10.5px;font-family:ui-monospace,monospace;margin-top:2px">9fc05054ef48cea93b80c78a8f254359…</div>
-    </li>
-    <li>
-      <a href="link-000002.html">第 2 条</a>
-      <span style="color:#5d7085">2026-10-26 14:08:20</span>
-      <div style="color:#8fa3b8;font-size:12px;margin-top:2px">2590 以内有 376 个素数，其中 375 个与 29 互质</div>
-      <div style="color:#3f4f5f;font-size:10.5px;font-family:ui-monospace,monospace;margin-top:2px">be701f60bf3370c9878462e9d5a50107…</div>
-    </li>
-    <li>
-      <a href="link-000001.html">第 1 条</a>
-      <span style="color:#5d7085">2026-10-26 14:08:19</span>
-      <div style="color:#8fa3b8;font-size:12px;margin-top:2px">3990 以内有 550 个素数，其中 549 个与 67 互质</div>
-      <div style="color:#3f4f5f;font-size:10.5px;font-family:ui-monospace,monospace;margin-top:2px">73d0b7db7205fc7320fdf096aeb304c6…</div>
-    </li></ul>
-
+每条的结构：seq / prev / hash / at
+hash 由 python 算，其余由 PulseOS 算。</pre><table><thead><tr><th>记录</th><th style="text-align:right">时间</th><th>hash</th></tr></thead><tbody><tr><td><a href="link-000020.html" style="color:var(--acc)">第 20 条</a></td><td class="n">14:49:15</td><td style="font-family:var(--mono);font-size:10.5px;color:#5d7085">51c2eca1506ce87543ed7088…</td></tr><tr><td><a href="link-000019.html" style="color:var(--acc)">第 19 条</a></td><td class="n">14:49:15</td><td style="font-family:var(--mono);font-size:10.5px;color:#5d7085">07ae4c14eca752ec59f93923…</td></tr><tr><td><a href="link-000018.html" style="color:var(--acc)">第 18 条</a></td><td class="n">14:49:14</td><td style="font-family:var(--mono);font-size:10.5px;color:#5d7085">dc338cf6912517a5e8809273…</td></tr><tr><td><a href="link-000017.html" style="color:var(--acc)">第 17 条</a></td><td class="n">14:49:14</td><td style="font-family:var(--mono);font-size:10.5px;color:#5d7085">97fb4db8cdab654c7e97e8ab…</td></tr><tr><td><a href="link-000016.html" style="color:var(--acc)">第 16 条</a></td><td class="n">14:49:14</td><td style="font-family:var(--mono);font-size:10.5px;color:#5d7085">c2f13f136905250d09e3dfff…</td></tr><tr><td><a href="link-000015.html" style="color:var(--acc)">第 15 条</a></td><td class="n">14:49:14</td><td style="font-family:var(--mono);font-size:10.5px;color:#5d7085">9b467a889a3458057f72a5c5…</td></tr><tr><td><a href="link-000014.html" style="color:var(--acc)">第 14 条</a></td><td class="n">14:49:14</td><td style="font-family:var(--mono);font-size:10.5px;color:#5d7085">a20d1032315c7da742b4a6af…</td></tr><tr><td><a href="link-000013.html" style="color:var(--acc)">第 13 条</a></td><td class="n">14:49:13</td><td style="font-family:var(--mono);font-size:10.5px;color:#5d7085">1056988a3fbaff6184a3bdae…</td></tr><tr><td><a href="link-000012.html" style="color:var(--acc)">第 12 条</a></td><td class="n">14:49:13</td><td style="font-family:var(--mono);font-size:10.5px;color:#5d7085">87ae6f9e29be54c92abc03b8…</td></tr><tr><td><a href="link-000011.html" style="color:var(--acc)">第 11 条</a></td><td class="n">14:49:13</td><td style="font-family:var(--mono);font-size:10.5px;color:#5d7085">ee482092701dcf9f322463d4…</td></tr><tr><td><a href="link-000010.html" style="color:var(--acc)">第 10 条</a></td><td class="n">14:49:13</td><td style="font-family:var(--mono);font-size:10.5px;color:#5d7085">82c3446c893612f408b2f96a…</td></tr><tr><td><a href="link-000009.html" style="color:var(--acc)">第 9 条</a></td><td class="n">14:49:13</td><td style="font-family:var(--mono);font-size:10.5px;color:#5d7085">7004e347d058d6430837243e…</td></tr><tr><td><a href="link-000008.html" style="color:var(--acc)">第 8 条</a></td><td class="n">14:49:12</td><td style="font-family:var(--mono);font-size:10.5px;color:#5d7085">d3bd7c1bb910031985ee1dc1…</td></tr><tr><td><a href="link-000007.html" style="color:var(--acc)">第 7 条</a></td><td class="n">14:49:12</td><td style="font-family:var(--mono);font-size:10.5px;color:#5d7085">a8980afca6ab8386ddc27c3b…</td></tr><tr><td><a href="link-000006.html" style="color:var(--acc)">第 6 条</a></td><td class="n">14:49:12</td><td style="font-family:var(--mono);font-size:10.5px;color:#5d7085">558479eb222bd9e2aa43465e…</td></tr></tbody></table>
   <div class="nav">
-    <a href="../clock.html">快照钟</a>
-    <a href="../steps/">阶梯协议</a>
-    <a href="../run.html">实时状态</a>
-    <a href="../">首页</a>
+    <a href="entry.html">总入口</a>
+    <a href="answers.html">答案表</a>
+    <a href="toolapi.html">工具 API</a>
+    <a href="chain/">哈希链</a>
+    <a href="pool/">状态池</a>
+    <a href="evolve/">演化链</a>
+    
   </div>
 </div>
 </body>

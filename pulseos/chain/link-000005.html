@@ -3,109 +3,76 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>PulseOS 链 · 第 5 条</title>
-<meta name="description" content="哈希链第 5 条。生成于 2026-10-26 14:08:21。hash=fe8b8152e99591a0。4923 以内有 657 个素数，其中 654 个与 70 互质">
+<title>演化链 · 第 &lt;em&gt;5&lt;/em&gt; 条</title>
+<meta name="description" content="12 条保留 / 归档 0 · 状态由 chain 微内核维护">
 <!--
 ================================================================
-  给 AI 的说明（纯文本）
+  给 AI 的说明
 
-  你正在一条【哈希链】上。这是第 5 条，共 5 条（保留 40 页）。
+  数据来源：PulseOS <b>chain</b> 微内核
+  序号 <b>12</b>　归档 <b>0</b>　保留 <b>12/undefined</b>（都是 OS 算的）
 
-  ★ 这不是模拟，是真的链：
-      每条 hash = sha256(prev_hash | seq | at | fact)
-      本条的 prev_hash = 20f04479d57656212ec0f70b9356ff30b67dbfb7f8428cdd49a8f25092e20503
-      本条的 hash      = fe8b8152e99591a0bb1d5f91a111ffff9a1e533903b6f5462dbb08f79693e7b2
-
-      你可以自己算一遍验证 —— 改了任何一条，后面全对不上。
-
-  ★ 关于「无限路径」
-  这个链由 GitHub Actions 每 15 分钟追加一条。
-  不是「访问即生成」（静态托管收不到访问事件），是「定时生长」。
-
-  ★ 怎么往前走
-  你已在末端，等下次 bake
+  ★ 本页所有状态数字都由 PulseOS 计算，不是脚本拼的。
 ================================================================
 -->
-<style>
-:root{--bg:#0b0f14;--bg2:#0f151d;--fg:#dde7f0;--dim:#8fa3b8;--dim2:#5d7085;
-  --acc:#2dd4bf;--ok:#4ade80;--warn:#fbbf24;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+<style>:root{--bg:#0b0f14;--bg2:#0f151d;--line:#1c2634;--line2:#26333f;
+--fg:#dde7f0;--dim:#8fa3b8;--dim2:#5d7085;--acc:#2dd4bf;--ok:#4ade80;--warn:#fbbf24;
+--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);
-  font:15px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
-.wrap{max-width:800px;margin:0 auto;padding:34px 22px 70px}
-h1{font-size:22px;margin:0 0 4px}
+body{margin:0;background:var(--bg);color:var(--fg);font:14.5px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:30px 22px 70px}
+h1{font-size:21px;margin:0 0 4px}
 h1 em{font-style:normal;color:var(--acc)}
-.sub{color:var(--dim2);font-size:12.5px;font-family:var(--mono);margin:0 0 24px}
-pre{background:#05090d;border:1px solid #26333f;border-radius:10px;
-  padding:18px 20px;font-family:var(--mono);font-size:13px;line-height:1.9;
-  color:#9fc4d8;white-space:pre-wrap;margin:0 0 18px;overflow-x:auto}
-.hashes{display:grid;gap:8px;margin-bottom:18px;font-family:var(--mono);font-size:11.5px}
-.hashes div{background:var(--bg2);border:1px solid #1c2634;border-radius:8px;padding:10px 13px;
-  word-break:break-all;line-height:1.7}
-.hashes b{color:var(--dim2);display:block;font-weight:400;font-size:10.5px;
-  letter-spacing:.5px;text-transform:uppercase;margin-bottom:2px}
-.hashes .h{color:#8fd9c9}
-.nxt{background:rgba(45,212,191,.07);border:1px solid rgba(45,212,191,.3);
-  border-radius:10px;padding:16px 20px;margin-bottom:16px}
-.nxt a{color:var(--acc);font-family:var(--mono);font-size:16px;text-decoration:none}
-.nxt a:hover{text-decoration:underline}
-.nxt .end{color:var(--warn);font-family:var(--mono);font-size:14px}
-.nav{margin-top:22px;font-size:12.5px;color:var(--dim2);font-family:var(--mono)}
+.sub{color:var(--dim2);font-size:12px;font-family:var(--mono);margin:0 0 18px}
+.origin{background:rgba(45,212,191,.07);border:1px solid rgba(45,212,191,.3);
+border-radius:9px;padding:11px 15px;margin:0 0 16px;font-family:var(--mono);
+font-size:11.5px;color:var(--acc);line-height:1.8}
+.origin b{color:var(--dim2);font-weight:400}
+pre{background:#05090d;border:1px solid var(--line2);border-radius:9px;padding:16px 18px;
+font-family:var(--mono);font-size:12.4px;line-height:1.9;color:#9fc4d8;
+white-space:pre-wrap;margin:0 0 14px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12.8px;
+border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-bottom:14px}
+th{text-align:left;padding:8px 12px;font-size:11px;color:var(--dim2);background:#131b26;
+border-bottom:1px solid var(--line2);font-weight:600}
+td{padding:8px 12px;border-bottom:1px solid var(--line);color:var(--dim)}
+tr:last-child td{border-bottom:0}
+td.n{font-family:var(--mono);color:var(--fg);text-align:right}
+.nav{margin-top:24px;font-size:12px;font-family:var(--mono)}
 .nav a{color:var(--dim);text-decoration:none;margin-right:14px}
-.nav a:hover{color:var(--acc)}
-.badge{display:inline-block;font-family:var(--mono);font-size:10px;padding:1px 7px;
-  border-radius:20px;border:1px solid var(--line,#26333f);color:var(--dim2);margin-left:8px;
-  vertical-align:middle}
-</style>
+.nav a:hover{color:var(--acc)}</style>
 </head>
 <body>
 <div class="wrap">
+  <h1>演化链 · 第 <em>5</em> 条</h1>
+  <p class="sub">12 条保留 / 归档 0 · 状态由 chain 微内核维护</p>
+  <div class="origin">数据来源：PulseOS <b>chain</b> 微内核<br>序号 <b>12</b>　归档 <b>0</b>　保留 <b>12/undefined</b>（都是 OS 算的）</div>
+  <pre>=== 链上第 5 条（PulseOS 的 chain 微内核）===
 
-  <h1>链上第 <em>5</em> 条<span class="badge" style="color:var(--ok);border-color:rgba(74,222,128,.4)">最新</span></h1>
-  <p class="sub">2026-10-26 14:08:21 北京时间 · 共 5 条（保留 40 页）· chain=live7k</p>
+写入时间    2026-10-26 14:48:54 北京时间
+Unix ms     1792997334084
 
-  <div class="hashes">
-    <div><b>prev_hash</b><span class="h">20f04479d57656212ec0f70b9356ff30b67dbfb7f8428cdd49a8f25092e20503</span></div>
-    <div><b>this_hash = sha256(prev_hash | seq | at | fact)</b><span class="h">fe8b8152e99591a0bb1d5f91a111ffff9a1e533903b6f5462dbb08f79693e7b2</span></div>
-  </div>
+prev_hash   ed0ed20029eeabae000d571b0f053da46ab7f692cd39edab563bb9ea97d3bb1b
+this_hash   5bc82d2e39a961d2339d68f35cd05edc0fc1f5c7bf240c79aa8009941b6aafeb
 
-  <pre>=== 链上第 5 条 ===
-生成时间      2026-10-26 14:08:21 北京时间
-UTC          2026-10-26T06:08:21.458Z
-Unix ms      1792994901458
-CHAIN        live7k
-prev_hash    20f04479d57656212ec0f70b9356ff30b67dbfb7f8428cdd49a8f25092e20503
-this_hash    fe8b8152e99591a0bb1d5f91a111ffff9a1e533903b6f5462dbb08f79693e7b2
---- 本条的真实计算 ---
-任务: 在 2~4923 中找素数，并统计与 70 互质的个数
-结果: 4923 以内有 657 个素数，其中 654 个与 70 互质
-seed = 5:1792994901458:20f04479d5765621
-派生出 n=4923  k=554  mod=70
-素数个数 = 657
-与 70 互质的素数个数 = 654
-hash 校验和 = 4633
-最大素数 = 4919
---- 链的完整性 ---
-已生成 5 条，保留最近 40 条页面
-归档（已删页面但记录在 state.json）: 0 条
-每条的 hash = sha256(prev_hash | seq | at | fact)
-所以改任何一条，后面所有 hash 都对不上。
---- 你正在链的末端 ---
-等下一次 bake（每 15 分钟）会追加新的一条。
-现在没有下一条，说明这就是最新的。</pre>
+链状态（PulseOS 算的）
+  当前序号   12
+  保留页数   12 / undefined
+  已归档     0 条
 
-  <div class="nxt"><span class="end">■ 你正在链的末端</span>
-         <div style="color:var(--dim2);font-size:12.5px;margin-top:6px">下一次 bake（每 15 分钟）会追加第 6 条</div>
-       </div>
+下一步：访问 link-000006.html
 
+★ 这条记录里：hash 由 python 算（PulseScript 做不了 SHA-256）
+  但序号、prev 指针、归档计数、保留策略全部由 PulseOS 的 chain 微内核算。</pre>
   <div class="nav">
-    <a href="link-000004.html">← 第 4 条</a>
-    <a href="index.html">链的索引</a>
-    <a href="../clock.html">快照钟</a>
-    <a href="../steps/">阶梯协议</a>
-    <a href="../run.html">实时状态</a>
+    <a href="entry.html">总入口</a>
+    <a href="answers.html">答案表</a>
+    <a href="toolapi.html">工具 API</a>
+    <a href="chain/">哈希链</a>
+    <a href="pool/">状态池</a>
+    <a href="evolve/">演化链</a>
+    
   </div>
-
 </div>
 </body>
 </html>

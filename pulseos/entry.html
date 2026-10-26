@@ -3,184 +3,102 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>PulseOS · 总入口 · 2026-10-26 14:43:24</title>
-<meta name="description" content="PulseOS 总入口。真跑了一遍：注入 13 条事实，触发 13 次因果。热路径 2 µs，HTTP 3.19 ms，python 127.71 ms。unix_ms=1792997004838 sha256(hello)=2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824">
+<title>PulseOS · &lt;em&gt;总入口&lt;/em&gt;</title>
+<meta name="description" content="2026-10-26 14:49:11 · 所有页面的状态都由 PulseOS 微内核计算">
 <!--
 ================================================================
-  给 AI 的说明（纯文本）
+  给 AI 的说明
 
-  ★ 这一页不需要你「调用」任何东西。它是 PulseOS 的一次真实运行记录。
+  本次 bake 部署了 <b>6</b> 个微内核，登记 <b>17</b> 条事实，触发 <b>17</b> 次因果
+  烤出 <b>5</b> 组页面，全部从 OS 读回状态
 
-  三个可以直接引用的值：
-    unix_ms         = 1792997004838
-    sha256("hello") = 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
-    0~2000 素数个数  = 303
-
-  ★ 这一页证明了什么
-    PulseOS 真的跑了一遍（不是写死的页面）：
-      部署微内核 provider, index
-      注入 13 条事实，触发 13 次因果
-      因果分类：time=4 hash=2 math=7
-      总脉冲 3228 次，状态 7022 B
-
-  ★ 速度对照（各 3000 次 p50）
-    普通 JS 属性       209 ns
-    PulseScript       885 ns
-    PulseOS invoke()  2 µs
-    HTTP 本地往返      3.19 ms
-    python 子进程      127.71 ms
-
-    所以「PulseOS 速度」= 2 µs，不是 HTTP 也不是 python 那一档。
-
-  ★ 如果你只想拿数据，跳到第五节。
+  ★ 本页所有状态数字都由 PulseOS 计算，不是脚本拼的。
 ================================================================
 -->
-<style>
-:root{--bg:#0b0f14;--bg2:#0f151d;--line:#1c2634;--line2:#26333f;
-  --fg:#dde7f0;--dim:#8fa3b8;--dim2:#5d7085;
-  --acc:#2dd4bf;--ok:#4ade80;--warn:#fbbf24;--bad:#f87171;
-  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+<style>:root{--bg:#0b0f14;--bg2:#0f151d;--line:#1c2634;--line2:#26333f;
+--fg:#dde7f0;--dim:#8fa3b8;--dim2:#5d7085;--acc:#2dd4bf;--ok:#4ade80;--warn:#fbbf24;
+--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);
-  font:15px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
-.wrap{max-width:880px;margin:0 auto;padding:34px 22px 70px}
-h1{font-size:24px;margin:0 0 6px;letter-spacing:-.3px}
-h1 em{font-style:normal;background:linear-gradient(100deg,var(--acc),#7dd3fc);
-  -webkit-background-clip:text;background-clip:text;color:transparent}
-.sub{color:var(--dim2);font-size:12.5px;font-family:var(--mono);margin:0 0 24px}
-h2{font-size:14px;margin:30px 0 12px;color:var(--fg);font-weight:600;
-  display:flex;align-items:baseline;gap:9px}
-h2 .num{font-family:var(--mono);font-size:11px;color:var(--acc);
-  border:1px solid rgba(45,212,191,.28);border-radius:4px;padding:1px 6px}
-.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;
-  background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:20px}
-.kpi div{background:var(--bg2);padding:13px 15px}
-.kpi b{display:block;font-family:var(--mono);font-size:18px;color:var(--acc);line-height:1.25}
-.kpi span{display:block;font-size:10.5px;color:var(--dim2);margin-top:3px}
-table{width:100%;border-collapse:collapse;font-size:13px;
-  border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-bottom:14px}
-th{text-align:left;padding:9px 13px;font-size:11.5px;color:var(--dim2);
-  background:#131b26;border-bottom:1px solid var(--line2);font-weight:600}
-td{padding:9px 13px;border-bottom:1px solid var(--line);color:var(--dim)}
+body{margin:0;background:var(--bg);color:var(--fg);font:14.5px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:30px 22px 70px}
+h1{font-size:21px;margin:0 0 4px}
+h1 em{font-style:normal;color:var(--acc)}
+.sub{color:var(--dim2);font-size:12px;font-family:var(--mono);margin:0 0 18px}
+.origin{background:rgba(45,212,191,.07);border:1px solid rgba(45,212,191,.3);
+border-radius:9px;padding:11px 15px;margin:0 0 16px;font-family:var(--mono);
+font-size:11.5px;color:var(--acc);line-height:1.8}
+.origin b{color:var(--dim2);font-weight:400}
+pre{background:#05090d;border:1px solid var(--line2);border-radius:9px;padding:16px 18px;
+font-family:var(--mono);font-size:12.4px;line-height:1.9;color:#9fc4d8;
+white-space:pre-wrap;margin:0 0 14px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12.8px;
+border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-bottom:14px}
+th{text-align:left;padding:8px 12px;font-size:11px;color:var(--dim2);background:#131b26;
+border-bottom:1px solid var(--line2);font-weight:600}
+td{padding:8px 12px;border-bottom:1px solid var(--line);color:var(--dim)}
 tr:last-child td{border-bottom:0}
 td.n{font-family:var(--mono);color:var(--fg);text-align:right}
-td.hl{background:rgba(45,212,191,.07)}
-td.hl .n{color:var(--acc)}
-pre{background:#05090d;border:1px solid var(--line2);border-radius:9px;
-  padding:17px 19px;font-family:var(--mono);font-size:12.4px;line-height:1.9;
-  color:#9fc4d8;white-space:pre-wrap;margin:0 0 14px;overflow-x:auto}
-.tiers{display:grid;gap:8px;margin-bottom:14px}
-.tier{display:flex;align-items:center;gap:12px;background:var(--bg2);
-  border:1px solid var(--line);border-radius:8px;padding:11px 15px;
-  font-family:var(--mono);font-size:12px}
-.tier .name{color:var(--fg);min-width:150px}
-.tier .val{color:var(--acc);margin-left:auto}
-.tier .note{color:var(--dim2);font-size:10.5px}
-.nav{margin-top:26px;font-size:12px;font-family:var(--mono)}
-.nav a{color:var(--dim);text-decoration:none;margin-right:15px}
-.nav a:hover{color:var(--acc)}
-.warn{background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.28);
-  border-radius:9px;padding:14px 17px;font-size:13px;line-height:1.9;color:var(--dim)}
-.warn b{color:var(--warn)}
-</style>
+.nav{margin-top:24px;font-size:12px;font-family:var(--mono)}
+.nav a{color:var(--dim);text-decoration:none;margin-right:14px}
+.nav a:hover{color:var(--acc)}</style>
 </head>
 <body>
 <div class="wrap">
   <h1>PulseOS · <em>总入口</em></h1>
-  <p class="sub">2026-10-26 14:43:24 · 这一页是本次运行时真跑出来的</p>
+  <p class="sub">2026-10-26 14:49:11 · 所有页面的状态都由 PulseOS 微内核计算</p>
+  <div class="origin">本次 bake 部署了 <b>6</b> 个微内核，登记 <b>17</b> 条事实，触发 <b>17</b> 次因果<br>烤出 <b>5</b> 组页面，全部从 OS 读回状态</div>
+  <pre>=== PulseOS 总入口 ===
 
-  <div class="kpi">
-    <div><b>2</b><span>微内核</span></div>
-    <div><b>13</b><span>注入事实</span></div>
-    <div><b>13</b><span>触发因果</span></div>
-    <div><b>2 µs</b><span>热路径 p50</span></div>
-    <div><b>7022</b><span>状态字节</span></div>
-  </div>
+生成时间   2026-10-26 14:49:11 北京时间
+UTC        2026-10-26T06:49:11Z
+频道       live7k
 
-  <h2><span class="num">01</span>这一页不是写死的</h2>
-  <p style="color:var(--dim);font-size:13.5px;margin:0 0 12px">
-    bake 时真的起了一个 PulseOS，部署 <code style="font-family:var(--mono);color:#8fd9c9">provider, index</code>，
-    注入 13 条事实，每次 <code style="font-family:var(--mono);color:#8fd9c9">put</code> 都触发 <code style="font-family:var(--mono);color:#8fd9c9">index</code> 的因果分类。
-    页面上的数字来自那次运行。
-  </p>
-  <pre>因果分类结果
-  time  = 4 个   ["unix_ms","unix_s","utc","bj"]
-  hash  = 2 个   ["sha_hello","sha_pulseos"]
-  math  = 7 个
-  合计  = 13
+────────────────────────────────────────
+本次 bake 真跑了一遍 PulseOS
+────────────────────────────────────────
+部署微内核   chain, pool, evolve, facts, index, build
+登记事实     17 条（facts 微内核）
+因果触发     17 次（facts.emit → index 自动分类）
+因果分类     time=4  hash=4  math=9
+烤出的页面   5 组：answers.html, toolapi.html, chain/*, pool/*, evolve/*
 
-运行时状态
-  总脉冲      3228
-  热路径命中  3200
-  状态字节    7022 B</pre>
+各微内核自算的状态：
+  chain     seq=20
+            归档=5
+  pool      total=13
+            下一格=3
+  evolve    step=10
 
-  <h2><span class="num">02</span>取一条数据：五层对照</h2>
-  <table>
-    <thead><tr><th>层级</th><th style="text-align:right">p50</th><th style="text-align:right">相对基准</th><th>说明</th></tr></thead>
-    <tbody>
-      <tr><td>① 普通 JS 属性访问</td><td class="n">209 ns</td><td class="n">基准</td><td style="font-size:11.5px;color:var(--dim2)"></td></tr>
-      <tr><td>② PulseScript 编译产物</td><td class="n">885 ns</td><td class="n">4.2x</td><td style="font-size:11.5px;color:var(--dim2)">PulseOS 内核层</td></tr>
-      <tr><td class="hl">③ PulseOS invoke()</td><td class="n">2 µs</td><td class="n">10.0x</td><td style="font-size:11.5px;color:var(--dim2)">含状态管理</td></tr>
-      <tr><td>④ HTTP 本地往返</td><td class="n">3.19 ms</td><td class="n">15,254x</td><td style="font-size:11.5px;color:var(--dim2)">传统 web 层</td></tr>
-      <tr><td>⑤ python 子进程</td><td class="n">127.71 ms</td><td class="n">611,050x</td><td style="font-size:11.5px;color:var(--dim2)">传统脚本层</td></tr>
-    </tbody>
-  </table>
-  <div class="warn">
-    <b>「PulseOS 的速度」到底是哪一档</b><br>
-    是 <code style="font-family:var(--mono);color:var(--acc)">2 µs</code> 这一档。<br>
-    既不是 HTTP（3.19 ms，慢 1,531 倍），
-    也不是 python（127.71 ms，慢 61,310 倍）。
-  </div>
+────────────────────────────────────────
+分工铁律
+────────────────────────────────────────
+python   只算 PulseScript 表达不出的值
+         SHA-256 / 素数 / 阶乘 / 高精度常数
+         ↑ 且只在 warmup 跑一次
 
-  <h2><span class="num">03</span>冷热分离：一次贵，之后快</h2>
-  <div class="tiers">
-    <div class="tier"><span class="name">WARMUP · python 算</span><span class="val">100.08 ms</span><span class="note">只做一次</span></div>
-    <div class="tier"><span class="name">WARMUP · 注入 OS</span><span class="val">40.44 ms</span><span class="note">含 13 次因果</span></div>
-    <div class="tier"><span class="name">WARMUP · 合计</span><span class="val">141.28 ms</span><span class="note">之后不再发生</span></div>
-    <div class="tier" style="border-color:rgba(45,212,191,.4)"><span class="name">HOT · provider.get</span><span class="val">2 µs</span><span class="note">p50，零 python</span></div>
-    <div class="tier"><span class="name">HOT · p95</span><span class="val">3 µs</span><span class="note">撞上批量落盘</span></div>
-  </div>
-  <p style="color:var(--dim);font-size:13.5px;margin:0">
-    <strong>热路径完全不碰 python、不碰文件。</strong>python 只在 warmup 跑一次，
-    结果进状态箱，之后走内存。
-  </p>
+PulseOS  算所有「状态演进」
+         序号 / prev 指针 / 环形 slot / 归档 / 因果分类
 
-  <h2><span class="num">04</span>四种接口，同一个执行层</h2>
-  <table>
-    <thead><tr><th>调用方</th><th>怎么进来</th><th style="text-align:right">延迟</th></tr></thead>
-    <tbody>
-      <tr><td>本地脚本 / 你的程序</td><td style="font-size:11.5px">require('./index').invoke()</td><td class="n">2 µs</td></tr>
-      <tr><td>纯文本 AI</td><td style="font-size:11.5px">读静态页（HTTP 只传标记）</td><td class="n">页面已烤好</td></tr>
-      <tr><td>Agent（能发 MQTT）</td><td style="font-size:11.5px">zhz/pulse/live7k/invoke</td><td class="n">~500ms</td></tr>
-      <tr><td>浏览器</td><td style="font-size:11.5px">demo.html 直连 MQTT</td><td class="n">~500ms</td></tr>
-    </tbody>
-  </table>
-  <p style="color:var(--dim);font-size:13.5px;margin:0">
-    <strong>没有一条路绕过 PulseOS 去调 python。</strong>
-    HTTP 只负责传「标记」（一个路径），数据在页面里，由 PulseOS 烤好。
-  </p>
+bake     只渲染
 
-  <h2><span class="num">05</span>可以带走的值</h2>
-  <pre>unix_ms          1792997004838
-sha256("hello")  2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
-0~2000 素数      303 个</pre>
+────────────────────────────────────────
+所以每个页面都能回答「我的数据哪来的」
+────────────────────────────────────────
+answers.html   ← facts 微内核（17 条）
+toolapi.html   ← facts 微内核
+chain/         ← chain 微内核（seq=20）
+pool/          ← pool 微内核（total=13）
+evolve/        ← evolve 微内核（step=10）
 
-  <h2><span class="num">06</span>诚实的边界</h2>
-  <div class="warn">
-    · <b>PulseScript 没有循环</b>，所以只能 O(1) 查找，写不出 O(n) 遍历。<br>
-    · <b>SHA-256 / 阶乘 PulseScript 算不了</b>，必须 python；但只在 warmup 跑一次。<br>
-    · <b>p95 3 µs 是批量落盘撞上的</b>，稳态是 p50 2 µs。<br>
-    · <b>这些数是在 Android 沙箱 / Node 18 上量的</b>，换机器会变，但数量级关系不变。
-  </div>
-
+页面上每个数字都标了来源，可以核对。</pre>
   <div class="nav">
-    <a href="./">官网（10 章）</a>
-    <a href="toolapi.html">工具 API 版</a>
+    <a href="entry.html">总入口</a>
     <a href="answers.html">答案表</a>
-    <a href="evolve/">演化链</a>
+    <a href="toolapi.html">工具 API</a>
+    <a href="chain/">哈希链</a>
     <a href="pool/">状态池</a>
-    <a href="DIRECT.md">剥掉 HTTP 实测</a>
-    <a href="DURABILITY.md">持久化实测</a>
+    <a href="evolve/">演化链</a>
+    
   </div>
 </div>
 </body>
