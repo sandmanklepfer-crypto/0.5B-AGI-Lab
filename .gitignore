@@ -46,3 +46,11 @@ __pycache__/
 *.pyc
 crawl_cache/
 dl_cache/
+
+# aivault：凭据与运行时
+aivault/.secrets/
+aivault/*.env
+!aivault/*.env.example
+aivault/audit.log
+aivault/DIGEST.md
+node_modules/
