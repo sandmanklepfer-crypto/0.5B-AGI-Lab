@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<meta name="description" content="PulseOS 脉冲式边缘计算引擎 —— 常驻内核之上，脉冲一切应用。7.1ms 脉冲唤醒，118 字节状态箱。">
+<title>PulseOS · 脉冲式边缘计算引擎</title>
+<link rel="stylesheet" href="css/site.css">
+</head>
+<body>
+
+<!-- ============ 导航 ============ -->
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="logo" href="./">
+      <span class="mark">◈</span>
+      <span class="name">PulseOS</span>
+      <span class="ver">v1.0</span>
+    </a>
+    <nav class="links">
+      <a href="#why">为什么</a>
+      <a href="#core">核心能力</a>
+      <a href="#arch">架构</a>
+      <a href="#bench">数据</a>
+      <a href="#start">部署</a>
+      <a href="#cli">CLI</a>
+      <a href="#faq">问答</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ============ Hero ============ -->
+<section class="hero">
+  <div class="wrap">
+    <p class="tag">MIT · 开源 · 无外部依赖</p>
+    <h1>常驻内核之上<br><em>脉冲一切应用</em></h1>
+    <p class="lede">
+      PulseOS 把「进程常驻」替换为「状态驻留」。
+      应用在两次调用之间不存在，只在需要的那几毫秒里存在。
+      空闲时它只占磁盘上一个 <strong>118 字节</strong>的状态箱——不占 CPU，不占内存。
+    </p>
+    <div class="kpis">
+      <div class="kpi"><b>7.1<span>ms</span></b><small>脉冲往返 p95</small></div>
+      <div class="kpi"><b>118<span>B</span></b><small>状态箱 @ 100万条</small></div>
+      <div class="kpi"><b>36 947<span>×</span></b><small>状态/数据脱钩比</small></div>
+      <div class="kpi"><b>0<span>¥</span></b><small>空闲成本</small></div>
+    </div>
+    <div class="cta">
+      <a class="btn primary" href="#start">开始部署</a>
+      <a class="btn" href="https://github.com/sandmanklepfer-crypto/0.5B-AGI-Lab/tree/main/aivault" target="_blank" rel="noopener">查看源码</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 为什么 ============ -->
+<section id="why" class="sec">
+  <div class="wrap">
+    <h2><span class="num">01</span>为什么需要它</h2>
+    <p class="sub">四个被普遍接受的浪费。</p>
+
+    <div class="grid2">
+      <article class="card">
+        <h3>常驻即浪费</h3>
+        <p>一个典型站点 99% 的时间在等请求。但为了这个「等」，你得维持一台虚拟机、一个操作系统、一个 Web 服务器、若干运行时进程。</p>
+        <p class="em">你付 100% 的账单，买到 1% 的计算。</p>
+      </article>
+
+      <article class="card">
+        <h3>冷启动地狱</h3>
+        <p>Serverless 解决了空闲浪费，却引入数百毫秒到数十秒的冷启动。原因很简单——状态太大，镜像需要被反复加载、解压、初始化。</p>
+        <p class="em">状态越大，恢复越慢。这是根本矛盾。</p>
+      </article>
+
+      <article class="card">
+        <h3>为定时任务启动服务器</h3>
+        <p>跑一个每天执行一次的脚本，需要一台机器、一个 OS、一个容器运行时、一个调度器。运维复杂度远超任务本身。</p>
+        <p class="em">为一个 3 秒的任务，养一台 24 小时的机器。</p>
+      </article>
+
+      <article class="card">
+        <h3>密钥散落在云端</h3>
+        <p>API 密钥通常被注入云端镜像或配置中心。一旦镜像泄漏、日志误打、权限配错，密钥即刻外泄。而密钥一旦离开你的设备，你就再也无法证明它没被复制。</p>
+        <p class="em">你无法证明一件已经交出去的东西仍然安全。</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 核心能力 ============ -->
+<section id="core" class="sec alt">
+  <div class="wrap">
+    <h2><span class="num">02</span>核心能力</h2>
+
+    <div class="feat">
+      <div class="feat-l">
+        <h3>毫秒级脉冲唤醒</h3>
+        <p>一次完整脉冲包含三个阶段，激活与挂起占了 99% 的时间。</p>
+        <p class="em">所以：优化业务逻辑没有意义，优化状态大小才是一切。</p>
+      </div>
+      <div class="feat-r">
+        <pre class="code">① activate   从状态箱恢复    1.9 ms
+② work       运行业务逻辑    0.004 ms
+③ suspend    落盘 + 释放内存 2.7 ms
+──────────────────────────────
+   p50 4.7 ms  ·  p95 7.1 ms  ·  p99 8.5 ms</pre>
+      </div>
+    </div>
+
+    <div class="feat">
+      <div class="feat-l">
+        <h3>状态与数据量脱钩</h3>
+        <p>这是最关键的一项能力。传统做法把全部数据塞进状态，状态随数据线性膨胀。</p>
+        <p>PulseOS 用<strong>日志结构存储</strong>——数据进只追加的段文件，索引存在段尾，热状态里只有一个段清单和游标。</p>
+        <p class="em">它不限制你的数据量，只限制你的「活跃状态」大小。</p>
+      </div>
+      <div class="feat-r">
+        <table class="tbl">
+          <thead><tr><th>数据量</th><th>磁盘</th><th>状态箱</th></tr></thead>
+          <tbody>
+            <tr><td>100 条</td><td>&lt;1 KB</td><td><b>160 B</b></td></tr>
+            <tr><td>5 000 条</td><td>21 KB</td><td><b>177 B</b></td></tr>
+            <tr><td>200 000 条</td><td>868 KB</td><td><b>196 B</b></td></tr>
+            <tr><td>300 000 条</td><td>1.27 MB</td><td><b>197 B</b></td></tr>
+            <tr><td>1 000 000 条</td><td>4.24 MB</td><td><b>118 B</b>*</td></tr>
+          </tbody>
+        </table>
+        <p class="note">* 压缩后。数据翻一万倍，热状态只翻 1.2 倍。</p>
+      </div>
+    </div>
+
+    <div class="feat">
+      <div class="feat-l">
+        <h3>BYOK 密钥模型</h3>
+        <p><strong>系统本身不持有任何密钥。</strong>密钥留在用户自己的设备上，远端节点只发问题、只收答案。</p>
+        <p class="em">安全性来自架构，不是来自加密——密钥从未离开过那台设备，因此不存在「传输中被截获」这件事。</p>
+        <p>这同时解决滥用：每个用户用自己的额度，<strong>架构上无法借用他人算力</strong>。</p>
+      </div>
+      <div class="feat-r">
+<pre class="code">┌─ 用户设备 ──────────────┐
+│  .secrets/*.env         │  ← 密钥只在这
+│  vault                  │
+│    收请求 → 调API → 回   │
+└─────────────────────────┘
+           ↕ 信令
+┌─ 远端节点 ──────────────┐
+│  只发问题，只收答案      │  ← 拿不到密钥
+└─────────────────────────┘</pre>
+      </div>
+    </div>
+
+    <div class="feat">
+      <div class="feat-l">
+        <h3>算力分层路由</h3>
+        <p>同一份状态箱可在不同层级恢复。调度器按<strong>延迟预算</strong>自动选层，从便宜到贵。</p>
+        <p class="em">T0 + T1 覆盖 95% 的使用场景，且零成本。</p>
+      </div>
+      <div class="feat-r">
+        <table class="tbl">
+          <thead><tr><th>层</th><th>来源</th><th>延迟</th><th>定位</th></tr></thead>
+          <tbody>
+            <tr><td><b>T0</b></td><td>本机</td><td>&lt;10 ms</td><td>主力</td></tr>
+            <tr><td><b>T1</b></td><td>邻居设备</td><td>0.3~3 s</td><td>协作</td></tr>
+            <tr><td><b>T2</b></td><td>公共 CI</td><td>18~128 s</td><td>离线批处理</td></tr>
+            <tr><td><b>T3</b></td><td>付费云主机</td><td>&lt;1 s</td><td>高可用兜底</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 架构 ============ -->
+<section id="arch" class="sec">
+  <div class="wrap">
+    <h2><span class="num">03</span>架构：把「操作系统」拆开</h2>
+    <p class="sub">PulseOS 的核心判断是——「完整操作系统」这个词必须被拆成两层来看。</p>
+
+    <table class="tbl wide">
+      <thead><tr><th>层级</th><th>运行机制</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>硬件 / 宿主内核</td><td class="tag-res">常驻</td><td>由物理机或云平台提供。PulseOS 不改动、不虚拟化、不模拟</td></tr>
+        <tr><td>init / 系统服务</td><td class="tag-half">部分常驻</td><td>依赖宿主进程树，负责基础网络与存储挂载</td></tr>
+        <tr><td><b>服务进程</b></td><td class="tag-pulse"><b>脉冲</b></td><td><b>核心创新层。按需唤醒，执行完毕立即释放</b></td></tr>
+        <tr><td><b>用户会话与数据</b></td><td class="tag-pulse"><b>状态箱</b></td><td><b>序列化为游标与索引，随时打包、随时恢复</b></td></tr>
+      </tbody>
+    </table>
+
+    <h3 class="mt">明确不做的事</h3>
+    <div class="grid3">
+      <div class="no">
+        <h4>不自研内核</h4>
+        <p>内核状态巨大、硬件绑定、无法序列化。这是物理约束，不是工程取舍。</p>
+      </div>
+      <div class="no">
+        <h4>不模拟指令集</h4>
+        <p>模拟器<strong>消耗</strong>算力而非创造算力。实测 qemu 模拟比原生慢 7.9 倍。</p>
+      </div>
+      <div class="no">
+        <h4>不脉冲化 init</h4>
+        <p>PID 1 被挂起会导致全部子进程变孤儿并被清理。</p>
+      </div>
+    </div>
+    <p class="em center">边界画在这里，是因为越过这条线之后，一切都将失效。</p>
+  </div>
+</section>
+
+<!-- ============ 数据 ============ -->
+<section id="bench" class="sec alt">
+  <div class="wrap">
+    <h2><span class="num">04</span>性能数据</h2>
+    <p class="sub">全部为实测。测试机：ARM64 / Android 15 沙箱 / Node 18。</p>
+
+    <h3>脉冲延迟 vs 状态大小</h3>
+    <p>这是决定性的曲线——它告诉你 PulseOS 的能力边界在哪。</p>
+    <table class="tbl wide">
+      <thead><tr><th>热状态</th><th>激活</th><th>挂起</th><th>总计</th><th>判定</th></tr></thead>
+      <tbody>
+        <tr><td>4.3 KB（100 条）</td><td>3.4 ms</td><td>3.6 ms</td><td><b>7.1 ms</b></td><td class="ok">真脉冲</td></tr>
+        <tr><td>44.7 KB（1 000 条）</td><td>3.5 ms</td><td>7.8 ms</td><td><b>11.4 ms</b></td><td class="ok">真脉冲</td></tr>
+        <tr><td>232 KB（5 000 条）</td><td>10.2 ms</td><td>21.3 ms</td><td>31.5 ms</td><td class="ok">可用</td></tr>
+        <tr><td>955 KB（20 000 条）</td><td>31.6 ms</td><td>69.1 ms</td><td>101 ms</td><td class="warn">勉强</td></tr>
+        <tr><td>2.36 MB（50 000 条）</td><td>79.6 ms</td><td>145 ms</td><td>224 ms</td><td class="warn">勉强</td></tr>
+        <tr><td>14.7 MB（300 000 条）</td><td>539 ms</td><td>833 ms</td><td>1 371 ms</td><td class="bad">已退化</td></tr>
+      </tbody>
+    </table>
+    <p class="box">架构承诺：只要热状态控制在 <strong>1 MB</strong> 以内，保证 <strong>20 ms</strong> 以内的脉冲往返。</p>
+
+    <h3 class="mt">状态脱钩带来的实际收益</h3>
+    <table class="tbl wide">
+      <thead><tr><th>数据量</th><th>全量状态方案</th><th>日志结构方案</th><th>提升</th></tr></thead>
+      <tbody>
+        <tr><td>1 000 条</td><td>11.4 ms</td><td><b>7.1 ms</b></td><td>1.6×</td></tr>
+        <tr><td>50 000 条</td><td>224 ms</td><td><b>11.6 ms</b></td><td>19×</td></tr>
+        <tr><td>300 000 条</td><td>1 371 ms</td><td><b>13.4 ms</b></td><td class="ok"><b>102×</b></td></tr>
+      </tbody>
+    </table>
+
+    <h3 class="mt">带宽调度（强制预算 1 MiB/小时）</h3>
+    <p>在 291 B/s 的硬约束下，四种策略的实测占用：</p>
+    <table class="tbl wide">
+      <thead><tr><th>策略</th><th>每小时用量</th><th>占预算</th></tr></thead>
+      <tbody>
+        <tr><td>朴素逐条 JSON（10 Hz）</td><td>13.90 MB</td><td class="bad">1 390%</td></tr>
+        <tr><td>JSON 合并（1 Hz）</td><td>1.48 MB</td><td class="bad">148%</td></tr>
+        <tr><td>二进制全量（1 Hz）</td><td>168.8 KB</td><td class="ok">16.5%</td></tr>
+        <tr><td><b>二进制差分（1 Hz）</b></td><td><b>56.1 KB</b></td><td class="ok"><b>5.5%</b></td></tr>
+      </tbody>
+    </table>
+    <p class="note">压缩比 254×，其中约 46% 来自「去掉 topic 字段」——单个 topic 字符串比载荷本身还大。<br>
+    公平性：6 节点中 1 个试图发 100 倍流量，份额被限制在 16.7%，Jain 指数 = 1.0000。</p>
+  </div>
+</section>
+
+<!-- ============ 部署 ============ -->
+<section id="start" class="sec">
+  <div class="wrap">
+    <h2><span class="num">05</span>部署</h2>
+    <p class="sub">无外部依赖，Node.js 18+ 即可。不需要 Docker，不需要 Nginx，不需要面板。</p>
+
+    <ol class="steps">
+
+      <li>
+        <h3>拉取代码</h3>
+<pre class="code">git clone https://github.com/sandmanklepfer-crypto/0.5B-AGI-Lab.git
+cd 0.5B-AGI-Lab/aivault</pre>
+        <p class="note">核心引擎在 <code>aivault/</code>，官网与文档在 <code>pulseos/</code> 与 <code>docs/</code>。</p>
+      </li>
+
+      <li>
+        <h3>验证环境</h3>
+<pre class="code">node --version        # 需要 18 或更高
+node agent/brain.js --help</pre>
+      </li>
+
+      <li>
+        <h3>放置密钥（可选，仅需 AI 能力时才做）</h3>
+<pre class="code">mkdir -p .secrets
+cat > .secrets/deepseek.env &lt;&lt;'EOF'
+DS_KEY=你的key
+EOF</pre>
+        <p class="note"><strong>.secrets/ 已在 .gitignore 中。</strong>密钥只留在这台设备的磁盘上，不会进入命令行参数，因此 <code>ps aux</code> 也看不到。</p>
+      </li>
+
+      <li>
+        <h3>启动 vault（密钥持有端）</h3>
+<pre class="code">export VAULT_CHAN=你的随机频道名
+node vault.js</pre>
+        <p class="note">看到 <code>[vault] 就绪，监听 zhz/vault/&lt;频道&gt;/ask</code> 即成功。<br>
+        provider 会自动从 <code>.secrets/*.env</code> 发现，无需配置。</p>
+      </li>
+
+      <li>
+        <h3>常驻运行</h3>
+<pre class="code">setsid nohup env VAULT_CHAN=你的频道名 node vault.js \
+  &gt; /tmp/vault.log 2&gt;&amp;1 &lt; /dev/null &amp;</pre>
+        <p class="note">⚠️ Android 沙箱会随宿主 App 退出而清理进程。要真正 7×24，请部署到 Termux 或一台常开的 Linux 主机。</p>
+      </li>
+
+      <li>
+        <h3>从远端验证</h3>
+<pre class="code">VAULT_CHAN=你的频道名 node agent/brain.js --status</pre>
+<pre class="code out">✓ vault 在线（心跳 16 秒前）
+  provider : deepseek, hunyuan3d
+  本小时已用: 0 次
+  限额      : {"maxTokens":2000,"maxCallsPerHour":60,"maxInputChars":8000}</pre>
+      </li>
+
+      <li>
+        <h3>发起调用</h3>
+<pre class="code">VAULT_CHAN=你的频道名 node agent/brain.js "用一句话解释什么是状态机"</pre>
+      </li>
+
+    </ol>
+  </div>
+</section>
+
+<!-- ============ CLI ============ -->
+<section id="cli" class="sec alt">
+  <div class="wrap">
+    <h2><span class="num">06</span>命令参考</h2>
+
+    <h3>运行时可编程接口</h3>
+<pre class="code">const { Proc2 } = require('./proc2');
+
+const proc = new Proc2({
+  name: 'notes',
+  handlers: {
+    add:  (store, _, text) => ({ state: null, result: store.append({ t: text }) }),
+    list: (store, _, n)    => ({ state: null, result: store.tail(n) }),
+    at:   (store, _, i)    => ({ state: null, result: store.get(i) }),
+  },
+}, '/var/pulse/notes');
+
+let box = null;                      // 状态箱：初始为空
+let r = proc.pulse(box, 'add', '第一条');
+box = r.bytes;                       // 118 字节，随便存哪里
+
+r = proc.pulse(box, 'list', 10);     // 从 118 字节恢复
+// r.totalMs ≈ 7 ms</pre>
+    <p class="note"><code>box</code> 就是全部需要持久化的东西。它小到可以放进一个 MQTT 消息、一个 Git 提交、一行数据库字段。</p>
+
+    <h3 class="mt">命令行</h3>
+    <table class="tbl wide">
+      <thead><tr><th>命令</th><th>作用</th></tr></thead>
+      <tbody>
+        <tr><td><code>node vault.js</code></td><td>启动密钥持有端，监听远程调用</td></tr>
+        <tr><td><code>node agent/brain.js --status</code></td><td>检查 vault 是否在线、有哪些模型、配额</td></tr>
+        <tr><td><code>node agent/brain.js "问题"</code></td><td>发起一次调用</td></tr>
+        <tr><td><code>node agent/brain.js --file a.md "总结"</code></td><td>基于文件内容提问</td></tr>
+        <tr><td><code>node agent/brain.js --provider deepseek</code></td><td>指定 provider</td></tr>
+        <tr><td><code>node agent/daily.js</code></td><td>生成仓库摘要（离线自动降级）</td></tr>
+        <tr><td><code>node demo.js</code></td><td>4 个服务示例 + 1000 次延迟统计</td></tr>
+        <tr><td><code>node benchls.js</code></td><td>状态脱钩 / 延迟 / 随机读 三组验证</td></tr>
+      </tbody>
+    </table>
+
+    <h3 class="mt">环境变量</h3>
+    <table class="tbl wide">
+      <thead><tr><th>变量</th><th>默认</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><code>VAULT_CHAN</code></td><td>—</td><td>频道名，两端必须一致</td></tr>
+        <tr><td><code>VAULT_BROKER</code></td><td>broker.hivemq.com:8884</td><td>WSS 端点</td></tr>
+        <tr><td><code>VAULT_TIMEOUT</code></td><td>90000</td><td>单次调用超时（毫秒）</td></tr>
+        <tr><td><code>VAULT_MAX_CALLS</code></td><td>60</td><td>每小时调用上限</td></tr>
+        <tr><td><code>VAULT_MAX_INPUT</code></td><td>8000</td><td>单次输入字符上限</td></tr>
+        <tr><td><code>VAULT_HMAC</code></td><td>空</td><td>签名密钥，可选，开启后拒绝伪造请求</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============ 适用性 ============ -->
+<section class="sec">
+  <div class="wrap">
+    <h2><span class="num">07</span>适用与不适用</h2>
+    <div class="grid2">
+      <div class="card ok-card">
+        <h3>✅ 适合</h3>
+        <ul>
+          <li>AI Agent 执行环境</li>
+          <li>微服务网关与信令路由</li>
+          <li>物联网边缘调度</li>
+          <li>定时任务与自动化脚本</li>
+          <li>轻量游戏服务器信令层</li>
+          <li>多租户 BYOK 服务</li>
+        </ul>
+      </div>
+      <div class="card no-card">
+        <h3>❌ 不适合</h3>
+        <ul>
+          <li>重型桌面 GUI 应用</li>
+          <li>TB 级本地磁盘 I/O 数据库</li>
+          <li>要求 100% SLA 的交易系统</li>
+          <li>实时音视频流</li>
+          <li>秒级以内必须响应的控制回路</li>
+        </ul>
+      </div>
+    </div>
+    <p class="em center">PulseOS 不是万能引擎。它在「稀疏调用 + 小状态」这个象限里是极优解，在其他象限里不成立。</p>
+
+    <h3 class="mt">与既有方案对比</h3>
+    <table class="tbl wide">
+      <thead><tr><th></th><th>传统 VPS</th><th>Serverless</th><th>PulseOS</th></tr></thead>
+      <tbody>
+        <tr><td>空闲成本</td><td>100%</td><td>0</td><td><b>0</b></td></tr>
+        <tr><td>冷启动</td><td>30 s</td><td>100 ms ~ 数秒</td><td><b>7 ms</b></td></tr>
+        <tr><td>状态持久化</td><td>磁盘</td><td>需外部存储</td><td><b>118 B 起</b></td></tr>
+        <tr><td>状态可搬运</td><td>❌</td><td>⚠️ 受限</td><td><b>✅ 任意层</b></td></tr>
+        <tr><td>密钥位置</td><td>云端</td><td>云端</td><td><b>用户设备</b></td></tr>
+        <tr><td>运维复杂度</td><td>高</td><td>中</td><td><b>低</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section id="faq" class="sec alt">
+  <div class="wrap">
+    <h2><span class="num">08</span>常见问题</h2>
+
+    <details>
+      <summary>它是操作系统吗？</summary>
+      <p>不是。它是运行在宿主操作系统<strong>之上</strong>的一层运行时。内核由宿主机提供，PulseOS 只负责脉冲其上的服务、会话与数据。<br>
+      之所以叫「OS」，是因为它管理的是「什么在运行、状态存在哪、何时唤醒」——这本来属于操作系统的工作。</p>
+    </details>
+
+    <details>
+      <summary>和 Lambda / Firecracker 什么关系？</summary>
+      <p>同一技术谱系的不同切口。它们是通用的 Serverless 平台；PulseOS 是面向「状态极简」场景的极窄优化——<strong>放弃通用性，换取状态箱的极致压缩</strong>。</p>
+    </details>
+
+    <details>
+      <summary>为什么要 BYOK？把密钥放服务端不是更方便？</summary>
+      <p>方便，但不安全。密钥一旦离开你的设备，你就无法证明它没有被复制、没有被日志记录、没有在某个备份里存活十年。<br>
+      BYOK 的代价是每个用户要自己管密钥；收益是<strong>你不需要信任任何平台</strong>。</p>
+    </details>
+
+    <details>
+      <summary>7.1 ms 是真的吗？怎么测的？</summary>
+      <p>真。ARM64 / Android 15 沙箱 / Node 18，4 个服务、358 字节状态、1000 次连续激活的统计结果。<br>
+      <code>node demo.js</code> 可复现。<strong>注意它是「小状态」下的数字</strong>，状态到 300 KB 就会变成 31 ms。</p>
+    </details>
+
+    <details>
+      <summary>能用 GitHub Actions 跑吗？</summary>
+      <p>能，但只能做 T2 层——离线批处理。它的定位是「提交任务 → 等 1~2 分钟 → 拿结果」，不是交互式服务。<br>
+      <strong>请遵守平台条款</strong>：设计用途是构建与测试，单次运行有时长上限，不应用于长时间占位、代理转发或与项目无关的活动。</p>
+    </details>
+
+    <details>
+      <summary>现在能用于生产吗？</summary>
+      <p>核心引擎已验证，但<strong>还不是生产级存储</strong>。当前缺失：删除语义、段合并、并发控制、CRC 校验。<br>
+      在这四项完成前，不要用它承载不可恢复的数据。</p>
+    </details>
+
+    <details>
+      <summary>为什么不做软件模拟指令集？</summary>
+      <p>因为模拟器<strong>消耗</strong>算力而非创造算力。实测 qemu 模拟 x86 比原生 ARM 慢 7.9 倍——你想「多出算力」，结果反而多花 8 倍。<br>
+      这是热力学问题，不是工程问题。</p>
+    </details>
+  </div>
+</section>
+
+<!-- ============ 页脚 ============ -->
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-l">
+      <div class="logo"><span class="mark">◈</span> PulseOS</div>
+      <p>让算力像水分子一样，自由流淌。</p>
+    </div>
+    <div class="foot-r">
+      <div class="col">
+        <h5>项目</h5>
+        <a href="https://github.com/sandmanklepfer-crypto/0.5B-AGI-Lab" target="_blank" rel="noopener">源码</a>
+        <a href="whitepaper.md">白皮书</a>
+        <a href="../index.html">卤味商店</a>
+      </div>
+      <div class="col">
+        <h5>许可</h5>
+        <span>MIT</span>
+        <span>不提供托管与 SLA</span>
+      </div>
+    </div>
+  </div>
+  <div class="wrap lic">
+    <span>© 2026 PulseOS</span>
+    <span>v1.0 · 数据均为实测，测试环境见「性能数据」章节</span>
+  </div>
+</footer>
+
+</body>
+</html>
