@@ -1,0 +1,27 @@
+# 审计接收端 —— 演示因果链的「下游」
+#
+# sensor 的 emit "sampled" 会被聚合层路由到这里。
+# 它只记录异常，正常读数直接丢弃 —— 这是「远端过滤」的范式。
+
+service audit {
+  state {
+    alerts: list = []
+    seen: int    = 0
+  }
+
+  on "sampled"(e) {
+    set seen = seen + 1
+    # 只留异常：值超过 90 才记
+    if e.v > 90 {
+      append(alerts, e.v)
+      if len(alerts) > 20 {
+        set alerts = slice(alerts, len(alerts) - 20, len(alerts))
+      }
+      emit "alert" { v: e.v, n: seen }
+    }
+  }
+
+  on "report" {
+    return { total: seen, alerts: alerts }
+  }
+}

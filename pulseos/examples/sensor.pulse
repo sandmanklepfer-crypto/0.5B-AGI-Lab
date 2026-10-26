@@ -1,0 +1,36 @@
+# 传感器聚合 —— 演示「强制小状态」
+#
+# 关键：不保存全部读数，只保存「滑动窗口 + 累计量」。
+# 这就是 PulseScript 的核心约束：state 必须小，历史进日志不进来。
+
+service sensor {
+  state {
+    window: list = []      # 最近 8 个读数
+    total: int   = 0       # 累计
+    peak: int    = 0       # 峰值
+    n: int       = 0       # 采样数
+  }
+
+  on "push"(v) {
+    append(window, v)
+    # 只保留最后 8 个 —— 保证状态恒定大小
+    if len(window) > 8 {
+      set window = slice(window, len(window) - 8, len(window))
+    }
+    set total = total + v
+    set n = n + 1
+    if v > peak {
+      set peak = v
+    }
+    emit "sampled" { v: v, n: n }
+  }
+
+  on "report" {
+    return {
+      avg: int(total / max(n, 1)),
+      peak: peak,
+      samples: n,
+      window: window
+    }
+  }
+}

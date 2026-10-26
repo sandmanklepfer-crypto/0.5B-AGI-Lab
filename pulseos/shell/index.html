@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<title>PulseOS · 控制台</title>
+<link rel="stylesheet" href="/shell/ui.css">
+</head>
+<body>
+
+<header class="bar">
+  <div class="bl">
+    <span class="mark">◈</span>
+    <b>PulseOS</b>
+    <span class="ver">聚合态外壳</span>
+  </div>
+  <div class="br">
+    <span id="sysline" class="sysline">…</span>
+    <button id="btnRefresh" class="btn">刷新</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============ 系统总览 ============ -->
+  <section class="kpis" id="kpis"></section>
+
+  <!-- ============ 服务列表 ============ -->
+  <section class="panel">
+    <div class="ph">
+      <span>微内核 · <span id="svcCount">0</span> 个</span>
+      <span class="ph-r">
+        <button id="btnNew" class="btn small primary">＋ 新建服务</button>
+      </span>
+    </div>
+    <div id="services" class="services"></div>
+  </section>
+
+  <!-- ============ 因果链 ============ -->
+  <section class="panel">
+    <div class="ph"><span>因果链（最近 12 次）</span></div>
+    <div id="causal" class="causal"></div>
+  </section>
+
+  <!-- ============ 编译 / 部署 ============ -->
+  <section class="panel" id="editorPanel">
+    <div class="ph">
+      <span>PulseScript 编辑器</span>
+      <span class="ph-r">
+        <button id="btnCheck" class="btn small">检查</button>
+        <button id="btnDeploy" class="btn small primary">编译并部署</button>
+      </span>
+    </div>
+    <div class="editor-wrap">
+      <textarea id="src" class="editor" spellcheck="false"></textarea>
+      <div id="diag" class="diag"></div>
+    </div>
+  </section>
+
+  <!-- ============ 输出 ============ -->
+  <section class="panel">
+    <div class="ph">
+      <span>输出</span>
+      <span class="ph-r"><button id="btnClearOut" class="btn small">清空</button></span>
+    </div>
+    <pre id="out" class="out"></pre>
+  </section>
+
+</main>
+
+<script src="/shell/ui.js"></script>
+</body>
+</html>
