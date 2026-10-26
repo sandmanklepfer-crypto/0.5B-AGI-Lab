@@ -43,17 +43,35 @@ class Codegen {
       case 'num': return String(e.v);
       case 'str': return JSON.stringify(e.v);
       case 'bool': return String(e.v);
+      case 'null': return 'null';
       case 'id': {
-        /* ★ 优先级：局部/参数 → 状态字段 → 内置函数
-           必须让字段赢，否则把字段命名为 sum/len/max 会静默变成函数引用 */
+        /* ★ 安全边界：只允许三种标识符
+             ① 局部变量/参数 → 裸名
+             ② 状态字段       → $S["x"]
+             ③ 内置函数       → $B.x
+           其他一律【编译期报错】。
+           ★ 绝对禁止 fallback 成裸名 —— 那会把 require/process/global
+             原样编译进 JS，等于把宿主作用域交给调用方（RCE）。 */
         if (ctx && ctx.locals && ctx.locals.has(e.v)) return e.v;
         if (ctx && ctx.fields && ctx.fields.has(e.v)) return '$S[' + JSON.stringify(e.v) + ']';
-        if (ps.BUILTINS[e.v]) { this.usedBuiltins.add(e.v); return '$B.' + e.v; }
-        return e.v;
+        if (Object.prototype.hasOwnProperty.call(ps.BUILTINS, e.v)) {
+          this.usedBuiltins.add(e.v); return '$B.' + e.v;
+        }
+        throw new Error('不允许的标识符 "' + e.v + '"'
+          + '（只能引用状态字段、处理器参数、let 局部变量、内置函数）');
       }
       case 'list': return '[' + e.items.map(x => this.expr(x, ctx)).join(', ') + ']';
       case 'obj': return '{' + e.props.map(([k, v]) => JSON.stringify(k) + ': ' + this.expr(v, ctx)).join(', ') + '}';
       case 'member': {
+        /* ★ 安全边界：禁止访问原型链逃逸属性
+           `len.constructor` 会拿到 Function 构造函数，
+           一旦泄漏给调用方就能 Function("return process")() 逃逸。 */
+        const BANNED = ['constructor','__proto__','prototype','call','apply','bind',
+                        'caller','arguments','__defineGetter__','__defineSetter__',
+                        '__lookupGetter__','__lookupSetter__'];
+        if (BANNED.includes(e.f)) {
+          throw new Error('禁止访问属性 "' + e.f + '"（原型链逃逸）');
+        }
         const o = this.expr(e.o, ctx);
         return '(' + o + ')[ ' + JSON.stringify(e.f) + ' ]';
       }
@@ -68,14 +86,18 @@ class Codegen {
       }
       case 'call': {
         const f = e.callee;
-        /* 字段/局部不是函数，只有内置函数能直接调用 */
-        const shadowed = f.k === 'id' && ctx && (
-          (ctx.locals && ctx.locals.has(f.v)) || (ctx.fields && ctx.fields.has(f.v)));
-        if (f.k === 'id' && ps.BUILTINS[f.v] && !shadowed) {
-          this.usedBuiltins.add(f.v);
-          return '$B.' + f.v + '(' + e.args.map(a => this.expr(a, ctx)).join(', ') + ')';
+        /* ★ 只允许调用内置函数。字段/局部不是函数，宿主对象一律禁止。 */
+        if (f.k === 'id' && ps.BUILTINS[f.v]) {
+          const shadowed = ctx && (
+            (ctx.locals && ctx.locals.has(f.v)) || (ctx.fields && ctx.fields.has(f.v)));
+          if (!shadowed) {
+            this.usedBuiltins.add(f.v);
+            return '$B.' + f.v + '(' + e.args.map(a => this.expr(a, ctx)).join(', ') + ')';
+          }
+          throw new Error('"' + f.v + '" 是当前服务的状态字段/局部变量，不是函数，不能调用');
         }
-        return this.expr(f, ctx) + '(' + e.args.map(a => this.expr(a, ctx)).join(', ') + ')';
+        throw new Error('不允许的函数调用 "' + (f.v || f.k) + '()"。'
+          + 'PulseScript 只允许调用内置函数（' + Object.keys(ps.BUILTINS).join(', ') + '）');
       }
       default: throw new Error('未知表达式类型 ' + e.k);
     }
@@ -171,6 +193,21 @@ class Codegen {
 
     return [
       "'use strict';",
+      '/* ★ 安全遮盖：即使编译器被绕过，也不让宿主对象可见 */',
+      'const require = undefined;',
+      'const module = undefined;',
+      'const exports = undefined;',
+      'const process = undefined;',
+      'const global = undefined;',
+      'const globalThis = undefined;',
+      'const __dirname = undefined;',
+      'const __filename = undefined;',
+      'const Buffer = undefined;',
+      'const eval = undefined;',
+      'const Function = undefined;',
+      'const setTimeout = undefined;',
+      'const setInterval = undefined;',
+      '',
       '/* ══════════════════════════════════════════════════════════',
       ' *  由 PulseScript 编译生成 —— 不要手改',
       ' *  源码服务: ' + svc.name,

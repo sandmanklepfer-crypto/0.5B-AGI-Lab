@@ -25,6 +25,8 @@ const path = require('path');
 const { AggregatedShell } = require('./shell/kernel');
 const ps = require('./lang/pulsescript');
 const { compileToJs } = require('./lang/compile');
+const { FileLock } = require('./shell/lock');
+const { Sandbox, NativeKernel } = require('./shell/sandbox');
 
 class PulseOS {
   constructor(opts = {}) {
@@ -46,6 +48,24 @@ class PulseOS {
     this.stats = { invokes: 0, flushes: 0, flushesByTimer: 0, flushesBySize: 0, droppedOnClose: 0 };
 
     if (this.durability === 'batch') this._startTimer();
+
+    /* ★ 独占锁：同一状态目录只允许一个写入者。
+       没有锁时两个进程各写各的 _save()，实测 4000 条 → 只剩 2000。
+       durability:'none' 不落盘，可以不加锁（用于基准测试）。 */
+    this.lock = null;
+    if (this.durability !== 'none') {
+      this.lock = new FileLock({ dir: this.root, name: 'pulse' });
+      const lr = this.lock.acquire();
+      if (!lr.ok) {
+        const e = new Error('状态目录已被占用: ' + this.root +
+          (lr.holder ? '（pid=' + lr.holder.pid + ' host=' + lr.holder.host + '）' : ''));
+        e.lockFailed = true;
+        e.holder = lr.holder;
+        throw e;
+      }
+      this.lockTimer = setInterval(() => { try { this.lock.heartbeat(); } catch (e) {} }, 5000);
+      if (this.lockTimer.unref) this.lockTimer.unref();
+    }
 
     /* 从磁盘恢复已部署的服务（否则重开后服务全丢） */
     this._restore();
@@ -96,7 +116,7 @@ class PulseOS {
       for (const name of this._dirty) {
         const k = this.shell.kernels.get(name);
         if (!k) continue;
-        const s = k._save();
+        const s = k._save(this.durability === 'sync');
         bytes += s.packed;
         n++;
       }
@@ -135,6 +155,58 @@ class PulseOS {
       } catch (e) { /* 编译失败，回退解释器 */ }
     }
     return added;
+  }
+
+  /* ★ 注册原生 JS 微内核（例如外部沙箱）
+     它不在 PulseScript 里 —— PulseScript 依然无副作用。
+     但它和普通微内核形状一致，所以能作为 emit 的路由目标。 */
+  registerNative(name, handlers, opts = {}) {
+    const k = new NativeKernel(name, handlers, opts);
+    this.shell.kernels.set(name, k);
+    return { name, native: true, note: k.note };
+  }
+
+  /* 便捷：挂一个沙箱，注册成 pysandbox 微内核 */
+  attachSandbox(rootfs, opts = {}) {
+    const sb = new Sandbox(Object.assign({ rootfs }, opts));
+    this.sandbox = sb;
+    this.registerNative('pysandbox', {
+      /* 测拉起耗时 */
+      probe: (rounds) => sb.probe(rounds || 3),
+      /* 跑 python，返回 {ok,stdout,ms} */
+      run: (script, timeoutMs) => sb.runPython(script, { timeoutMs }),
+      /* 便捷：算 sha256 */
+      sha256: (text) => {
+        const esc = JSON.stringify(String(text == null ? '' : text));
+        const r = sb.runPython('import hashlib,sys;print(hashlib.sha256(' + esc + '.encode()).hexdigest())');
+        return r.ok ? { sha256: r.stdout.trim(), ms: r.ms } : r;
+      },
+      /* 便捷：算 n 以内素数个数 */
+      primes: (n) => {
+        const k = Math.max(0, Math.min(parseInt(n, 10) || 1000, 200000));
+        const r = sb.runPython(
+          'n=' + k + '\n' +
+          's=bytearray([1])*(n+1)\n' +
+          's[0]=s[1]=0\n' +
+          'for i in range(2,int(n**0.5)+1):\n' +
+          '    if s[i]: s[i*i::i]=bytearray(len(s[i*i::i]))\n' +
+          'print(sum(s))'
+        );
+        return r.ok ? { primes: parseInt(r.stdout.trim(), 10), n: k, ms: r.ms } : r;
+      },
+      /* 沙箱自身信息 */
+      info: () => sb.info(),
+    }, {
+      note: '外部沙箱（chroot + python3），不由 PulseScript 驱动',
+      /* emit 派发时 payload 是 {text:...} / {n:...}，按这些 key 解包 */
+      paramKeys: {
+        sha256: ['text'],
+        primes: ['n'],
+        run: ['script', 'timeoutMs'],
+        probe: ['rounds'],
+      },
+    });
+    return { name: 'pysandbox', available: sb.available, reason: sb.reason, probeMs: sb.probeMs };
   }
 
   undeploy(name) {
@@ -183,13 +255,14 @@ class PulseOS {
       catch (e) { causal = [{ error: 'dispatch 失败: ' + e.message }]; }
     }
 
-    /* ---------------- 持久化分支 ---------------- */
+    /* ---------------- 持久化分支 ----------------
+       原生微内核（如 pysandbox）无状态，不落盘 */
     let sizes = null;
-    if (ok) {
+    if (ok && !k.isNative) {
       this.stats.invokes++;
 
       if (this.durability === 'sync') {
-        sizes = k._save();
+        sizes = k._save(true);        /* ★ 真 fsync */
         this._dirty.delete(service);
 
       } else if (this.durability === 'batch') {
@@ -246,7 +319,9 @@ class PulseOS {
 
   close() {
     if (this._timer) { clearInterval(this._timer); this._timer = null; }
+    if (this.lockTimer) { clearInterval(this.lockTimer); this.lockTimer = null; }
     const f = this._flush();
+    if (this.lock) { try { this.lock.release(); } catch (e) {} this.lock = null; }
     return { ok: true, flushed: f.flushed || 0, pendingLost: 0 };
   }
 }

@@ -31,7 +31,7 @@
  * ========================================================================== */
 
 /* ============================ 1. 词法 ============================ */
-const KEYWORDS = new Set(['service', 'state', 'on', 'let', 'set', 'append', 'return', 'emit', 'if', 'else', 'true', 'false']);
+const KEYWORDS = new Set(['service', 'state', 'on', 'let', 'set', 'append', 'return', 'emit', 'if', 'else', 'true', 'false', 'null']);
 
 function lex(src) {
   const out = [];
@@ -212,11 +212,14 @@ function parse(tokens) {
     // return expr
     if (isKw('return')) {
       next();
-      // 注意：不能直接用 isOp('}') 判断空返回，
-      // 因为 return { ... } 的 '{' 看起来也一样。
-      // 这里用「下一个是 '}' 且再下一个也是语句边界」的近似判断。
       if (isOp('}')) return { k: 'return', e: null };
-      return { k: 'return', e: expr() };
+      const e = expr();
+      /* ★ 语法守卫：return 后面紧跟 '[' / '(' 说明写了不支持的语法
+         （如 return len["constructor"]），必须报错而不是静默忽略后半截 */
+      if (isOp('[') || isOp('(') || isOp('.')) {
+        throw err('return 表达式后出现非法 token "' + peek().v + '"（不支持下标访问，请用 . 属性）', peek().line);
+      }
+      return { k: 'return', e };
     }
     // emit "op" { k: v } [after ms]
     if (isKw('emit')) {
@@ -252,6 +255,11 @@ function parse(tokens) {
     }
     // 表达式语句
     const e = expr();
+    /* ★ 语法守卫：表达式后面如果紧跟 '[' 或 '(' 说明调用方写了不支持的语法
+       （如 len["constructor"]），必须报错而不是静默拆成两个语句 */
+    if (isOp('[') || isOp('(') || isOp('.')) {
+      throw err('表达式后出现非法 token "' + peek().v + '"（不支持下标访问，请用 . 属性）', peek().line);
+    }
     return { k: 'expr', e };
   }
 
@@ -313,6 +321,7 @@ function parse(tokens) {
     const t = peek();
     if (t.t === 'num') { next(); return { k: 'num', v: t.v }; }
     if (t.t === 'str') { next(); return { k: 'str', v: t.v }; }
+    if (t.t === 'kw' && t.v === 'null') { next(); return { k: 'null' }; }
     if (t.t === 'kw' && (t.v === 'true' || t.v === 'false')) { next(); return { k: 'bool', v: t.v === 'true' }; }
     if (t.t === 'kw' && t.v === 'if') throw err('if 不能作表达式', t.line);
     if (t.t === 'id') { next(); return { k: 'id', v: t.v }; }
@@ -418,14 +427,16 @@ function evalExpr(e, st, env) {
     case 'num': return e.v;
     case 'str': return e.v;
     case 'bool': return e.v;
+    case 'null': return null;
     case 'id':
       /* ★ 作用域优先级：局部/参数 → 状态字段 → 内置函数
-         反过来的话，用户把字段命名为 sum/len/max 就会被内置函数遮蔽，
-         结果写成 { "sum": "<function>" } 这种静默错误。 */
+         ★ 安全边界：三者都不是 → 抛错。
+           绝不能返回 undefined 或去摸 JS 作用域 ——
+           那等于把 require/process/global 交给调用方。 */
       if (env && e.v in env) return env[e.v];
       if (st && Object.prototype.hasOwnProperty.call(st, e.v)) return st[e.v];
-      if (e.v in BUILTINS) return BUILTINS[e.v];
-      return undefined;
+      if (Object.prototype.hasOwnProperty.call(BUILTINS, e.v)) return BUILTINS[e.v];
+      throw new Error('不允许的标识符 "' + e.v + '"（只能引用状态字段、参数、let 变量、内置函数）');
     case 'list': return e.items.map(x => evalExpr(x, st, env));
     case 'obj': {
       const o = {};
@@ -433,6 +444,13 @@ function evalExpr(e, st, env) {
       return o;
     }
     case 'member': {
+      /* ★ 同上：禁原型链逃逸 */
+      const BANNED = ['constructor','__proto__','prototype','call','apply','bind',
+                      'caller','arguments','__defineGetter__','__defineSetter__',
+                      '__lookupGetter__','__lookupSetter__'];
+      if (BANNED.includes(e.f)) {
+        throw new Error('禁止访问属性 "' + e.f + '"（原型链逃逸）');
+      }
       const o = evalExpr(e.o, st, env);
       return o == null ? undefined : o[e.f];
     }
@@ -460,9 +478,14 @@ function evalExpr(e, st, env) {
       return undefined;
     }
     case 'call': {
-      const f = evalExpr(e.callee, st, env);
-      if (typeof f !== 'function') return undefined;
-      return f.apply(null, e.args.map(x => evalExpr(x, st, env)));
+      /* ★ 只允许内置函数 */
+      const c = e.callee;
+      if (c.k !== 'id' || !Object.prototype.hasOwnProperty.call(BUILTINS, c.v)) {
+        throw new Error('不允许的函数调用 "' + (c.v || c.k) + '()"（只允许内置函数）');
+      }
+      const shadowed = (env && c.v in env) || (st && Object.prototype.hasOwnProperty.call(st, c.v));
+      if (shadowed) throw new Error('"' + c.v + '" 是字段/变量，不是函数');
+      return BUILTINS[c.v].apply(null, e.args.map(x => evalExpr(x, st, env)));
     }
   }
   return undefined;

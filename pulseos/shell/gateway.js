@@ -40,9 +40,13 @@ const argv = process.argv.slice(2);
 const arg = (k, d) => { const i = argv.indexOf('--' + k); return i >= 0 ? argv[i + 1] : d; };
 
 const PORT = parseInt(arg('port', '8899'), 10);
+/* ★ 默认只绑本机。要暴露到公网必须显式 --bind 0.0.0.0 + 必须设 HMAC */
+const BIND = arg('bind', '127.0.0.1');
 const MODE = arg('mode', 'local');                 // local | mqtt
 const CHAN = arg('chan', process.env.PULSE_CHAN || '');
 const HMAC = arg('hmac', process.env.PULSE_HMAC || '');
+/* ★ 远程部署 = 代码注入入口，默认关闭 */
+const ALLOW_DEPLOY = argv.includes('--allow-deploy');
 const BROKER = arg('broker', 'wss://broker.hivemq.com:8884/mqtt');
 
 /* 限流 */
@@ -140,6 +144,10 @@ async function dispatch(capability, params) {
   /* --- deploy --- */
   if (capability === 'deploy') {
     if (!runtime) return { ok: false, error: 'local 模式才能部署' };
+    /* ★ 代码注入风险：默认不允许远程部署，必须显式 --allow-deploy */
+    if (!ALLOW_DEPLOY) {
+      return { ok: false, error: 'deploy 已禁用（需要 --allow-deploy 才开放）' };
+    }
     if (typeof params.src !== 'string') return { ok: false, error: '缺少 params.src' };
     if (params.src.length > 32768) return { ok: false, error: '源码超过 32KB' };
     try {
@@ -386,12 +394,23 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-server.listen(PORT, '0.0.0.0', () => {
+/* ★ 硬拒：监听公网但没设签名 = 把 RCE 挂在互联网上 */
+if (BIND !== '127.0.0.1' && BIND !== 'localhost' && !HMAC) {
+  console.error('');
+  console.error('  ✗ 拒绝启动：--bind ' + BIND + ' 但没有设 --hmac');
+  console.error('    监听公网 + 无鉴权 = 任何人可执行任意代码');
+  console.error('    要么加 --hmac <随机串>，要么用 --bind 127.0.0.1');
+  console.error('');
+  process.exit(1);
+}
+
+server.listen(PORT, BIND, () => {
   console.log('');
   console.log('  ◈ PulseOS Gateway');
   console.log('  ─────────────────────────────────────');
   console.log('  模式      ' + MODE);
-  console.log('  监听      http://0.0.0.0:' + PORT);
+  console.log('  监听      http://' + BIND + ':' + PORT +
+    (BIND === '0.0.0.0' && !HMAC ? '   ⚠️ 公网+无鉴权，极危险' : ''));
   if (MODE === 'mqtt') console.log('  MQTT      ' + BROKER + '  chan=' + CHAN);
   if (runtime) {
     console.log('  服务      ' + (runtime.services().join(', ') || '(无)'));

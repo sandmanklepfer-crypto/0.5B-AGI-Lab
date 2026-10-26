@@ -57,12 +57,26 @@ class MicroKernel {
     }
   }
 
-  _save() {
+  /* doFsync: true = 真正落盘（断电不丢）; false = 只写页缓存（快，但断电可能丢） */
+  _save(doFsync) {
     fs.mkdirSync(path.dirname(this.statePath), { recursive: true });
     const raw = Buffer.from(JSON.stringify(this.state), 'utf8');
     const packed = zlib.deflateRawSync(raw, { level: 9 });
     fs.writeFileSync(this.statePath, packed);
-    return { raw: raw.length, packed: packed.length };
+    /* ★ 没有 fsync 就不叫 sync —— 数据还在 OS 页缓存里，断电即失 */
+    if (doFsync) {
+      let fd = null;
+      try {
+        fd = fs.openSync(this.statePath, 'r+');
+        fs.fsyncSync(fd);
+      } catch (e) {
+        /* fsync 失败不抛，但要记录 */
+        this._fsyncError = e.message;
+      } finally {
+        if (fd !== null) { try { fs.closeSync(fd); } catch (e) {} }
+      }
+    }
+    return { raw: raw.length, packed: packed.length, fsync: !!doFsync };
   }
 
   /* ---------- 一次脉冲 ---------- */
@@ -234,6 +248,7 @@ class AggregatedShell {
       if (!target) continue;
       const k = this.kernels.get(target);
       if (!k) continue;
+      if (!this._hasOp(k, e.op)) continue;
 
       const r = k.pulse(e.op, [e.payload], depth + 1);
       trace.push({
@@ -250,12 +265,22 @@ class AggregatedShell {
   }
 
   /* ---------- 派生路由：先本服务，再全局唯一匹配 ---------- */
+  /* 一个微内核是否声明了某个 op
+     ★ 必须同时兼容两种形状：
+         PulseScript 微内核  → k.svc.handlers [{op, params}]
+         原生 JS 微内核      → k.handlers { op: fn } */
+  _hasOp(k, op) {
+    if (!k) return false;
+    if (k.isNative) return !!(k.handlers && typeof k.handlers[op] === 'function');
+    return !!(k.svc && Array.isArray(k.svc.handlers) && k.svc.handlers.some(h => h.op === op));
+  }
+
   resolveTarget(fromService, op) {
     const self = this.kernels.get(fromService);
-    if (self && self.svc.handlers.some(h => h.op === op)) return fromService;
+    if (this._hasOp(self, op)) return fromService;
     const hits = [];
     for (const [name, k] of this.kernels) {
-      if (k.svc.handlers.some(h => h.op === op)) hits.push(name);
+      if (this._hasOp(k, op)) hits.push(name);
     }
     return hits.length === 1 ? hits[0] : (hits.includes(fromService) ? fromService : null);
   }

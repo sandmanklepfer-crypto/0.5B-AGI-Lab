@@ -1,8 +1,23 @@
 'use strict';
+/* ★ 安全遮盖：即使编译器被绕过，也不让宿主对象可见 */
+const require = undefined;
+const module = undefined;
+const exports = undefined;
+const process = undefined;
+const global = undefined;
+const globalThis = undefined;
+const __dirname = undefined;
+const __filename = undefined;
+const Buffer = undefined;
+const eval = undefined;
+const Function = undefined;
+const setTimeout = undefined;
+const setInterval = undefined;
+
 /* ══════════════════════════════════════════════════════════
  *  由 PulseScript 编译生成 —— 不要手改
  *  源码服务: evolve
- *  生成时间: 2026-10-26T06:53:17.590Z
+ *  生成时间: 2026-10-26T07:17:52.797Z
  * ══════════════════════════════════════════════════════════
  */
 
