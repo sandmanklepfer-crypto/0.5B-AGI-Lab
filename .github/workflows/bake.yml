@@ -60,11 +60,18 @@ jobs:
         run: node bake_clock.js clock.html
         continue-on-error: true
 
+      # 哈希链：每 15 分钟追加一条，上限 40 页（超出归档，防仓库爆炸）
+      # 每条 hash = sha256(prev_hash | seq | at | fact) —— 篡改可检测
+      - name: 追加哈希链（chain/）
+        working-directory: pulseos
+        run: node bake_chain.js chain
+        continue-on-error: true
+
       - name: 提交
         run: |
           git config user.name  "bake-bot"
           git config user.email "bake@users.noreply.github.com"
-          git add pulseos/run.html pulseos/steps pulseos/clock.html
+          git add pulseos/run.html pulseos/steps pulseos/clock.html pulseos/chain
           if git diff --cached --quiet; then
             echo "无变化，跳过"
           else
