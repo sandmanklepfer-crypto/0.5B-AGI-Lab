@@ -200,11 +200,13 @@ class PulseOS {
           const f = this._flush();
           if (f.ok) this.stats.flushesBySize++;
         }
-        sizes = { raw: JSON.stringify(k.state).length, packed: -1, deferred: true };
+        /* ★ 不要每次全量 stringify —— 那是热路径杀手。
+           只在调用方显式要 stateBytes 时才算（这里给个估算下界）。 */
+        sizes = { raw: -1, packed: -1, deferred: true };
 
       } else {
         /* none */
-        sizes = { raw: JSON.stringify(k.state).length, packed: -1, skipped: true };
+        sizes = { raw: -1, packed: -1, skipped: true };
       }
     }
 
@@ -218,7 +220,7 @@ class PulseOS {
     return {
       ok, service, op, result, emits, error,
       causal: causal.length ? causal : undefined,
-      stateBytes: sizes ? sizes.raw : null,
+      stateBytes: sizes ? sizes.raw : null,   /* -1 = 未计算（省掉热路径开销） */
       ms,
       durability: this.durability,
       deferred: !!(sizes && sizes.deferred),

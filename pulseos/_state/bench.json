@@ -1,0 +1,121 @@
+{
+  "generated_at": "2026-10-26T06:42:30.106Z",
+  "deployed": [
+    {
+      "name": "provider",
+      "warnings": []
+    },
+    {
+      "name": "index",
+      "warnings": []
+    }
+  ],
+  "warmup": {
+    "pyMs": 176.225,
+    "injectMs": 31.97,
+    "totalMs": 209.399,
+    "facts": 15,
+    "causalCount": 15
+  },
+  "pure": {
+    "p50": 0.001875,
+    "p95": 0.92401,
+    "rounds": 10000
+  },
+  "hot": {
+    "p50": 0.001094,
+    "p95": 1.003698,
+    "p99": 1.589844,
+    "avg": 0.082756,
+    "qps": 12084,
+    "rounds": 20000
+  },
+  "python": {
+    "p50": 100.015,
+    "avg": 97.768,
+    "rounds": 10
+  },
+  "ratio": 91421,
+  "sysInfo": {
+    "services": 2,
+    "totalPulses": 30230,
+    "totalStateBytes": 1098
+  },
+  "detail": [
+    {
+      "k": "unix_ms",
+      "kind": "time",
+      "ms": 6.053802
+    },
+    {
+      "k": "unix_s",
+      "kind": "time",
+      "ms": 1.801406
+    },
+    {
+      "k": "utc",
+      "kind": "time",
+      "ms": 1.506094
+    },
+    {
+      "k": "bj",
+      "kind": "time",
+      "ms": 2.215417
+    },
+    {
+      "k": "sha_hello",
+      "kind": "hash",
+      "ms": 1.312969
+    },
+    {
+      "k": "sha_pulseos",
+      "kind": "hash",
+      "ms": 1.731719
+    },
+    {
+      "k": "sha_2026",
+      "kind": "hash",
+      "ms": 1.601094
+    },
+    {
+      "k": "f50",
+      "kind": "math",
+      "ms": 1.201094
+    },
+    {
+      "k": "f100_len",
+      "kind": "math",
+      "ms": 1.926303
+    },
+    {
+      "k": "primes_2000",
+      "kind": "math",
+      "ms": 2.276614
+    },
+    {
+      "k": "prime_300th",
+      "kind": "math",
+      "ms": 2.161562
+    },
+    {
+      "k": "pi",
+      "kind": "math",
+      "ms": 3.332344
+    },
+    {
+      "k": "e",
+      "kind": "math",
+      "ms": 2.541563
+    },
+    {
+      "k": "phi",
+      "kind": "math",
+      "ms": 1.32375
+    },
+    {
+      "k": "sqrt2",
+      "kind": "math",
+      "ms": 0.984687
+    }
+  ]
+}

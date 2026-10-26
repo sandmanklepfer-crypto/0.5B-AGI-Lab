@@ -1,0 +1,29 @@
+{
+  "object": 0.000209,
+  "pure": 0.000885,
+  "invoke": 0.002083,
+  "invokeP95": 0.0025,
+  "http": 3.188177,
+  "python": 127.709479,
+  "pyMs": 100.079896,
+  "injectMs": 40.440053999999996,
+  "warmupMs": 141.278854,
+  "facts": 13,
+  "causal": 13,
+  "hotHits": 3200,
+  "seq": 13,
+  "kinds": {
+    "time": 4,
+    "hash": 2,
+    "math": 7,
+    "total": 13
+  },
+  "stateBytes": 7022,
+  "pulses": 3228,
+  "services": 2,
+  "unix_ms": "1792997004838",
+  "bj": "2026-10-26 14:43:24",
+  "utc": "2026-10-26T06:43:24Z",
+  "sha_hello": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+  "primes": "303"
+}

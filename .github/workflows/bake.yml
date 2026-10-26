@@ -106,11 +106,17 @@ jobs:
         run: node bake_via_os.js os.html
         continue-on-error: true
 
+      # ★ 总入口页：真跑 PulseOS + 五层速度对照
+      - name: 总入口页（entry.html）
+        working-directory: pulseos
+        run: node bake_entry.js entry.html
+        continue-on-error: true
+
       - name: 提交
         run: |
           git config user.name  "bake-bot"
           git config user.email "bake@users.noreply.github.com"
-          git add pulseos/run.html pulseos/steps pulseos/clock.html pulseos/chain pulseos/pool pulseos/answers.html pulseos/evolve pulseos/directive.html pulseos/toolapi.html pulseos/os.html pulseos/_state
+          git add pulseos/run.html pulseos/steps pulseos/clock.html pulseos/chain pulseos/pool pulseos/answers.html pulseos/evolve pulseos/directive.html pulseos/toolapi.html pulseos/os.html pulseos/entry.html pulseos/_state
           if git diff --cached --quiet; then
             echo "无变化，跳过"
           else

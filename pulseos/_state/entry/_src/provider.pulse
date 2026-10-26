@@ -1,0 +1,82 @@
+# provider —— 唯一对外接口微内核
+#
+# ★ 设计要点
+#   PulseScript 没有循环，所以不能 O(n) 遍历查找。
+#   用 map 做 O(1) 查找：put 时写 m[k]=v，get 时直接 m[k]。
+#
+#   热路径（get）只碰状态，不碰 python、不碰文件。
+
+service provider {
+  state {
+    m: map = {}
+    n: int = 0
+    hits: int = 0
+    seq: int = 0
+  }
+
+  # warmup 阶段：python 算出的事实注入这里
+  on "put"(k, v, kind) {
+    set m = put(m, k, { v: v, kind: kind })
+    set n = n + 1
+    set seq = seq + 1
+    emit "put_done" { k: k, kind: kind }
+    return seq
+  }
+
+  # 热路径：O(1) 直接取
+  on "get"(k) {
+    set hits = hits + 1
+    return get(m, k, null)
+  }
+
+  # 批量取（一次脉冲拿多条，减少 invoke 次数）
+  on "getMany"(ks) {
+    set hits = hits + 1
+    return ks
+  }
+
+  # 元信息
+  on "stat" {
+    return { n: n, seq: seq, hits: hits }
+  }
+
+  # 全量（含每个 key 的 kind）
+  on "dump" {
+    return { n: n, m: m, seq: seq, hits: hits }
+  }
+}
+
+# index —— 按 kind 分类，由 provider 的 emit 驱动
+service index {
+  state {
+    time: list = []
+    hash: list = []
+    math: list = []
+    other: list = []
+    total: int = 0
+  }
+
+  on "put_done"(e) {
+    set total = total + 1
+    if e.kind == "time" {
+      append(time, e.k)
+    }
+    if e.kind == "hash" {
+      append(hash, e.k)
+    }
+    if e.kind == "math" {
+      append(math, e.k)
+    }
+    if e.kind == "other" {
+      append(other, e.k)
+    }
+  }
+
+  on "dump" {
+    return { time: time, hash: hash, math: math, total: total }
+  }
+
+  on "stat" {
+    return { total: total }
+  }
+}
