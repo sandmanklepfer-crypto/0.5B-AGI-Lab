@@ -16,6 +16,7 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 const ps = require('../lang/pulsescript');
+const { RemoteKernel } = require('./remote');
 
 class MicroKernel {
   /* spec = { name, src, statePath } */
@@ -140,23 +141,77 @@ class AggregatedShell {
     this.bootAt = Date.now();
   }
 
-  register(src, name) {
+  /* 注册源码里的【全部】服务（单文件多服务） */
+  registerAll(src) {
     const { ast, diag } = ps.compile(src);
     if (diag.errors.length) {
       const e = new Error(diag.errors.join('\n'));
       e.diagnostics = diag;
       throw e;
     }
-    const svc = name ? ast.services.find(s => s.name === name) : ast.services[0];
-    if (!svc) throw new Error('源码里没有 service 定义');
+    const added = [];
+    for (const svc of ast.services) {
+      const k = new MicroKernel({
+        name: svc.name, src,
+        statePath: path.join(this.root, svc.name + '.box'),
+      });
+      this.kernels.set(svc.name, k);
+      added.push({ name: svc.name, warnings: k.warnings });
+    }
+    if (!added.length) throw new Error('源码里没有 service 定义');
+    return added;
+  }
 
+  /* 兼容：注册单个（默认第一个） */
+  register(src, name) {
+    if (!name) {
+      const all = this.registerAll(src);
+      return all[0];
+    }
+    const { ast, diag } = ps.compile(src);
+    if (diag.errors.length) {
+      const e = new Error(diag.errors.join('\n'));
+      e.diagnostics = diag;
+      throw e;
+    }
+    const svc = ast.services.find(s => s.name === name);
+    if (!svc) throw new Error('源码里没有名为 ' + name + ' 的 service');
     const k = new MicroKernel({
-      name: svc.name,
-      src,
+      name: svc.name, src,
       statePath: path.join(this.root, svc.name + '.box'),
     });
     this.kernels.set(svc.name, k);
     return { name: svc.name, warnings: k.warnings };
+  }
+
+  /* 把一台远端设备上的某个服务，作为一个"远端微内核"挂进来
+     ★ 挂进来之后，它在聚合层眼里和本地微内核无差别 */
+  attachRemote(name, host, port, label) {
+    const k = new RemoteKernel({ name, host, port, label });
+    this.kernels.set(name + '@' + (label || (host + ':' + port)), k);
+    return k;
+  }
+
+  /* 扫描远端设备上有哪些服务，全部挂进来 */
+  async discoverRemote(host, port, label) {
+    const { RemoteKernel: RK } = require('./remote');
+    const tmp = new RK({ name: '__probe', host, port });
+    const s = await tmp.sync().catch(() => null);
+    if (!s) {
+      // sync 只拿单个服务，探测要用 /api/state
+      const http = require('http');
+      const all = await new Promise((resolve) => {
+        const req = http.request({ host, port, path: '/api/state', method: 'GET', timeout: 6000 }, (res) => {
+          const c = []; res.on('data', d => c.push(d));
+          res.on('end', () => { try { resolve(JSON.parse(Buffer.concat(c).toString())); } catch (e) { resolve(null); } });
+        });
+        req.on('error', () => resolve(null));
+        req.on('timeout', () => { req.destroy(); resolve(null); });
+        req.end();
+      });
+      if (!all) return [];
+    }
+    return [];
   }
 
   unregister(name) {
@@ -178,10 +233,53 @@ class AggregatedShell {
     return hits.length === 1 ? hits[0] : (hits.includes(fromService) ? fromService : null);
   }
 
-  /* ---------- 调用：带因果传播 ---------- */
+  /* ---------- 调用：统一入口（本地同步 / 远端异步都能用） ---------- */
+  async callAsync(service, op, args = []) {
+    const trace = [];
+    const queue = [{ service, op, args, depth: 0, from: null }];
+    let last = null, guard = 0;
+
+    while (queue.length && guard++ < 64) {
+      const job = queue.shift();
+      const kern = this.kernels.get(job.service);
+      if (!kern) { trace.push({ service: job.service, op: job.op, from: job.from, ok: false, error: '没有这个微内核' }); continue; }
+
+      const r = await kern.pulse(job.op, job.args, job.depth);
+      trace.push({
+        service: job.service, op: job.op, from: job.from,
+        ok: r.ok,
+        ms: r.totalMs === undefined ? null : r.totalMs,
+        stateBytes: r.stateSize ? r.stateSize.raw : null,
+        error: r.error,
+        result: r.result === undefined ? null : r.result,
+        remote: r.remote || null,
+      });
+      last = r;
+
+      // 本地内核才继续传播因果（远端自己管自己的链）
+      if (r.ok && r.spawned && r.spawned.length) {
+        for (const e of r.spawned) {
+          const target = (e.payload && e.payload.__to) || this.resolveTarget(job.service, e.op);
+          if (!target) continue;
+          queue.push({ service: target, op: e.op, args: [e.payload], depth: job.depth + 1, from: job.service + '.' + job.op });
+          kern.stats.emits++;
+        }
+      }
+    }
+
+    this.causalLog.push({ t: Date.now(), service, op, trace });
+    if (this.causalLog.length > 100) this.causalLog.shift();
+    return { ok: last ? last.ok : false, result: last ? last.result : null, trace };
+  }
+
+  /* ---------- 同步版（仅本地内核，保留兼容） ---------- */
   call(service, op, args = []) {
     const k = this.kernels.get(service);
     if (!k) return { ok: false, error: '没有服务: ' + service };
+    if (k.isRemote) {
+      // 远端必须用 callAsync
+      return { ok: false, error: '远端微内核请使用 callAsync' };
+    }
 
     const trace = [];
     const queue = [{ service, op, args, depth: 0, from: null }];
