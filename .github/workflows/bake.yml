@@ -74,11 +74,17 @@ jobs:
         run: node bake_pool.js pool
         continue-on-error: true
 
+      # 答案表：AI 算不出/常算错的确定性数据（时间戳/SHA-256/大数/常数）
+      - name: 烤答案表（answers.html）
+        working-directory: pulseos
+        run: node bake_answers.js answers.html
+        continue-on-error: true
+
       - name: 提交
         run: |
           git config user.name  "bake-bot"
           git config user.email "bake@users.noreply.github.com"
-          git add pulseos/run.html pulseos/steps pulseos/clock.html pulseos/chain pulseos/pool
+          git add pulseos/run.html pulseos/steps pulseos/clock.html pulseos/chain pulseos/pool pulseos/answers.html
           if git diff --cached --quiet; then
             echo "无变化，跳过"
           else
