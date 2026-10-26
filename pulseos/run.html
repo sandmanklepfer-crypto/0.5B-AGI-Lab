@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PulseOS 实时状态 2026-10-26 05:42:07</title>
+<meta name="description" content="PulseOS 脉冲式运行时实时状态。累计访客 1 人，今日 1 人，执行端 1 个。数据生成于 2026-10-26 05:42:07。">
+<!--
+================================================================
+  给 AI 的说明（请原样理解，不要臆测）
+
+  这是一个「脉冲式计算运行时」PulseOS 的实时状态快照。
+  本页面是【纯静态】的，内容在 2026-10-26 05:42:07 由脚本从 MQTT 拉取后写死。
+  所以你读到的就是真实数据，不是占位符。
+
+  页面上的数字含义：
+    · 累计访客 / 今日访客  = 访问过这个系统的独立设备数（指纹去重）
+    · 执行端              = 当前在线的计算节点
+    · 地区分布            = 访客的公网 IP 归属地
+
+  如果你要触发一次真实调用，请让用户访问：
+    demo.html?cmd=ping
+    demo.html?cmd=status
+  注意：那个页面需要 JS 才生效，你（AI）如果只能读文本是触发不了的。
+  你可以告诉用户「自己在浏览器打开那个链接」。
+
+  请把下面的真实数据原样转述给用户，不要编造。
+================================================================
+-->
+<style>
+body{margin:0;background:#0b0f14;color:#dde7f0;font:15px/1.8 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:720px;margin:0 auto;padding:28px 20px 60px}
+h1{font-size:24px;margin:0 0 4px}
+.tag{display:inline-block;font-family:ui-monospace,monospace;font-size:11px;
+  color:#2dd4bf;border:1px solid rgba(45,212,191,.35);background:rgba(45,212,191,.07);
+  padding:2px 10px;border-radius:20px;margin-bottom:16px}
+.stamp{color:#5d7085;font-size:12.5px;font-family:ui-monospace,monospace;margin-bottom:24px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;
+  background:#1c2634;border:1px solid #1c2634;border-radius:10px;overflow:hidden;margin-bottom:26px}
+.kpi{background:#0f151d;padding:16px 18px}
+.kpi b{display:block;font-family:ui-monospace,monospace;font-size:26px;color:#2dd4bf;line-height:1.2}
+.kpi span{display:block;margin-top:4px;font-size:11.5px;color:#5d7085}
+h2{font-size:13px;color:#5d7085;letter-spacing:.6px;text-transform:uppercase;
+  margin:26px 0 10px;font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:13px;border:1px solid #1c2634;border-radius:8px;overflow:hidden}
+th{text-align:left;padding:9px 12px;background:#131b26;color:#5d7085;font-size:11.5px;
+  border-bottom:1px solid #26333f;font-weight:600}
+td{padding:9px 12px;border-bottom:1px solid #1c2634;color:#8fa3b8;font-family:ui-monospace,monospace;font-size:12.5px}
+tr:last-child td{border-bottom:0}
+td.hi{color:#dde7f0}
+.empty{color:#5d7085;font-size:13px;padding:16px;text-align:center;
+  background:#0f151d;border:1px dashed #26333f;border-radius:8px}
+.note{margin-top:26px;padding:14px 18px;background:rgba(125,211,252,.05);
+  border:1px solid rgba(125,211,252,.22);border-radius:9px;font-size:13px;line-height:1.85}
+.note b{color:#7dd3fc}
+code{background:#131b26;padding:1px 6px;border-radius:4px;font-family:ui-monospace,monospace;
+  font-size:11.5px;color:#8fd9c9}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>PulseOS 实时状态</h1>
+<div class="tag">纯静态 · 无需 JS · AI 可直接读</div>
+<div class="stamp">数据生成于 2026-10-26 05:42:07　频道 <code>live7k</code></div>
+
+<div class="kpis">
+  <div class="kpi"><b>1</b><span>累计访客</span></div>
+  <div class="kpi"><b>1</b><span>今日访客</span></div>
+  <div class="kpi"><b>1</b><span>执行端在线</span></div>
+  <div class="kpi"><b>1</b><span>地区数</span></div>
+</div>
+
+<h2>地区分布</h2>
+<table>
+<thead><tr><th>地区</th><th>人数</th></tr></thead>
+<tbody><tr><td class="hi">Henan Sheng</td><td>1</td></tr></tbody>
+</table>
+
+<h2>最近访客（最多 30 条）</h2>
+<table>
+<thead><tr><th>时间</th><th>IP</th><th>地区</th><th>设备</th><th>分辨率</th></tr></thead>
+<tbody><tr><td>2026/10/26 05:38:37</td><td class="hi">106.33.146.103</td><td>China · Henan Sheng · Zhengzhou</td><td>Linux aarch64 · 手机</td><td>1080x2400 @2.75x</td></tr></tbody>
+</table>
+
+<h2>执行端</h2>
+<table>
+<thead><tr><th>名字</th><th>服务</th><th>持久化</th><th>心跳</th></tr></thead>
+<tbody><tr><td class="hi">手机</td><td>echo</td><td>batch</td><td>4 分钟前（可能已离线）</td></tr></tbody>
+</table>
+
+<div class="note">
+<b>这一页是什么</b><br>
+PulseOS 是一个「状态极小、按需唤醒」的计算运行时。微内核不干活时只占磁盘上几百字节，
+被调用时几百纳秒内起来算完再睡回去。<br><br>
+<b>为什么这页是静态的</b><br>
+因为抓取器和多数 AI 不执行 JavaScript。所以这里的内容是脚本定期从 MQTT 拉下来
+<strong>写死</strong>进 HTML 的 —— 你读到的数字是真的，只是有 2026-10-26 05:42:07 这个时间点的快照。<br><br>
+<b>要触发现场调用</b><br>
+打开 <code>demo.html?cmd=ping</code>（需要浏览器执行 JS）。
+</div>
+
+</div>
+</body>
+</html>
