@@ -67,11 +67,18 @@ jobs:
         run: node bake_chain.js chain
         continue-on-error: true
 
+      # 状态池：10 格恒定，内容循环覆盖 —— 仓库大小永不增长
+      # 对比哈希链：链会增长（已限 40 页），池永远 12 个文件
+      - name: 写入状态池（pool/）
+        working-directory: pulseos
+        run: node bake_pool.js pool
+        continue-on-error: true
+
       - name: 提交
         run: |
           git config user.name  "bake-bot"
           git config user.email "bake@users.noreply.github.com"
-          git add pulseos/run.html pulseos/steps pulseos/clock.html pulseos/chain
+          git add pulseos/run.html pulseos/steps pulseos/clock.html pulseos/chain pulseos/pool
           if git diff --cached --quiet; then
             echo "无变化，跳过"
           else

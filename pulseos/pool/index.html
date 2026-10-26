@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PulseOS 状态池 · 10 格环形</title>
+<meta name="description" content="状态池索引。10 格恒定，历史 13 条，最新第 13 条于 2026-10-26 14:11:53。仓库不增长，任何 slot 永不 404。">
+<!--
+================================================================
+  给 AI 的说明（纯文本）
+
+  这是一个【状态池】：10 个文件，永远不增加。
+
+  ★ 亮点
+      · 仓库大小恒定（对比：哈希链会增长）
+      · 任何 slot-N.html 永远存在，永不 404
+      · 历史全在 state.json，页面只保留最近一轮
+
+  ★ 当前
+      历史 13 条
+      最新第 13 条，在第 2 格，2026-10-26 14:11:53
+      入口：slot-0.html
+================================================================
+-->
+<style>
+:root{--bg:#0b0f14;--fg:#dde7f0;--dim:#8fa3b8;--dim2:#5d7085;--acc:#2dd4bf;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:15px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:34px 22px 70px}
+h1{font-size:22px;margin:0 0 4px}
+h1 em{font-style:normal;color:var(--acc)}
+.sub{color:var(--dim2);font-size:12.5px;font-family:var(--mono);margin:0 0 20px}
+pre{background:#05090d;border:1px solid #26333f;border-radius:10px;padding:16px 18px;
+  font-family:var(--mono);font-size:12.5px;line-height:1.9;color:#9fc4d8;
+  white-space:pre-wrap;margin:0 0 20px}
+.slots{display:flex;gap:4px;margin-bottom:20px;flex-wrap:wrap}
+.slots a{flex:1;min-width:30px;height:30px;border-radius:6px;background:#0f151d;
+  border:1px solid #1c2634;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:12px;color:var(--acc);text-decoration:none}
+.slots a:hover{background:rgba(45,212,191,.12);border-color:var(--acc)}
+ul{list-style:none;padding:0;margin:0}
+li{background:#0f151d;border:1px solid #1c2634;border-radius:9px;padding:12px 16px;margin-bottom:8px}
+li a{color:var(--acc);text-decoration:none;font-family:var(--mono);font-size:13.5px}
+li a:hover{text-decoration:underline}
+.nav{margin-top:22px;font-size:12.5px;font-family:var(--mono)}
+.nav a{color:var(--dim);text-decoration:none;margin-right:14px}
+.nav a:hover{color:var(--acc)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>PulseOS <em>状态池</em></h1>
+  <p class="sub">10 格恒定 · 历史 13 条 · 最新第 13 条 · 仓库不增长</p>
+
+  <pre>PulseOS 状态池 · 索引
+
+池子 10 格（文件数恒定，仓库不增长）
+历史共 13 条，最新第 13 条
+最新写入：2026-10-26 14:11:53 北京时间，在第 2 格
+
+怎么走：slot-0 → slot-1 → … → slot-9 → slot-0（循环）
+每个 slot 永远存在，永不 404。
+
+和「哈希链」的区别：
+  链  = 文件增长，超上限删最旧，老链接会 404
+  池  = 文件恒定，内容循环覆盖，仓库不增长</pre>
+
+  <div class="slots">
+    <a href="slot-0.html">0</a>
+    <a href="slot-1.html">1</a>
+    <a href="slot-2.html">2</a>
+    <a href="slot-3.html">3</a>
+    <a href="slot-4.html">4</a>
+    <a href="slot-5.html">5</a>
+    <a href="slot-6.html">6</a>
+    <a href="slot-7.html">7</a>
+    <a href="slot-8.html">8</a>
+    <a href="slot-9.html">9</a>
+  </div>
+
+  <ul>
+    <li>
+      <a href="slot-2.html">第 13 条 → slot-2</a>
+      <span style="color:#5d7085">2026-10-26 14:11:53</span>
+      <div style="color:#8fa3b8;font-size:12px;margin-top:2px">4050 以内有 558 个素数，其中 556 个与 75 互质</div>
+    </li>
+    <li>
+      <a href="slot-1.html">第 12 条 → slot-1</a>
+      <span style="color:#5d7085">2026-10-26 14:11:53</span>
+      <div style="color:#8fa3b8;font-size:12px;margin-top:2px">2217 以内有 330 个素数，其中 328 个与 44 互质</div>
+    </li>
+    <li>
+      <a href="slot-0.html">第 11 条 → slot-0</a>
+      <span style="color:#5d7085">2026-10-26 14:11:52</span>
+      <div style="color:#8fa3b8;font-size:12px;margin-top:2px">2156 以内有 325 个素数，其中 323 个与 39 互质</div>
+    </li>
+    <li>
+      <a href="slot-9.html">第 10 条 → slot-9</a>
+      <span style="color:#5d7085">2026-10-26 14:11:51</span>
+      <div style="color:#8fa3b8;font-size:12px;margin-top:2px">1110 以内有 186 个素数，其中 185 个与 23 互质</div>
+    </li>
+    <li>
+      <a href="slot-8.html">第 9 条 → slot-8</a>
+      <span style="color:#5d7085">2026-10-26 14:11:51</span>
+      <div style="color:#8fa3b8;font-size:12px;margin-top:2px">4062 以内有 560 个素数，其中 558 个与 88 互质</div>
+    </li>
+    <li>
+      <a href="slot-7.html">第 8 条 → slot-7</a>
+      <span style="color:#5d7085">2026-10-26 14:11:51</span>
+      <div style="color:#8fa3b8;font-size:12px;margin-top:2px">2571 以内有 375 个素数，其中 374 个与 97 互质</div>
+    </li>
+    <li>
+      <a href="slot-6.html">第 7 条 → slot-6</a>
+      <span style="color:#5d7085">2026-10-26 14:11:50</span>
+      <div style="color:#8fa3b8;font-size:12px;margin-top:2px">4547 以内有 615 个素数，其中 614 个与 23 互质</div>
+    </li>
+    <li>
+      <a href="slot-5.html">第 6 条 → slot-5</a>
+      <span style="color:#5d7085">2026-10-26 14:11:50</span>
+      <div style="color:#8fa3b8;font-size:12px;margin-top:2px">2383 以内有 353 个素数，其中 351 个与 14 互质</div>
+    </li>
+    <li>
+      <a href="slot-4.html">第 5 条 → slot-4</a>
+      <span style="color:#5d7085">2026-10-26 14:11:49</span>
+      <div style="color:#8fa3b8;font-size:12px;margin-top:2px">1006 以内有 168 个素数，其中 167 个与 81 互质</div>
+    </li>
+    <li>
+      <a href="slot-3.html">第 4 条 → slot-3</a>
+      <span style="color:#5d7085">2026-10-26 14:11:49</span>
+      <div style="color:#8fa3b8;font-size:12px;margin-top:2px">1082 以内有 180 个素数，其中 178 个与 44 互质</div>
+    </li>
+    <li>
+      <a href="slot-2.html">第 3 条 → slot-2</a>
+      <span style="color:#5d7085">2026-10-26 14:11:48</span>
+      <div style="color:#8fa3b8;font-size:12px;margin-top:2px">2950 以内有 424 个素数，其中 422 个与 6 互质</div>
+    </li>
+    <li>
+      <a href="slot-1.html">第 2 条 → slot-1</a>
+      <span style="color:#5d7085">2026-10-26 14:11:47</span>
+      <div style="color:#8fa3b8;font-size:12px;margin-top:2px">2618 以内有 380 个素数，其中 378 个与 24 互质</div>
+    </li>
+    <li>
+      <a href="slot-0.html">第 1 条 → slot-0</a>
+      <span style="color:#5d7085">2026-10-26 14:11:46</span>
+      <div style="color:#8fa3b8;font-size:12px;margin-top:2px">2972 以内有 429 个素数，其中 427 个与 75 互质</div>
+    </li></ul>
+
+  <div class="nav">
+    <a href="slot-0.html">从 slot-0 开始</a>
+    <a href="../chain/">哈希链</a>
+    <a href="../">首页</a>
+  </div>
+</div>
+</body>
+</html>
