@@ -61,7 +61,13 @@ const MANIFEST = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'pulse.js
 let runtime = null;
 if (MODE === 'local') {
   const pulse = require('../index');
-  runtime = pulse.create({ root: arg('state', '/tmp/gateway-state') });
+  runtime = pulse.create({
+    root: arg('state', '/tmp/gateway-state'),
+    /* ★ 持久化模式：sync 最安全但慢 59x，batch 默认，none 最快 */
+    durability: arg('durability', 'batch'),
+    batchSize: parseInt(arg('batch', '64'), 10),
+    batchMs: parseInt(arg('batch-ms', '20'), 10),
+  });
   /* 预装两个示例服务，让 gateway 起来就能用 */
   try {
     runtime.deploy(`
@@ -273,6 +279,13 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
+  /* 显式落盘（batch 模式下想强一致时调） */
+  if (p === '/flush' && req.method === 'POST') {
+    if (!runtime) return send(res, 200, { ok: false, error: 'local 模式才有 flush' });
+    const f = runtime.flush();
+    return send(res, 200, Object.assign({ ok: f.ok }, f));
+  }
+
   /* 能力清单（AI 读这个） */
   if (p === '/manifest' || p === '/.well-known/pulse.json') {
     return send(res, 200, MANIFEST);
@@ -370,7 +383,7 @@ const server = http.createServer(async (req, res) => {
   send(res, 404, {
     ok: false,
     error: '未知路径 ' + p,
-    available: ['GET /health', 'GET /manifest', 'POST /invoke', 'POST /invoke_batch'],
+    available: ['GET /health', 'GET /manifest', 'POST /invoke', 'POST /invoke_batch', 'POST /flush'],
   });
 });
 
@@ -381,7 +394,10 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log('  模式      ' + MODE);
   console.log('  监听      http://0.0.0.0:' + PORT);
   if (MODE === 'mqtt') console.log('  MQTT      ' + BROKER + '  chan=' + CHAN);
-  if (runtime) console.log('  服务      ' + (runtime.services().join(', ') || '(无)'));
+  if (runtime) {
+    console.log('  服务      ' + (runtime.services().join(', ') || '(无)'));
+    console.log('  持久化    ' + runtime.durability + (runtime.durability === 'batch' ? ' (每 ' + runtime.batchSize + ' 次或 ' + runtime.batchMs + 'ms)' : ''));
+  }
   console.log('  限流      ' + RATE.max + ' 次/小时');
   console.log('  签名      ' + (HMAC ? '已启用' : '未启用'));
   console.log('  ─────────────────────────────────────');
