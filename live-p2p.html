@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111">
+<title>会议室 · 实时教学</title>
+<style>
+  :root{ --bg:#0f1115; --panel:#181b22; --line:#2a2f3a; --ink:#e8eaed; --sub:#8b93a3;
+         --red:#e62f2f; --green:#25c26e; --warn:#ffb020; }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+       min-height:100vh;padding-bottom:env(safe-area-inset-bottom)}
+  .wrap{max-width:900px;margin:0 auto;padding:12px}
+
+  header{display:flex;align-items:center;gap:10px;padding:10px 2px 12px}
+  header h1{font-size:16px;font-weight:600;flex:1}
+  .badge{font-size:11px;padding:2px 8px;border-radius:999px;background:#232732;color:var(--sub)}
+  .badge.ok{background:rgba(37,194,110,.15);color:var(--green)}
+  .badge.bad{background:rgba(230,47,47,.15);color:var(--red)}
+
+  .stage{position:relative;background:#000;border-radius:12px;overflow:hidden;aspect-ratio:9/16;max-height:62vh;margin:0 auto}
+  .stage video{width:100%;height:100%;object-fit:contain;display:block;background:#000}
+  .stage .ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+             gap:8px;color:var(--sub);font-size:13px;text-align:center;padding:20px}
+  .stage .ph .ic{font-size:42px;opacity:.6}
+
+  .thumbs{display:flex;gap:8px;overflow-x:auto;padding:10px 2px;scrollbar-width:none}
+  .thumbs::-webkit-scrollbar{display:none}
+  .thumb{position:relative;flex:0 0 96px;height:128px;background:#000;border-radius:10px;overflow:hidden;
+         border:1px solid var(--line)}
+  .thumb video{width:100%;height:100%;object-fit:cover;display:block}
+  .thumb .nm{position:absolute;left:0;right:0;bottom:0;font-size:10px;padding:2px 5px;
+             background:linear-gradient(transparent,rgba(0,0,0,.8));color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .bar{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  button{font:inherit;font-size:14px;padding:11px 16px;border-radius:10px;border:1px solid var(--line);
+         background:var(--panel);color:var(--ink);cursor:pointer;transition:.15s}
+  button:active{transform:scale(.97)}
+  button.primary{background:var(--red);border-color:var(--red);color:#fff;font-weight:600}
+  button.on{background:var(--green);border-color:var(--green);color:#fff}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.sm{font-size:12.5px;padding:8px 12px}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px}
+  .card h2{font-size:14px;margin-bottom:10px;color:var(--ink);display:flex;align-items:center;gap:7px}
+  .card h2::before{content:"";width:3px;height:14px;background:var(--red);border-radius:2px}
+  .row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+  .row:last-child{border-bottom:none}
+  .row .k{color:var(--sub);flex:0 0 92px}
+  .row .v{flex:1;word-break:break-all}
+  .row .v b{color:var(--ink)}
+
+  input,select{font:inherit;font-size:13.5px;padding:9px 11px;border-radius:8px;border:1px solid var(--line);
+               background:#12151b;color:var(--ink);width:100%}
+  .field{display:flex;gap:8px;align-items:center;margin-top:10px}
+  .field label{flex:0 0 74px;font-size:13px;color:var(--sub)}
+
+  .log{font:11.5px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--sub);
+       max-height:150px;overflow:auto;background:#0b0d11;border-radius:8px;padding:10px;margin-top:10px}
+  .log .e{color:#ff6b6b}
+  .log .s{color:var(--green)}
+  .hint{font-size:12px;color:var(--sub);line-height:1.75;margin-top:10px}
+  .hint b{color:var(--warn)}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>🎥 实时教学室</h1>
+    <span class="badge" id="netBadge">连接中…</span>
+    <span class="badge" id="roleBadge">未开始</span>
+  </header>
+
+  <!-- 主画面（看主播） -->
+  <div class="stage" id="stage">
+    <div class="ph" id="stagePh">
+      <span class="ic">🎬</span>
+      <span>还没有画面</span>
+      <span style="font-size:12px;opacity:.7">主播点「开始直播」后，这里会显示画面</span>
+    </div>
+  </div>
+
+  <!-- 小窗 -->
+  <div class="thumbs" id="thumbs"></div>
+
+  <div class="bar">
+    <button class="primary" id="btnHost">开始直播（我讲）</button>
+    <button id="btnJoin">进入观看</button>
+    <button id="btnStop" disabled>结束</button>
+  </div>
+
+  <div class="bar">
+    <button class="sm" id="btnMic">🔊 麦克风</button>
+    <button class="sm" id="btnCam">📷 我的摄像头</button>
+    <button class="sm" id="btnShare">🖥️ 共享屏幕</button>
+    <button class="sm" id="btnRotate">🔄 切前后摄像头</button>
+  </div>
+
+  <!-- 房间设置 -->
+  <div class="card">
+    <h2>房间</h2>
+    <div class="field">
+      <label>房间号</label>
+      <input id="roomInput" placeholder="点右边生成" readonly>
+      <button class="sm" id="btnNewRoom">换一个</button>
+    </div>
+    <div class="field">
+      <label>你的昵称</label>
+      <input id="nameInput" placeholder="例如：老王" maxlength="12">
+    </div>
+    <div class="field">
+      <label>画质</label>
+      <select id="qualitySel">
+        <option value="low">省流（糊一点，320p / 8帧）</option>
+        <option value="mid" selected>标准（标清，480p / 15帧）</option>
+        <option value="high">清晰（720p / 24帧）</option>
+      </select>
+    </div>
+    <div class="hint">
+      把房间号或下面的链接发给对方，对方打开点「进入观看」就能看到你。
+      <b>不用装 App，不用加好友，不进群</b>。
+    </div>
+    <div class="field">
+      <label>邀请链接</label>
+      <input id="linkInput" readonly>
+      <button class="sm" id="btnCopy">复制</button>
+    </div>
+  </div>
+
+  <!-- 状态 -->
+  <div class="card">
+    <h2>状态</h2>
+    <div class="row"><span class="k">我的身份</span><span class="v" id="stRole">—</span></div>
+    <div class="row"><span class="k">在线人数</span><span class="v" id="stCount">0</span></div>
+    <div class="row"><span class="k">连接状态</span><span class="v" id="stPeers">—</span></div>
+    <div class="row"><span class="k">发送码率</span><span class="v" id="stUp">—</span></div>
+    <div class="row"><span class="k">接收码率</span><span class="v" id="stDown">—</span></div>
+    <div class="log" id="log"></div>
+  </div>
+
+  <div class="hint" style="text-align:center;padding:16px 0 30px;opacity:.6">
+    点对点直连 · 无服务器 · 画面不经过任何第三方存储
+  </div>
+</div>
+
+<script src="js/mqtt.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ============================================================
+   *  基础
+   * ============================================================ */
+  const $ = (id) => document.getElementById(id);
+  const logBox = $('log');
+  function log(msg, cls) {
+    const t = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+    const d = document.createElement('div');
+    if (cls) d.className = cls;
+    d.textContent = '[' + t + '] ' + msg;
+    logBox.appendChild(d);
+    logBox.scrollTop = logBox.scrollHeight;
+    while (logBox.childNodes.length > 120) logBox.removeChild(logBox.firstChild);
+  }
+
+  // 画质档位：码率压得很低，因为走 P2P，主播上传带宽是瓶颈
+  const Q = {
+    low:  { w: 320,  h: 568, fps: 8,  vbr: 150, abr: 16 },
+    mid:  { w: 480,  h: 854, fps: 15, vbr: 300, abr: 24 },
+    high: { w: 720,  h: 1280, fps: 24, vbr: 600, abr: 32 },
+  };
+
+  const S = {
+    room: '', name: '', myId: '', role: 'idle',   // idle | host | viewer
+    mq: null, connected: false,
+    peers: new Map(),        // peerId → {pc, stream, video, name, state}
+    localStream: null,       // 我发的流
+    camStream: null,
+    camFacing: 'user',
+    micOn: true, camOn: false, sharing: false,
+    statsTimer: null, lastStats: {},
+  };
+
+  /* ============================================================
+   *  MQTT 信令
+   * ============================================================ */
+  const TOPIC = (room) => 'zhz/rtc/' + room + '/sig';
+
+  function connectMqtt() {
+    if (S.mq) { try { S.mq.end(); } catch (e) {} }
+    const mq = MiniMqtt.createClient({ clientId: 'rtc' });
+    S.mq = mq;
+
+    mq.on('connect', () => {
+      S.connected = true;
+      $('netBadge').textContent = '在线';
+      $('netBadge').className = 'badge ok';
+      log('信令已连接', 's');
+      mq.subscribe(TOPIC(S.room));
+      // 宣告我在线
+      send({ t: 'hello', from: S.myId, role: S.role, name: S.name });
+    });
+
+    mq.on('close', () => {
+      S.connected = false;
+      $('netBadge').textContent = '掉线';
+      $('netBadge').className = 'badge bad';
+      log('信令断开，重连中…', 'e');
+    });
+
+    mq.on('message', (topic, text) => {
+      let m;
+      try { m = JSON.parse(text); } catch (e) { return; }
+      if (!m || m.from === S.myId) return;
+      handleSignal(m);
+    });
+
+    mq.on('error', (e) => log('信令错误: ' + e, 'e'));
+  }
+
+  function send(obj) {
+    if (!S.mq || !S.connected) return;
+    try { S.mq.publish(TOPIC(S.room), JSON.stringify(obj)); } catch (e) { log('发送失败: ' + e, 'e'); }
+  }
+
+  /* ============================================================
+   *  信令处理
+   * ============================================================ */
+  async function handleSignal(m) {
+    // 只有发给我的（或广播）才处理
+    if (m.to && m.to !== S.myId) return;
+
+    switch (m.t) {
+      case 'hello':
+        log(m.name + ' 进来了（' + (m.role === 'host' ? '主播' : '观众') + '）');
+        updateCount();
+        // 我是主播 → 给新人发 offer
+        if (S.role === 'host' && m.role !== 'host') {
+          await makeOfferTo(m.from, m.name);
+        }
+        // 我是观众，对方是主播 → 主动问他要 offer（防止我先到）
+        if (S.role === 'viewer' && m.role === 'host' && !S.peers.has(m.from)) {
+          send({ t: 'need', from: S.myId, to: m.from, name: S.name });
+        }
+        break;
+
+      case 'need':
+        if (S.role === 'host') await makeOfferTo(m.from, m.name);
+        break;
+
+      case 'offer':
+        await onOffer(m);
+        break;
+
+      case 'answer':
+        await onAnswer(m);
+        break;
+
+      case 'ice':
+        await onIce(m);
+        break;
+
+      case 'bye': {
+        const p = S.peers.get(m.from);
+        if (p) { dropPeer(m.from); log((p.name || '对方') + ' 离开了'); }
+        updateCount();
+        break;
+      }
+    }
+  }
+
+  function newPeer(peerId, name) {
+    const pc = new RTCPeerConnection({
+      iceServers: [
+        { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+        // 免费 TURN 兜底（限速，能用即可）：对称 NAT 时才用得上
+        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+      ],
+      iceCandidatePoolSize: 2,
+    });
+
+    const rec = { pc, name: name || '观众', stream: null, video: null };
+    S.peers.set(peerId, rec);
+
+    pc.onicecandidate = (e) => {
+      if (e.candidate) send({ t: 'ice', from: S.myId, to: peerId, cand: e.candidate });
+    };
+
+    pc.onconnectionstatechange = () => {
+      log(peerId.slice(0, 4) + ' 连接: ' + pc.connectionState, pc.connectionState === 'failed' ? 'e' : '');
+      if (pc.connectionState === 'failed') {
+        log('直连失败（可能是网络限制），尝试重连…', 'e');
+        dropPeer(peerId);
+        if (S.role === 'host') setTimeout(() => makeOfferTo(peerId, rec.name), 800);
+      }
+      updatePeers();
+    };
+
+    pc.ontrack = (e) => {
+      rec.stream = e.streams[0];
+      attachRemote(peerId, e.streams[0], rec.name);
+      log('收到 ' + rec.name + ' 的画面');
+    };
+
+    return rec;
+  }
+
+  /** 主播：把本地流推给某个观众 */
+  async function makeOfferTo(peerId, name) {
+    if (!S.localStream) { log('还没有本地流，先点「共享屏幕」或「麦克风」', 'e'); return; }
+    let rec = S.peers.get(peerId);
+    if (!rec) rec = newPeer(peerId, name);
+
+    // 清掉旧的 sender，重新加轨道
+    rec.pc.getSenders().forEach((s) => { try { rec.pc.removeTrack(s); } catch (e) {} });
+    S.localStream.getTracks().forEach((t) => rec.pc.addTrack(t, S.localStream));
+
+    try {
+      const offer = await rec.pc.createOffer();
+      await rec.pc.setLocalDescription(offer);
+      applyBitrate(rec.pc, 'up');
+      send({ t: 'offer', from: S.myId, to: peerId, sdp: rec.pc.localDescription, name: S.name });
+      log('已向 ' + (name || peerId.slice(0, 4)) + ' 发起连接');
+    } catch (e) { log('创建 offer 失败: ' + e.message, 'e'); }
+  }
+
+  /** 观众：收到 offer */
+  async function onOffer(m) {
+    let rec = S.peers.get(m.from);
+    if (!rec) rec = newPeer(m.from, m.name);
+    try {
+      await rec.pc.setRemoteDescription(new RTCSessionDescription(m.sdp));
+
+      // 观众也把自己的摄像头/麦克风推回去（小窗）—— 只有主播需要看见
+      if (S.localStream) {
+        S.localStream.getTracks().forEach((t) => {
+          const exists = rec.pc.getSenders().some((s) => s.track === t);
+          if (!exists) rec.pc.addTrack(t, S.localStream);
+        });
+      }
+
+      const ans = await rec.pc.createAnswer();
+      await rec.pc.setLocalDescription(ans);
+      applyBitrate(rec.pc, 'up');
+      send({ t: 'answer', from: S.myId, to: m.from, sdp: rec.pc.localDescription, name: S.name });
+      log('已应答 ' + (m.name || '主播'));
+    } catch (e) { log('应答失败: ' + e.message, 'e'); }
+  }
+
+  async function onAnswer(m) {
+    const rec = S.peers.get(m.from);
+    if (!rec) return;
+    try { await rec.pc.setRemoteDescription(new RTCSessionDescription(m.sdp)); }
+    catch (e) { log('设置 answer 失败: ' + e.message, 'e'); }
+  }
+
+  async function onIce(m) {
+    const rec = S.peers.get(m.from);
+    if (!rec || !m.cand) return;
+    try { await rec.pc.addIceCandidate(new RTCIceCandidate(m.cand)); } catch (e) {}
+  }
+
+  function dropPeer(peerId) {
+    const rec = S.peers.get(peerId);
+    if (!rec) return;
+    try { rec.pc.close(); } catch (e) {}
+    if (rec.video && rec.video.parentNode) rec.video.parentNode.remove();
+    S.peers.delete(peerId);
+    updatePeers();
+  }
+
+  /** 压低码率 —— 让上传带宽撑得住多人 */
+  function applyBitrate(pc, dir) {
+    const q = Q[$('qualitySel').value] || Q.mid;
+    pc.getSenders().forEach(async (s) => {
+      if (!s.track) return;
+      try {
+        const p = s.getParameters();
+        if (!p.encodings || !p.encodings.length) p.encodings = [{}];
+        if (s.track.kind === 'video') {
+          p.encodings[0].maxBitrate = q.vbr * 1000;
+          p.encodings[0].maxFramerate = q.fps;
+          p.degradationPreference = 'maintain-framerate';
+        } else {
+          p.encodings[0].maxBitrate = q.abr * 1000;
+        }
+        await s.setParameters(p);
+      } catch (e) {}
+    });
+  }
+
+  /* ============================================================
+   *  画面渲染
+   * ============================================================ */
+  function attachRemote(peerId, stream, name) {
+    const rec = S.peers.get(peerId);
+    if (!rec) return;
+
+    // 主播的画面 → 大窗（stage）
+    if (S.role === 'viewer') {
+      let v = $('stage').querySelector('video');
+      if (!v) {
+        $('stagePh').classList.add('hidden');
+        v = document.createElement('video');
+        v.autoplay = true; v.playsInline = true; v.setAttribute('playsinline', '');
+        $('stage').appendChild(v);
+      }
+      v.srcObject = stream;
+      v.play().catch(() => {});
+      return;
+    }
+
+    // 主播看观众 → 小窗
+    if (!rec.video) {
+      const box = document.createElement('div');
+      box.className = 'thumb';
+      const v = document.createElement('video');
+      v.autoplay = true; v.playsInline = true; v.muted = true;
+      v.setAttribute('playsinline', '');
+      const nm = document.createElement('div');
+      nm.className = 'nm';
+      nm.textContent = name || '观众';
+      box.appendChild(v); box.appendChild(nm);
+      $('thumbs').appendChild(box);
+      rec.video = v;
+    }
+    rec.video.srcObject = stream;
+    rec.video.play().catch(() => {});
+  }
+
+  /** 主播自己的预览 → 大窗；观众自己的预览 → 小窗（大窗留给主播画面） */
+  function attachLocalPreview(stream) {
+    if (S.role === 'viewer') {
+      let rec = S.peers.get('__me__');
+      if (!rec) {
+        const box = document.createElement('div');
+        box.className = 'thumb';
+        const v = document.createElement('video');
+        v.autoplay = true; v.playsInline = true; v.muted = true;
+        v.setAttribute('playsinline', '');
+        const nm = document.createElement('div');
+        nm.className = 'nm';
+        nm.textContent = '我';
+        box.appendChild(v); box.appendChild(nm);
+        $('thumbs').appendChild(box);
+        S.peers.set('__me__', { pc: null, name: '我', video: v });
+        rec = S.peers.get('__me__');
+      }
+      rec.video.srcObject = stream;
+      rec.video.play().catch(() => {});
+      return;
+    }
+
+    let v = $('stage').querySelector('video');
+    if (!v) {
+      $('stagePh').classList.add('hidden');
+      v = document.createElement('video');
+      v.autoplay = true; v.playsInline = true; v.muted = true;
+      v.setAttribute('playsinline', '');
+      $('stage').appendChild(v);
+    }
+    v.srcObject = stream;
+    v.play().catch(() => {});
+  }
+
+  function updateCount() {
+    let real = 0;
+    S.peers.forEach((r, id) => { if (id !== '__me__' && r.pc) real++; });
+    $('stCount').textContent = (real + 1) + ' 人';
+  }
+
+  function updatePeers() {
+    const arr = [];
+    S.peers.forEach((r, id) => { if (id !== '__me__' && r.pc) arr.push(r.pc.connectionState); });
+    $('stPeers').textContent = arr.length ? arr.join(' / ') : '无连接';
+    updateCount();
+  }
+
+  /* ============================================================
+   *  媒体控制
+   * ============================================================ */
+  function stopLocal() {
+    if (S.localStream) {
+      S.localStream.getTracks().forEach((t) => t.stop());
+      S.localStream = null;
+    }
+  }
+
+  async function startMic() {
+    try {
+      const st = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      addOrReplace(st);
+      S.micOn = true;
+      $('btnMic').classList.add('on');
+      log('麦克风已开', 's');
+    } catch (e) { log('麦克风失败: ' + e.message, 'e'); }
+  }
+
+  async function startCam(facing) {
+    try {
+      const q = Q[$('qualitySel').value] || Q.mid;
+      const st = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: facing || S.camFacing,
+          width: { ideal: q.w }, height: { ideal: q.h }, frameRate: { ideal: q.fps, max: q.fps },
+        },
+      });
+      addOrReplace(st);
+      S.camOn = true;
+      $('btnCam').classList.add('on');
+      log('摄像头已开', 's');
+    } catch (e) { log('摄像头失败: ' + e.message, 'e'); }
+  }
+
+  async function startShare() {
+    if (!navigator.mediaDevices.getDisplayMedia) {
+      log('这个浏览器不支持共享屏幕（iOS Safari 不行，安卓 Chrome 可以）', 'e');
+      return;
+    }
+    try {
+      const q = Q[$('qualitySel').value] || Q.mid;
+      const st = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: { ideal: q.fps, max: q.fps } },
+        audio: false,
+      });
+      // 只替换视频轨道
+      const vt = st.getVideoTracks()[0];
+      vt.contentHint = 'detail';   // 屏幕共享要优先清晰度
+      const old = S.localStream;
+      if (old) old.getVideoTracks().forEach((t) => { t.stop(); });
+      addOrReplace(st);
+      S.sharing = true;
+      $('btnShare').classList.add('on');
+      log('屏幕共享已开始', 's');
+      vt.onended = () => { S.sharing = false; $('btnShare').classList.remove('on'); log('屏幕共享已停止'); };
+    } catch (e) { log('共享失败: ' + e.message, 'e'); }
+  }
+
+  /** 把新流的轨道合并进 localStream（同名轨道替换） */
+  function addOrReplace(st) {
+    if (!S.localStream) S.localStream = new MediaStream();
+    st.getTracks().forEach((t) => {
+      S.localStream.getTracks()
+        .filter((x) => x.kind === t.kind)
+        .forEach((x) => { x.stop(); S.localStream.removeTrack(x); });
+      S.localStream.addTrack(t);
+    });
+    attachLocalPreview(S.localStream);
+
+    // 已有连接：热替换轨道
+    S.peers.forEach(async (rec) => {
+      const senders = rec.pc.getSenders();
+      for (const t of st.getTracks()) {
+        const s = senders.find((x) => x.track && x.track.kind === t.kind);
+        if (s) { try { await s.replaceTrack(t); } catch (e) {} }
+        else { try { rec.pc.addTrack(t, S.localStream); } catch (e) {} }
+      }
+    });
+  }
+
+  /* ============================================================
+   *  角色按钮
+   * ============================================================ */
+  async function becomeHost() {
+    S.role = 'host';
+    $('roleBadge').textContent = '主播';
+    $('roleBadge').className = 'badge ok';
+    $('stRole').textContent = '主播（我讲）';
+    $('btnHost').disabled = true;
+    $('btnJoin').disabled = true;
+    $('btnStop').disabled = false;
+    $('btnMic').disabled = false;
+    $('btnCam').disabled = false;
+    $('btnShare').disabled = false;
+    log('我是主播，先开麦克风或共享屏幕', 's');
+
+    // 主播默认开麦
+    await startMic();
+    send({ t: 'hello', from: S.myId, role: 'host', name: S.name });
+
+    // 给已在房间的观众发 offer
+    S.peers.forEach((rec, id) => makeOfferTo(id, rec.name));
+    startStats();
+  }
+
+  async function becomeViewer() {
+    S.role = 'viewer';
+    $('roleBadge').textContent = '观众';
+    $('roleBadge').className = 'badge ok';
+    $('stRole').textContent = '观众（我看）';
+    $('btnHost').disabled = true;
+    $('btnJoin').disabled = true;
+    $('btnStop').disabled = false;
+    $('btnCam').disabled = false;
+    $('btnMic').disabled = false;
+    $('btnShare').disabled = true;
+    log('我是观众，等待主播画面…', 's');
+
+    // 观众默认开摄像头（主播能看到小窗）
+    await startCam(S.camFacing);
+    send({ t: 'hello', from: S.myId, role: 'viewer', name: S.name });
+    startStats();
+  }
+
+  function stopAll() {
+    send({ t: 'bye', from: S.myId });
+    S.peers.forEach((rec) => { try { rec.pc.close(); } catch (e) {} });
+    S.peers.clear();
+    $('thumbs').innerHTML = '';
+    stopLocal();
+    const v = $('stage').querySelector('video');
+    if (v) v.remove();
+    $('stagePh').classList.remove('hidden');
+
+    S.role = 'idle';
+    $('roleBadge').textContent = '未开始';
+    $('roleBadge').className = 'badge';
+    $('stRole').textContent = '—';
+    $('btnHost').disabled = false;
+    $('btnJoin').disabled = false;
+    $('btnStop').disabled = true;
+    ['btnMic', 'btnCam', 'btnShare'].forEach((id) => $(id).classList.remove('on'));
+    if (S.statsTimer) { clearInterval(S.statsTimer); S.statsTimer = null; }
+    $('stUp').textContent = '—'; $('stDown').textContent = '—';
+    updatePeers();
+    log('已结束');
+  }
+
+  /* ============================================================
+   *  码率统计
+   * ============================================================ */
+  function startStats() {
+    if (S.statsTimer) return;
+    S.statsTimer = setInterval(async () => {
+      let up = 0, down = 0;
+      for (const rec of S.peers.values()) {
+        try {
+          const s = await rec.pc.getStats();
+          s.forEach((r) => {
+            if (r.type === 'outbound-rtp' && r.kind === 'video') up += r.bytesSent || 0;
+            if (r.type === 'inbound-rtp' && r.kind === 'video') down += r.bytesReceived || 0;
+          });
+        } catch (e) {}
+      }
+      const prev = S.lastStats;
+      const now = Date.now();
+      if (prev.up !== undefined && prev.t && now > prev.t) {
+        const dt = (now - prev.t) / 1000;
+        $('stUp').textContent = (((up - prev.up) * 8 / dt) / 1000).toFixed(0) + ' kbps';
+        $('stDown').textContent = (((down - prev.down) * 8 / dt) / 1000).toFixed(0) + ' kbps';
+      }
+      S.lastStats = { up, down, t: now };
+    }, 2000);
+  }
+
+  /* ============================================================
+   *  入口
+   * ============================================================ */
+  function newRoomId() {
+    const s = 'abcdefghjkmnpqrstuvwxyz23456789';
+    let r = '';
+    const a = new Uint8Array(8);
+    crypto.getRandomValues(a);
+    for (const b of a) r += s[b % s.length];
+    return r;
+  }
+
+  function syncLink() {
+    const base = location.origin + location.pathname;
+    $('linkInput').value = base + '#room=' + S.room;
+  }
+
+  function readRoomFromHash() {
+    const m = /#room=([a-z0-9]+)/i.exec(location.hash || '');
+    return m ? m[1] : '';
+  }
+
+  function init() {
+    let room = readRoomFromHash();
+    if (!room) { room = newRoomId(); history.replaceState(null, '', '#room=' + room); }
+    S.room = room;
+    $('roomInput').value = room;
+
+    S.myId = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())).slice(0, 8);
+    const savedName = localStorage.getItem('rtc_name') || '';
+    S.name = savedName || ('路人' + S.myId.slice(0, 3));
+    $('nameInput').value = S.name;
+
+    syncLink();
+    connectMqtt();
+    updatePeers();
+
+    $('nameInput').addEventListener('change', () => {
+      S.name = $('nameInput').value.trim() || S.name;
+      localStorage.setItem('rtc_name', S.name);
+      send({ t: 'hello', from: S.myId, role: S.role, name: S.name });
+    });
+
+    $('btnNewRoom').onclick = () => {
+      const r = newRoomId();
+      location.hash = '#room=' + r;
+      location.reload();
+    };
+
+    $('btnCopy').onclick = async () => {
+      try { await navigator.clipboard.writeText($('linkInput').value); log('链接已复制', 's'); }
+      catch (e) { $('linkInput').select(); log('请手动复制'); }
+    };
+
+    $('btnHost').onclick = becomeHost;
+    $('btnJoin').onclick = becomeViewer;
+    $('btnStop').onclick = stopAll;
+
+    $('btnMic').onclick = async () => {
+      if (!S.localStream || !S.localStream.getAudioTracks().length) { await startMic(); return; }
+      const t = S.localStream.getAudioTracks()[0];
+      t.enabled = !t.enabled;
+      S.micOn = t.enabled;
+      $('btnMic').classList.toggle('on', t.enabled);
+      log(t.enabled ? '麦克风开' : '麦克风关');
+    };
+
+    $('btnCam').onclick = async () => {
+      if (!S.camOn) { await startCam(S.camFacing); return; }
+      S.localStream.getVideoTracks().forEach((t) => { t.enabled = !t.enabled; });
+      S.camOn = S.localStream.getVideoTracks()[0].enabled;
+      $('btnCam').classList.toggle('on', S.camOn);
+    };
+
+    $('btnShare').onclick = startShare;
+
+    $('btnRotate').onclick = async () => {
+      S.camFacing = S.camFacing === 'user' ? 'environment' : 'user';
+      if (S.camOn) await startCam(S.camFacing);
+    };
+
+    $('qualitySel').onchange = () => {
+      S.peers.forEach((rec) => applyBitrate(rec.pc, 'up'));
+      log('画质切换为 ' + $('qualitySel').selectedOptions[0].text);
+    };
+
+    window.addEventListener('beforeunload', () => {
+      try { send({ t: 'bye', from: S.myId }); } catch (e) {}
+    });
+
+    $('btnMic').disabled = true;
+    $('btnCam').disabled = true;
+    $('btnShare').disabled = true;
+
+    log('房间号 ' + room + ' · 点「开始直播」或「进入观看」');
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+</body>
+</html>
