@@ -4474,6 +4474,8 @@ window.W = (function () {
     // 先把界面渲染出来（不等音频）
     if (!location.hash) location.hash = "#/home";
     route();
+    // 界面已就绪 → 立刻撤遮罩，音频在后台继续加载
+    setTimeout(() => { const sp = $("#splash"); if (sp) { sp.classList.add("hide"); setTimeout(() => sp.remove(), 400); } }, 120);
 
     // 启动遮罩
     const splash = $("#splash");
@@ -4514,10 +4516,8 @@ window.W = (function () {
       hideSplash();
       toast("音频加载失败，请刷新重试", "bad");
     });
-    setTimeout(hideSplash, 2500);
 
-    // 兜底：DOM 都就绪了还黑着，就直接撤遮罩
-    setTimeout(() => { if (document.getElementById("view").children.length) hideSplash(); }, 900);
+
     // 调试/测试入口
     window.__FLM = {
       state: () => S,
