@@ -221,6 +221,25 @@
     padding:8px 16px;cursor:pointer;transition:opacity .6s;letter-spacing:.06em;
     backdrop-filter:blur(6px);display:none}
 
+  /* ★★ 手机竖屏提示遮罩：竖屏时盖住画面，给「一键横屏 / 先这样玩」两个选项 ★★ */
+  #rotateHint{display:none;position:fixed;inset:0;z-index:120;
+    background:linear-gradient(160deg,rgba(6,5,13,.97),rgba(20,10,36,.97));
+    flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:26px;text-align:center;
+    pointer-events:auto}
+  #rotateHint.on{display:flex}
+  #rotateHint .rh-ico{font-size:56px;animation:rhTilt 2.2s ease-in-out infinite}
+  @keyframes rhTilt{0%,100%{transform:rotate(0)}50%{transform:rotate(-90deg)}}
+  #rotateHint .rh-t{font-size:19px;font-weight:800;letter-spacing:.06em}
+  #rotateHint .rh-s{font-size:12.5px;color:var(--tx3,#7d7398);line-height:1.9;margin-bottom:10px}
+  #rotateHint button{font-family:inherit;cursor:pointer;border-radius:12px;padding:13px 30px;font-size:14.5px;
+    border:1px solid rgba(168,85,247,.5);background:linear-gradient(100deg,#a855f7,#22d3ee);
+    color:#fff;font-weight:800;letter-spacing:.05em;box-shadow:0 8px 30px rgba(168,85,247,.45);
+    pointer-events:auto}
+  #rotateHint button#rhSkip{background:transparent;box-shadow:none;color:#a99fc4;font-weight:500;
+    font-size:12.5px;padding:8px 20px;border-color:rgba(255,255,255,.15)}
+  /* .hud 是 pointer-events:none，浮层必须显式放开，否则点不动 */
+  .hud #rotateHint,.hud #rotateHint *{pointer-events:auto}
+
 </style></head><body data-track="game">
 <canvas id="cv"></canvas>
 <div id="log"></div>
@@ -1594,6 +1613,16 @@ window.__OCTO = {
 
   <!-- ★ 一次性 3D 引导（点过就永久消失） -->
   <div id="coach3d"><span class="arw"></span>点这里转视角 · 3D 模式</div>
+
+  <!-- ★★ 手机：竖屏提示遮罩（横屏后自动消失，不挡操作）★★
+       竖屏时盖住画面，给两个选择：一键横屏 / 先这样玩 -->
+  <div id="rotateHint">
+    <div class="rh-ico">📱</div>
+    <div class="rh-t">请把手机横过来</div>
+    <div class="rh-s">横屏视野更宽、按钮不挤<br>点下面可以自动横屏（浏览器全屏）</div>
+    <button id="rhGo">一键横屏</button>
+    <button id="rhSkip">先这样玩</button>
+  </div>
 
   <div id="voiceLog"></div>
   <div class="topbar">

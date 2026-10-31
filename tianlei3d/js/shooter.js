@@ -3462,8 +3462,78 @@ function bindUI() {
       b.className = fs ? 'on' : '';
     });
   });
-  /* ★ 添加到桌面（📲）= 由 pwa.js 全局点击委托接管（见 pwa.js:305）
+  /* ★ 添加桌面（📲）= 由 pwa.js 全局点击委托接管（见 pwa.js:305）
      这里不再绑定，避免重复触发安装。 */
+
+  /* ★★★ 竖屏提示遮罩（从网页版移植）★★★
+     手机 + 竖屏 + 没点过「先这样玩」时，盖一层灰黑遮罩，
+     给两个选项：一键横屏 / 先这样玩。
+     「先这样玩」只记本次会话（sessionStorage），关掉页面就忘，
+     不会像旧版那样永久关掉提示、再也找不到横屏入口。 */
+  (function () {
+    var hint = $('rotateHint');
+    var isTouch = /Mobi|Android|iPhone|iPad|HarmonyOS|MiuiBrowser|XiaoMi/i.test(navigator.userAgent)
+                  || (navigator.maxTouchPoints || 0) > 1;
+    function portrait() { return window.innerHeight > window.innerWidth; }
+    function skippedNow() {
+      try { return sessionStorage.getItem('tl_rotate_skip') === '1'; } catch (e) { return false; }
+    }
+    /* 清掉旧版永久跳过标记，免得老用户被永久卡死看不到提示 */
+    try { localStorage.removeItem('tl_rotate_skip'); } catch (e) {}
+    function isFullscreen() {
+      return !!(document.fullscreenElement || document.webkitFullscreenElement);
+    }
+    function upd() {
+      if (!hint || !isTouch) return;
+      if (isFullscreen()) { hint.classList.remove('on'); return; }   // 已全屏就不打扰
+      hint.classList.toggle('on', portrait() && !skippedNow());
+    }
+    upd();
+    addEventListener('resize', upd);
+    addEventListener('orientationchange', function () { setTimeout(upd, 260); });
+
+    function lockLandscape() {
+      try {
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock('landscape').catch(function () {});
+        }
+      } catch (e) {}
+      setTimeout(function () { try { A.resize(); } catch (e) {} try { resizeFX(); } catch (e) {} }, 320);
+    }
+
+    /* 一键横屏：全屏 + 尝试锁横屏（浏览器允许就生效，不允许就只全屏） */
+    var go = $('rhGo');
+    if (go) go.addEventListener('click', function () {
+      var el = document.documentElement;
+      try {
+        var p = el.requestFullscreen ? el.requestFullscreen()
+              : (el.webkitRequestFullscreen && el.webkitRequestFullscreen());
+        if (p && p.then) p.then(lockLandscape, lockLandscape);
+        else setTimeout(lockLandscape, 200);
+      } catch (e) { lockLandscape(); }
+      hint.classList.remove('on');
+      try { Sfx.ui(); } catch (e) {}
+    });
+
+    /* 先这样玩：只跳过本次会话 */
+    var skip = $('rhSkip');
+    if (skip) skip.addEventListener('click', function () {
+      try { sessionStorage.setItem('tl_rotate_skip', '1'); } catch (e) {}
+      hint.classList.remove('on');
+      try { Sfx.ui(); } catch (e) {}
+    });
+
+    /* 全屏切换后重新算尺寸（解决「全屏后格式乱」） */
+    ['fullscreenchange', 'webkitfullscreenchange'].forEach(function (ev) {
+      document.addEventListener(ev, function () {
+        setTimeout(function () {
+          try { A.resize(); } catch (e) {}
+          try { resizeFX(); } catch (e) {}
+          upd();
+        }, 260);
+      });
+    });
+  })();
   _on('bHelp', 'click', function () { HUD.center('WASD 移动 · 鼠标转视角 · 左键开火', 'R 换弹 · 1/2/3/4 切枪 · Shift 疾跑 · 空格 跳 · G 手雷 · 右键开镜', 4200); });
   _on('bBack', 'click', function () { running = false; Net.disconnect(); location.href = 'index.html'; });
   $('inName').value = Net.name; $('inRoom').value = Net.room;
