@@ -21,8 +21,8 @@
 'use strict';
 
 /* ★ 改版本号 = 强制清空旧缓存。每次发版如果改了资源结构，把这个 +1 */
-var CACHE = 'tianlei-v1';
-var CACHE_STATIC = 'tianlei-static-v1';
+var CACHE = 'tianlei-v2';
+var CACHE_STATIC = 'tianlei-static-v2';
 
 /* 预缓存：只放"启动必需 + 很小"的东西。
    ⚠️ 千万不要把 40MB 的 APK 或大图放进来，否则首次安装会卡很久 */
