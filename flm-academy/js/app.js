@@ -949,13 +949,17 @@
     }
 
     // 后台加载采样；遮罩最多挡 4 秒，之后照样能用（音频继续加载）
-    AE.load((p) => {
+    function whenSamples(cb) {
+      if (window.__SAMPLES__) return cb();
+      setTimeout(() => whenSamples(cb), 40);
+    }
+    whenSamples(() => AE.load((p) => {
       const n = Math.round(p * 100);
       if (fill) fill.style.width = n + "%";
       if (pctEl) pctEl.textContent = n + "%";
       const el = $("#audioState");
       if (el) el.textContent = "加载中 " + n + "%";
-    }).then(() => {
+    })).then(() => {
       const el = $("#audioState");
       if (el) el.textContent = "采样已加载（FL Studio Mobile 音色库）";
       hideSplash();
@@ -964,10 +968,10 @@
       hideSplash();
       toast("音频加载失败，请刷新重试", "bad");
     });
-    setTimeout(hideSplash, 4000);
+    setTimeout(hideSplash, 2500);
 
     // 兜底：DOM 都就绪了还黑着，就直接撤遮罩
-    setTimeout(() => { if (document.getElementById("view").children.length) hideSplash(); }, 1200);
+    setTimeout(() => { if (document.getElementById("view").children.length) hideSplash(); }, 900);
     // 调试/测试入口
     window.__FLM = {
       state: () => S,
@@ -978,5 +982,10 @@
     window.addEventListener("resize", () => { if ($("#tour").classList.contains("show")) drawTour(); });
   }
 
-  document.addEventListener("DOMContentLoaded", boot);
+  // 脚本位于 body 末尾，DOM 已就绪 → 立刻渲染界面，
+  // 这样即使后面还有大段音频数据要解析，用户也不会看到空白屏。
+  if (document.readyState === "loading") {
+    if (document.getElementById("view")) boot();
+    else document.addEventListener("DOMContentLoaded", boot);
+  } else boot();
 })();

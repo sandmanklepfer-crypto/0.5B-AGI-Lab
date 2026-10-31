@@ -10,9 +10,9 @@ window.AE = (function () {
     snare1: "snare1.wav", snare2: "snare2.wav",
     clap1: "clap1.wav", clap2: "clap2.wav",
     hatc1: "hatc1.wav", hatc2: "hatc2.wav", hato1: "hato1.wav",
-    ride1: "ride1.wav", crash1: "crash1.wav",
+    ride1: "ride1.mp3", crash1: "crash1.mp3",
     perc1: "perc1.wav", perc2: "perc2.wav",
-    impact1: "impact1.wav", impact2: "impact2.wav",
+    impact1: "impact1.mp3", impact2: "impact2.mp3",
     vinyl: "vinyl.wav",
     riser1: "riser1.mp3", riser2: "riser2.mp3",
     sweep1: "sweep1.mp3", pluck1: "pluck1.mp3"
