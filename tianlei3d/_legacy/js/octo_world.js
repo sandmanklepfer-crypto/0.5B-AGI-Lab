@@ -1,0 +1,545 @@
+/* ==========================================================================
+   world3d_env.js —— 天泪纪元 · 真 3D 环境（从 octo.html 原样抽出，供复用）
+   --------------------------------------------------------------------------
+   真 3D 地面网格 / 湿面反射探针 / 烘焙 GI / 真 3D 树 / 3D 建筑体块 / 道具公告板
+   + 后处理(Bloom+Grade)。本文件只负责「世界」，不含任何玩法。
+   玩法在 js/shooter.js（3D 多人枪战）与 octo.html（观光）里各写各的。
+   ========================================================================== */
+/* ==========================================================================
+   HD-2D · 真 3D 环境版（iso3d）
+   --------------------------------------------------------------------------
+   与 iso.html 的区别：
+     · 地面 = 真 3D 网格（连续 PBR 贴图，世界空间 UV → 天然无缝）
+     · 光   = 真方向光 + ShadowMap（真阴影）+ 路灯点光
+     · 建筑 = 真 3D 体块（投出真影子）
+     · 道具 = 2D 立绘公告板（保留 HD-2D 招牌）+ 接地影
+     · 角色 = 2D 立绘公告板（8 方向）
+     · 后处理：泛光 Bloom + 移轴景深 Tilt-Shift + 调色
+   相机 = 正交 + 45° 锁死，像素尺度与 2D iso 完全一致：
+     +u(世界X) → (+32,+16) 像素 ／ +v(世界Z) → (-32,+16) 像素   (TW=64,TH=32)
+   ========================================================================== */
+const TW = TileWorld.TW, TH = TileWorld.TH, MW = TileWorld.MW, MH = TileWorld.MH;
+const at = TileWorld.at, T = TileWorld.T, HEIGHT = TileWorld.HEIGHT;
+const BUILDINGS = TileWorld.buildings;
+
+const cv = document.getElementById('cv'), hudLog = document.getElementById('log'), perf = document.getElementById('perf');
+window.onerror = function(m, u, l, c){ try{ document.getElementById('log').textContent='❌ '+m+' @'+(l||'')+':'+(c||''); }catch(e){} };
+addEventListener('unhandledrejection', e=>{ try{ document.getElementById('log').textContent='❌ '+e.reason; }catch(_){} });
+const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: false, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
+renderer.shadowMap.enabled = false;   // 改用接地影（成熟解法）
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+if (THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
+if (THREE.ACESFilmicToneMapping) renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.35;
+
+const scene = new THREE.Scene();   // 不用距离雾（正交下会整片变黑）
+/* ★ 反射探针 CubeCamera（正交下正确：湿地面按法线取环境霓虹，不重影） */
+const cubeRT = new THREE.WebGLCubeRenderTarget(128);
+const cubeCam = new THREE.CubeCamera(0.5, 400, cubeRT);
+cubeCam.position.set(36, 3.0, 34); scene.add(cubeCam);
+scene.background = new THREE.Color(0x05070f);
+// 注意：正交相机在 ~260 单位外，距离雾会把整个场景吃掉 → 不用距离雾
+
+/* ---------------- 相机（正交 · 45° 锁死 · 像素级对齐 2D iso） ---------------- */
+let W = 1, H = 1, hw = 1, vh = 1, UNIT_PX = 45.26;
+const CAM_DIR = new THREE.Vector3(Math.cos(Math.PI / 6) * Math.cos(Math.PI / 4), Math.sin(Math.PI / 6), Math.cos(Math.PI / 6) * Math.sin(Math.PI / 4)); // 仰角30° 方位45°
+const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 100, 520);
+const camTarget = new THREE.Vector3(36, 0, 30);
+const reflCam = new THREE.OrthographicCamera(-1,1,1,-1,100,520);
+let reflRT = null;
+const groundMeshes = []; let waterMesh = null;
+const GROUND_UNI = { uRefl:{value:null}, uRes:{value:new THREE.Vector2(1,1)}, uReflAmt:{value:0.85} };
+
+function resize() {
+  W = innerWidth; H = innerHeight;
+  renderer.setSize(W, H, false);
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  // 关键：让 1 世界单位 X = TW/2 像素（与 2D 菱形完全同尺度）
+  hw = 0.7071 * W / TW;
+  vh = hw * H / W;
+  cam.left = -hw; cam.right = hw; cam.top = vh; cam.bottom = -vh;
+  cam.updateProjectionMatrix();
+  reflCam.left = -hw; reflCam.right = hw; reflCam.top = vh; reflCam.bottom = -vh;
+  reflCam.updateProjectionMatrix();
+  const _dpr = renderer.getPixelRatio();
+  if (!reflRT) reflRT = new THREE.WebGLRenderTarget(1,1,{ minFilter:THREE.LinearFilter, magFilter:THREE.LinearFilter });
+  reflRT.setSize(W*_dpr, H*_dpr);
+  GROUND_UNI.uRefl.value = reflRT.texture;
+  GROUND_UNI.uRes.value.set(W*_dpr, H*_dpr);
+  UNIT_PX = W / (2 * hw);
+  if (typeof onResizeFx === 'function') onResizeFx();
+}
+
+/* ---------------- 材质 ---------------- */
+const L = new THREE.TextureLoader();
+const TEX_CACHE = {};
+function loadTex(name, kind) {
+  const key = name + '|' + kind;
+  if (TEX_CACHE[key]) return TEX_CACHE[key];
+  const url = kind === 'albedo' ? ('assets/tex/' + name + '.jpg')
+            : ('assets/tex/' + name + '_' + (kind === 'normal' ? 'n' : 'r') + '.png');
+  const t = L.load(url);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  if (kind === 'albedo' && THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding;
+  t.anisotropy = Math.min(8, (renderer.capabilities && renderer.capabilities.getMaxAnisotropy) ? renderer.capabilities.getMaxAnisotropy() : 8);
+  TEX_CACHE[key] = t; return t;
+}
+function pbrMat(name, opt) {
+  opt = opt || {};
+  const m = new THREE.MeshStandardMaterial({
+    map: loadTex(name, 'albedo'),
+    normalMap: loadTex(name, 'normal'),
+    roughnessMap: loadTex(name, 'rough'),
+    metalness: 0.0, roughness: 0.95,
+  });
+  Object.assign(m, opt);
+  return m;
+}
+
+
+/* ==========================================================
+   ★ 烘焙 GI（世界坐标）—— 移动不穿帮的关键
+   对每个格子，从光源出发做遮挡步进，累加带颜色的辐照度。
+   结果写进一张 MW×MH 的贴图，按世界坐标采样 → 永远钉在地上。
+   ========================================================== */
+function bakeGI(){
+  const em=[];
+  for(let v=0;v<MH;v++)for(let u=0;u<MW;u++){
+    const t=at(u,v);
+    if(t===T.LAMP) em.push([u+.5,v+.5, 1.00,0.60,0.26, 1.0]);
+    else if(t===T.FOUNTAIN) em.push([u+.5,v+.5, 0.30,0.55,0.95, 0.7]);
+    else if(t===T.ALTAR) em.push([u+.5,v+.5, 0.55,0.35,1.00, 0.8]);
+    else if(t===T.CAULDRON) em.push([u+.5,v+.5, 1.00,0.42,0.14, 0.8]);
+  }
+  const NEO=[[1.0,0.28,0.62],[0.24,0.86,1.0],[1.0,0.72,0.24],[0.52,1.0,0.46]];
+  BUILDINGS.forEach((b,i)=>{ const c=NEO[i%NEO.length]; em.push([b.x-0.6, b.y+b.h/2, c[0],c[1],c[2], 1.2]); });
+  const data=new Uint8Array(MW*MH*4);
+  for(let v=0;v<MH;v++)for(let u=0;u<MW;u++){
+    let r=0,g=0,b=0;
+    for(const e of em){
+      const du=e[0]-(u+0.5), dv=e[1]-(v+0.5), d=Math.hypot(du,dv);
+      if(d>26) continue;
+      let vis=1; const K=9;                       // 遮挡步进
+      for(let k=1;k<=K;k++){ const f=k/(K+1);
+        const su=u+0.5+du*f, sv=v+0.5+dv*f;
+        const tx=Math.max(0,Math.min(MW-1,Math.floor(su))), ty=Math.max(0,Math.min(MH-1,Math.floor(sv)));
+        if((HEIGHT[at(tx,ty)]||0)>14){ vis=0; break; } }
+      const att=vis*e[5]/(1+d*d*0.09);
+      r+=e[2]*att; g+=e[3]*att; b+=e[4]*att;
+    }
+    const i=(v*MW+u)*4;
+    data[i]=Math.min(255, r*120); data[i+1]=Math.min(255, g*120); data[i+2]=Math.min(255, b*120); data[i+3]=255;
+  }
+  const tex=new THREE.DataTexture(data, MW, MH, THREE.RGBAFormat);
+  tex.needsUpdate=true; tex.minFilter=THREE.LinearFilter; tex.magFilter=THREE.LinearFilter;
+  tex.wrapS=tex.wrapT=THREE.ClampToEdgeWrapping;
+  return tex;
+}
+const GI_TEX = bakeGI();
+function injectGround(mat){
+  mat.onBeforeCompile=(sh)=>{
+    sh.uniforms.uGI={value:GI_TEX};
+    sh.uniforms.uRefl=GROUND_UNI.uRefl; sh.uniforms.uRes=GROUND_UNI.uRes; sh.uniforms.uReflAmt=GROUND_UNI.uReflAmt;
+    sh.uniforms.uEnv={ value: cubeRT.texture };
+    sh.vertexShader=sh.vertexShader
+      .replace('#include <common>','#include <common>\nvarying vec2 vWPx;')
+      .replace('#include <begin_vertex>','#include <begin_vertex>\nvWPx=(modelMatrix*vec4(transformed,1.0)).xz;');
+    sh.fragmentShader=sh.fragmentShader
+      .replace('#include <common>','#include <common>\nuniform sampler2D uGI,uRefl;uniform samplerCube uEnv;uniform vec2 uRes;uniform float uReflAmt;varying vec2 vWPx;')
+      .replace('#include <dithering_fragment>',[
+        '#include <dithering_fragment>',
+        // 烘焙 GI（世界坐标，移动不穿帮）
+        '  vec3 gi=texture2D(uGI, vWPx/vec2('+MW+'.0,'+MH+'.0)).rgb;',
+        '  gl_FragColor.rgb += gi*1.15;',
+        // ★ 湿地面真平面反射（水洼掩膜调制，避免整体塑料感）
+        // ★ 反射探针：按法线扰动取环境色 → 湿地面霓虹反射（正交下正确）
+        // 湿面反光：几乎平的法线（去掉波纹），只在积水处、很弱
+        '  vec3 nrm=vec3(0.02, 1.0, 0.02);',   // 极平法线，杜绝摩尔纹
+        '  vec3 env=textureCube(uEnv, reflect(vec3(-0.5,-0.72,-0.5), nrm)).rgb;',
+        '  float pud=smoothstep(0.55,0.85, 0.5+0.5*sin(vWPx.x*0.17)*cos(vWPx.y*0.13));',   // 大尺度、低频积水
+        '  gl_FragColor.rgb += env*pud*0.28;'
+      ].join('\n'));
+  };
+  mat.needsUpdate=true;
+}
+
+/* ---------------- 地面：真 3D 网格（世界空间 UV → 无缝） ---------------- */
+function injectCharGI(root){                 // ★ 让 3D 角色也吃烘焙 GI（被霓虹染色）
+  root.traverse(o=>{ if(o.isMesh && o.material){
+    o.material.onBeforeCompile=(sh)=>{
+      sh.uniforms.uGI={value:GI_TEX};
+      sh.uniforms.uTime={value:0}; sh.uniforms.uSway={value:0};
+      sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec2 vWPx;\nuniform float uTime; uniform float uSway;')
+        .replace('#include <begin_vertex>','#include <begin_vertex>\n{ float low=max(0.0,(0.95-transformed.y)); float k=low*low*0.16*(0.5+uSway); transformed.x += sin(uTime*2.6 + position.y*3.0 + position.x*2.0)*k; transformed.z += cos(uTime*2.1 + position.y*2.6)*k*0.7; float sy=clamp(transformed.y/1.86,0.0,1.0); float sc=0.88+0.26*sy; transformed.x*=sc; transformed.z*=sc; }\nvWPx=(modelMatrix*vec4(transformed,1.0)).xz;')
+      sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform sampler2D uGI;varying vec2 vWPx;')
+        .replace('#include <dithering_fragment>','#include <dithering_fragment>\n  vec3 gi=texture2D(uGI, vWPx/vec2('+MW+'.0,'+MH+'.0)).rgb;\n  gl_FragColor.rgb += gi*1.7;');
+      o.material.userData.sh=sh;
+    };
+    o.material.needsUpdate=true;
+  }});
+}
+const REPEAT = 6;                      // 1 张贴图 = 6 格（越大越清楚）
+function buildGround() {
+  const groups = {};                   // name -> {pos,uv,idx,base}
+  const waterCells = [];
+  for (let v = 0; v < MH; v++) for (let u = 0; u < MW; u++) {
+    const t = at(u, v);
+    let name;
+    if (t === T.WATER) { name = 'dirt'; waterCells.push([u, v]); }   // 水底铺泥，水面另画
+    else {
+      const gt = (TileWorld.GROUND_OF[t] !== undefined) ? TileWorld.GROUND_OF[t] : t;
+      name = TileWorld.TEX2TILE[gt] || 'grass';
+    }
+    name='city';   // ★ 全部地面 = 王炸雨夜沥青
+    let g = groups[name]; if (!g) g = groups[name] = { pos: [], uv: [], idx: [], base: 0 };
+    const R = REPEAT, x0 = u, z0 = v, x1 = u + 1, z1 = v + 1;
+    g.pos.push(x0, 0, z0, x1, 0, z0, x1, 0, z1, x0, 0, z1);
+    g.uv.push(u / R, v / R, (u + 1) / R, v / R, (u + 1) / R, (v + 1) / R, u / R, (v + 1) / R);
+    const b = g.base; g.idx.push(b, b + 1, b + 2, b, b + 2, b + 3); g.base += 4;
+  }
+  for (const name in groups) {
+    const g = groups[name];
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(g.pos, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(g.uv, 2));
+    geo.setIndex(g.idx);
+    geo.computeVertexNormals();
+    const mat = pbrMat(name); injectGround(mat); mat.side = THREE.DoubleSide;
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.receiveShadow = true;
+    scene.add(mesh); groundMeshes.push(mesh);
+  }
+  return waterCells;
+}
+const WATER_CELLS = buildGround();
+
+/* ---------------- 水面：独立半透明高光面 ---------------- */
+(function buildWater() {
+  if (!WATER_CELLS.length) return;
+  const pos = [], uv = [], idx = []; let base = 0;
+  for (const [u, v] of WATER_CELLS) {
+    pos.push(u, 0, v, u + 1, 0, v, u + 1, 0, v + 1, u, 0, v + 1);
+    uv.push(u, v, u + 1, v, u + 1, v + 1, u, v + 1);
+    idx.push(base, base + 1, base + 2, base, base + 2, base + 3); base += 4;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.setIndex(idx); geo.computeVertexNormals();
+  const mat = new THREE.MeshStandardMaterial({
+    map: loadTex('water', 'albedo'), normalMap: loadTex('water', 'normal'),
+    metalness: 0.55, roughness: 0.08, transparent: true, opacity: 0.9,
+    color: 0x9fd4ff, side: THREE.DoubleSide,
+  });
+  const m = new THREE.Mesh(geo, mat); m.position.y = 0.06; m.receiveShadow = true; scene.add(m); waterMesh = m;
+})();
+
+/* ---------------- 精灵表（tile -> 图片 / 显示高） ---------------- */
+const SPR_MAP = {
+  [T.TREE]: 'tree_green', [T.SAKURA]: 'tree_sakura', [T.BUSH]: 'bush', [T.LAMP]: 'lamp',
+  [T.FENCE]: 'fence', [T.CROP]: 'crop', [T.CRATE]: 'crate', [T.BARREL]: 'barrel',
+  [T.ALTAR]: 'altar', [T.FOUNTAIN]: 'fountain', [T.BED]: 'desk',
+  [T.STAIR_UP]: 'stairs_up', [T.STAIR_DN]: 'stairs_dn',
+};
+const SPR_H = { tree_green: 104, tree_sakura: 108, bush: 52, lamp2: 130, fence: 62, crop: 50,
+  crate: 54, barrel: 54, altar: 64, fountain: 72, desk: 54, stairs_up: 56, stairs_dn: 56 };
+
+const SPR_TEX = {};
+function sprTex(name) { if (!SPR_TEX[name]) { const t = L.load('assets/tiles/' + name + '.png'); if (THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding; SPR_TEX[name] = t; } return SPR_TEX[name]; }
+
+/* ---------------- 道具：2D 立绘公告板 + 真阴影投影面 ---------------- */
+const SHADOW_YAWS = -2.15;   // 投影面朝向（大致垂直于主光）
+function addBillboard(tex, x, z, hPx, faceCam, castShadow) {
+  const hU = hPx / UNIT_PX;
+  const img = tex.image;
+  const aspect = (img && img.width) ? img.width / img.height : 1;
+  const wU = hU * aspect;
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, alphaTest: 0.35, depthWrite: true });
+  const s = new THREE.Sprite(mat);
+  s.scale.set(wU, hU, 1); s.center.set(0.5, 0);          // 原点=脚底
+  s.position.set(x, 0, z);
+  scene.add(s);
+  if (castShadow) {
+    // 竖直投影面（朝向固定，与公告板解耦）→ 用 alpha 抠出轮廓投真影
+    const g2 = new THREE.PlaneGeometry(wU, hU);
+    const mm = new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.45, colorWrite: false, depthWrite: false });
+    const mp = new THREE.Mesh(g2, mm);
+    mp.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: 0.45 });
+    mp.castShadow = true;
+    mp.position.set(x, hU / 2, z);
+    mp.rotation.y = SHADOW_YAWS;
+    scene.add(mp);
+  }
+  return s;
+}
+
+/* ==========================================================
+   ★ 真 3D 模型：解码混元生成的网格 → InstancedMesh
+   ========================================================== */
+function decodeMesh(name){
+  const b64=(window.MESHES||{})[name]; if(!b64) return null;
+  const bin=atob(b64), n=bin.length, buf=new Uint8Array(n);
+  for(let i=0;i<n;i++) buf[i]=bin.charCodeAt(i);
+  const dv=new DataView(buf.buffer);
+  if(dv.getUint32(0,false)!==0x54334431){ console.warn('mesh magic bad',name); return null; }
+  const nv=dv.getUint32(4,true), nf=dv.getUint32(8,true);
+  let o=12;
+  const pos=new Float32Array(buf.buffer,o,nv*3); o+=nv*12;
+  const nrm=new Float32Array(buf.buffer,o,nv*3); o+=nv*12;
+  const uv =new Float32Array(buf.buffer,o,nv*2); o+=nv*8;
+  const idx=new Uint32Array(buf.buffer,o,nf*3);
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  g.setAttribute('normal',new THREE.BufferAttribute(nrm,3));
+  g.setAttribute('uv',new THREE.BufferAttribute(uv,2));
+  g.setIndex(new THREE.BufferAttribute(idx,1));
+  g.computeBoundingSphere();
+  return g;
+}
+function placeTrees(){
+  const layers=[ {t:T.TREE, name:'tree_green', h:4.6}, {t:T.SAKURA, name:'tree_sakura', h:4.8} ];
+  let total=0;
+  for(const ly of layers){
+    const geo=decodeMesh(ly.name); if(!geo){ console.warn('缺少网格',ly.name); continue; }
+    const t2=L.load('assets3d/'+ly.name+'_tex.jpg'); if(THREE.sRGBEncoding) t2.encoding=THREE.sRGBEncoding;
+    t2.anisotropy=4;
+    const mat=new THREE.MeshStandardMaterial({ map:t2, roughness:0.88, metalness:0.0 });
+    const cells=[];
+    for(let v=0;v<MH;v++)for(let u=0;u<MW;u++) if(at(u,v)===ly.t) cells.push([u+0.5,v+0.5]);
+    if(!cells.length) continue;
+    const inst=new THREE.InstancedMesh(geo, mat, cells.length);
+    inst.castShadow=true; inst.receiveShadow=true;
+    const m=new THREE.Matrix4(), q=new THREE.Quaternion(), sc=new THREE.Vector3(ly.h,ly.h,ly.h), pv=new THREE.Vector3();
+    cells.forEach((c,i)=>{ pv.set(c[0],0,c[1]); m.compose(pv,q,sc); inst.setMatrixAt(i,m); });
+    inst.instanceMatrix.needsUpdate=true;
+    scene.add(inst); total+=cells.length;
+  }
+  window.__realTrees=total; return total;
+}
+
+function buildProps() {
+  let n = 0;
+  for (let v = 0; v < MH; v++) for (let u = 0; u < MW; u++) {
+    const t = at(u, v);
+    if (t === T.WALL_S || t === T.WALL_W) continue;
+    if (t === T.TREE || t === T.SAKURA) continue;          // ★ 树改由真 3D 网格处理
+    if (!HEIGHT[t]) continue;
+    const name = SPR_MAP[t]; if (!name) continue;
+    addBillboard(sprTex(name), u + 0.5, v + 0.5, SPR_H[name] || 96, true, true);
+    n++;
+  }
+  return n;
+}
+
+/* ---------------- 建筑：真 3D 体块（投真阴影） ---------------- */
+function buildBuildings() {
+  const wall = pbrMat('marble'); wall.roughness = 0.7;
+  const roofM = pbrMat('wood'); roofM.roughness = 0.8;
+  for (const b of BUILDINGS) {
+    const cx = b.x + b.w / 2, cz = b.y + b.h / 2;
+    const hgt = 4.6;
+    const box = new THREE.Mesh(new THREE.BoxGeometry(b.w, hgt, b.h), wall);
+    box.position.set(cx, hgt / 2, cz);
+    box.castShadow = true; box.receiveShadow = true;
+    scene.add(box);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(b.w + 0.8, 0.5, b.h + 0.8), roofM);
+    roof.position.set(cx, hgt + 0.25, cz);
+    roof.castShadow = true; roof.receiveShadow = true;
+    scene.add(roof);
+    // ★ 真正的门：门框(石) + 内凹暗部 + 里面暖光（能"看到里面"）
+    const dx = b.door.x + 0.5, dz = b.y + b.h + 0.015, DH = 2.5, DW = 1.7;
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x6a6458, roughness: 0.85 });
+    // 内凹暗部（退后一点，制造纵深）
+    const inner = new THREE.Mesh(new THREE.PlaneGeometry(DW, DH), new THREE.MeshStandardMaterial({ color: 0x0d0a08, roughness: 1 }));
+    inner.position.set(dx, DH/2, dz - 0.12); scene.add(inner);
+    // 里面暖光（门厅灯）
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(DW*0.7, DH*0.5),
+      new THREE.MeshBasicMaterial({ color: 0xffbf6a, transparent:true, opacity:0.75, blending:THREE.AdditiveBlending, depthWrite:false }));
+    glow.position.set(dx, DH*0.42, dz - 0.10); scene.add(glow);
+    // 门框（左右立柱 + 上楣）
+    const post1 = new THREE.Mesh(new THREE.BoxGeometry(0.22, DH, 0.30), frameMat);
+    post1.position.set(dx - DW/2 - 0.11, DH/2, dz - 0.05); scene.add(post1);
+    const post2 = post1.clone(); post2.position.x = dx + DW/2 + 0.11; scene.add(post2);
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(DW + 0.44, 0.28, 0.34), frameMat);
+    lintel.position.set(dx, DH + 0.14, dz - 0.05); scene.add(lintel);
+  }
+  return BUILDINGS.length;
+}
+
+
+
+
+
+/* ---------------- 地面柔光池（灯/霓虹在湿地上的柔光，不立光柱）---------------- */
+(function buildLightPools(){
+  const c=document.createElement('canvas'); c.width=c.height=128; const g2=c.getContext('2d');
+  const gr=g2.createRadialGradient(64,64,0,64,64,64);
+  gr.addColorStop(0,'rgba(255,255,255,0.55)'); gr.addColorStop(0.35,'rgba(255,255,255,0.20)'); gr.addColorStop(1,'rgba(255,255,255,0)');
+  g2.fillStyle=gr; g2.fillRect(0,0,128,128);
+  const tex=new THREE.CanvasTexture(c);
+  function pool(x,z,color,r){
+    const m=new THREE.Mesh(new THREE.PlaneGeometry(r,r),
+      new THREE.MeshBasicMaterial({ map:tex, color:color, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false }));
+    m.rotation.x=-Math.PI/2; m.position.set(x,0.025,z); scene.add(m);
+  }
+  for(let v=0;v<MH;v++)for(let u=0;u<MW;u++){
+    if(at(u,v)===T.LAMP) pool(u+0.5,v+0.5,0xcc8a3a, 4.0);
+    else if(at(u,v)===T.FOUNTAIN) pool(u+0.5,v+0.5,0x4488bb, 3.0);
+  }
+  // 建筑霓虹在门前地面的光池
+  const NEO=[0xff3d8b,0x36e0ff,0xffb43d,0x7cff6a];
+  BUILDINGS.forEach((b,i)=>pool(b.x-1.2, b.y+b.h/2, NEO[i%4], 5.0));
+})();
+
+/* ---------------- 光照 ---------------- */
+const hemi = new THREE.HemisphereLight(0x3a4a86, 0x141a28, 1.05);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xaec4ff, 1.15);
+sun.position.set(-34, 46, 20);      // 斜射 → 影子偏移拉长（像真方向光）
+sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096);
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 400;
+const SH = 52;
+sun.shadow.camera.left = -SH; sun.shadow.camera.right = SH;
+sun.shadow.camera.top = SH; sun.shadow.camera.bottom = -SH;
+sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.03;
+sun.target.position.set(36, 0, 36);
+scene.add(sun); scene.add(sun.target);
+// 暖色补光（模拟天光暖侧）
+const fill = new THREE.DirectionalLight(0xff9a5a, 0.55);
+fill.position.set(30, 40, 30); scene.add(fill);
+
+/* ---------------- 角色（2D 立绘 + 8 方向） ---------------- */
+const DIRS = ['S', 'SE', 'E', 'NE', 'N', 'NW', 'W', 'SW'];
+const CH_ANG = { S: 0, SE: 45, E: 90, NE: 135, N: 180, NW: 225, W: 270, SW: 315 };
+const CH = {};
+DIRS.forEach(d => { const t = L.load('assets/ch/dir_' + d + '.png'); if (THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding; CH[d] = t; });
+function dirFromAngle(a) { a = ((a % 360) + 360) % 360; let best = 'S', bd = 999; for (const d of DIRS) { const k = Math.abs(((CH_ANG[d] - a + 540) % 360) - 180); if (k < bd) { bd = k; best = d; } } return best; }
+
+const hero = { x: 36.5, y: 21.5, dir: 'S', t: 0, speed: 5.2, vx: 0, vy: 0 };
+window.__hero = hero;
+/* ★ 角色改为「吃光的公告板」：采样烘焙 GI + 方向光 + 边缘光 → 与场景交互 */
+CH.S.anisotropy = 8; CH.S.minFilter = THREE.LinearMipmapLinearFilter;
+const heroUni = { uMap:{value:CH.S}, uGI:{value:GI_TEX}, uAmb:{value:0.45},
+  uSunDir:{value:new THREE.Vector3(-0.6,0.5,-0.4).normalize()}, uSunC:{value:new THREE.Color(0.72,0.80,1.0)} };
+const HERO_H = 118 / UNIT_PX, HERO_W = HERO_H * 0.56;   // ★ 加大
+const heroMat = new THREE.ShaderMaterial({
+  transparent:true, depthWrite:true, uniforms: heroUni,
+  vertexShader:`varying vec2 vUv; varying vec3 vWP; varying vec3 vN;
+    void main(){ vUv=uv; vec4 wp=modelMatrix*vec4(position,1.0); vWP=wp.xyz;
+      vN=normalize(mat3(modelMatrix)*vec3(0.0,0.0,1.0)); gl_Position=projectionMatrix*viewMatrix*wp; }`,
+  fragmentShader:`uniform sampler2D uMap,uGI; uniform float uAmb; uniform vec3 uSunDir,uSunC;
+    varying vec2 vUv; varying vec3 vWP; varying vec3 vN;
+    void main(){ vec4 t=texture2D(uMap,vUv); if(t.a<0.35) discard;
+      vec3 gi=texture2D(uGI, vWP.xz/vec2(${MW}.0,${MH}.0)).rgb;
+      float ndl=max(dot(vN,uSunDir),0.0);
+      vec3 lit=vec3(uAmb)+gi*2.4+uSunC*ndl*0.75;
+      float rim=pow(1.0-abs(dot(vN, vec3(0.0,0.0,1.0))),3.0);
+      gl_FragColor=vec4(t.rgb*lit + rim*gi*0.8, t.a); }`
+});
+const heroGeo = new THREE.PlaneGeometry(HERO_W, HERO_H); heroGeo.translate(0, HERO_H/2, 0);  // 原点=脚底
+const heroMesh = new THREE.Mesh(heroGeo, heroMat);
+heroMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), CAM_DIR);
+heroMesh.position.set(hero.x, 0, hero.y); scene.add(heroMesh);
+
+/* ==========================================================
+   ★ 真 3D 角色（混元：图生3D → 绑骨骼 → 动画；Y-up 直立）
+   ========================================================== */
+let charRoot=null, charReady=false, charPhase=0;
+const BONES={};
+const CHAR_YAW0 = 0;              // 模型朝向基准（0=面朝 -Z）
+const _UNUSED_MAP = {
+  'Pelvis':'Hips',
+  'L_Hip':'LeftUpLeg','L_Knee':'LeftLeg','L_Ankle':'LeftFoot','L_Foot':'LeftToeBase',
+  'R_Hip':'RightUpLeg','R_Knee':'RightLeg','R_Ankle':'RightFoot','R_Foot':'RightToeBase',
+  'Spine1':'Spine','Spine2':'Spine1','Spine3':'Spine2','Neck':'Neck','Head':'Head',
+  'L_Collar':'LeftShoulder','L_Shoulder':'LeftArm','L_Elbow':'LeftForeArm','L_Wrist':'LeftHand',
+  'R_Collar':'RightShoulder','R_Shoulder':'RightArm','R_Elbow':'RightForeArm','R_Wrist':'RightHand'
+};
+(function loadChar(){ if(!window.__USE_3D_CHAR) return;   // 2D 八方向模式下不加载 3D 角色
+  function b64buf(b64){ const bin=atob(b64); const n=bin.length,u=new Uint8Array(n); for(let i=0;i<n;i++)u[i]=bin.charCodeAt(i); return u.buffer; }
+  const loader=new THREE.GLTFLoader();
+  loader.parse(b64buf(window.RIGGED_B64||''), '', (g)=>{
+    charRoot=g.scene;
+    charRoot.scale.setScalar(1.62);                 // ★ 放大到与 2D 相称（≈3.0 世界单位）
+    charRoot.traverse(o=>{ if(o.isMesh){ o.frustumCulled=false; if(o.material){ o.material.metalness=Math.min(o.material.metalness||0,0.1); o.material.side=THREE.FrontSide; } } });
+    charRoot.rotation.order='YXZ'; charRoot.rotation.x=0.30;   // ★ 后仰 → 仰视感（脸朝相机）
+    charRoot.position.set(hero.x, 0, hero.y); scene.add(charRoot);
+    injectCharGI(charRoot); window.__charMats=[]; charRoot.traverse(o=>{ if(o.isMesh&&o.material) window.__charMats.push(o.material); });
+    // 收集骨骼（用「程序化动画」，不用对不上的 AI 动画）
+    charRoot.traverse(o=>{ if(o.isBone){ BONES[o.name]=o; if(!o.userData.rest){ o.userData.rest=o.rotation.clone(); o.userData.restY=o.position.y; } } });
+    charReady=true; if(heroMesh) heroMesh.visible=false;
+    say('✅ 真 3D 角色（'+Object.keys(BONES).length+' 骨骼，程序化动画）');
+  }, ()=>{ say('⚠ 3D 角色加载失败'); });
+})();
+
+/* ★ 接地影（软黑椭圆，锁在脚下 → 不飘） */
+const contactTex = (function(){ const c=document.createElement('canvas'); c.width=c.height=128; const g=c.getContext('2d');
+  const gr=g.createRadialGradient(64,64,0,64,64,64); gr.addColorStop(0,'rgba(255,255,255,1)'); gr.addColorStop(0.5,'rgba(255,255,255,0.5)'); gr.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=gr; g.fillRect(0,0,128,128); return new THREE.CanvasTexture(c); })();
+function addContact(x,z,r,op){ const m=new THREE.Mesh(new THREE.PlaneGeometry(r,r),
+  new THREE.MeshBasicMaterial({ map:contactTex, color:0x000000, transparent:true, opacity:op||0.5, depthWrite:false }));
+  m.rotation.x=-Math.PI/2; m.position.set(x, 0.03, z); scene.add(m); return m; }
+
+
+/* ---------------- 输入（键盘 + 虚拟摇杆） ---------------- */
+const keys = {};
+addEventListener('keydown', e => keys[e.key.toLowerCase()] = 1);
+addEventListener('keyup', e => keys[e.key.toLowerCase()] = 0);
+const jo = { x: 0, y: 0, on: false, id: null }, joEl = document.getElementById('joy');
+const IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+if (IS_TOUCH) joEl.style.display = 'block';
+function joyMove(t) {
+  const r = joEl.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  let dx = t.clientX - cx, dy = t.clientY - cy; const L2 = Math.hypot(dx, dy) || 1, m = Math.min(L2, 44);
+  dx = dx / L2 * m; dy = dy / L2 * m; jo.x = dx / 44; jo.y = dy / 44;
+  joEl.querySelector('.k').style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+}
+joEl.addEventListener('touchstart', e => { jo.on = true; jo.id = e.changedTouches[0].identifier; joyMove(e.changedTouches[0]); e.preventDefault(); }, { passive: false });
+joEl.addEventListener('touchmove', e => { if (!jo.on) return; const t = [...e.changedTouches].find(x => x.identifier === jo.id); if (t) { joyMove(t); e.preventDefault(); } }, { passive: false });
+joEl.addEventListener('touchend', () => { jo.on = false; jo.x = jo.y = 0; joEl.querySelector('.k').style.transform = ''; });
+
+const solid = (x, y) => TileWorld.isSolid(x, y);
+function tryMove(nx, ny) { if (!solid(nx, hero.y)) hero.x = nx; if (!solid(hero.x, ny)) hero.y = ny; }
+function say(t) { hudLog.innerHTML = t; }
+
+/* ---------------- 后处理：Bloom + TiltShift + Grade ---------------- */
+const fxOn = { v: true };
+let rtScene, rtBright, rtBlur, mBright, mBlurX, mBlurY, mComp, quad, quadScene, quadCam;
+function initFX() {
+  const opt = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
+  rtScene = new THREE.WebGLRenderTarget(1, 1, opt);
+  rtBright = new THREE.WebGLRenderTarget(1, 1, opt);
+  rtBlur = new THREE.WebGLRenderTarget(1, 1, opt);
+  quadScene = new THREE.Scene();
+  quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), null); quadScene.add(quad);
+  const VS = 'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}';
+  const BRIGHT = 'uniform sampler2D tDiffuse;uniform float uThr;varying vec2 vUv;void main(){vec3 c=texture2D(tDiffuse,vUv).rgb;float l=dot(c,vec3(0.299,0.587,0.114));float k=max(0.0,l-uThr)/max(0.001,1.0-uThr);gl_FragColor=vec4(c*k,1.0);}';
+  const BLUR = 'uniform sampler2D tDiffuse;uniform vec2 uDir;varying vec2 vUv;void main(){vec3 s=vec3(0.0);float w[5];w[0]=0.227;w[1]=0.194;w[2]=0.121;w[3]=0.054;w[4]=0.016;s+=texture2D(tDiffuse,vUv).rgb*w[0];for(int i=1;i<5;i++){s+=texture2D(tDiffuse,vUv+uDir*float(i)).rgb*w[i];s+=texture2D(tDiffuse,vUv-uDir*float(i)).rgb*w[i];}gl_FragColor=vec4(s,1.0);}';
+  const COMP = 'uniform sampler2D tScene,tBloom;uniform vec2 uTexel;uniform float uHaze;varying vec2 vUv;void main(){float d=abs(vUv.y-0.52);float r=clamp((d-0.20)/0.26,0.0,1.0);r=r*r*6.0;vec3 col=vec3(0.0);float tot=0.0;for(int i=-3;i<=3;i++){for(int j=-3;j<=3;j++){vec2 o=vec2(float(i),float(j))*uTexel*r;float w=1.0/(1.0+float(i*i+j*j));col+=texture2D(tScene,vUv+o).rgb*w;tot+=w;}}col/=tot;vec3 bl=texture2D(tBloom,vUv).rgb;col+=bl*0.5;float l=dot(col,vec3(0.299,0.587,0.114));col=mix(col*vec3(0.92,0.95,1.12),col*vec3(1.10,1.03,0.92),smoothstep(0.12,0.85,l));col=mix(vec3(l),col,1.38);col=mix(vec3(0.5),col,0.90);float hz=smoothstep(0.35,1.0, length((vUv-0.5)*vec2(1.15,1.0))*1.45);vec3 glow=vec3(0.34,0.30,0.44)+vec3(0.10,0.07,0.04);col+=glow*hz*uHaze*0.42;col=mix(col,col*1.06+vec3(0.04,0.035,0.05),uHaze*hz*0.5);gl_FragColor=vec4(clamp(col,0.0,1.0),1.0);}';
+  const mk = (fs, u) => new THREE.ShaderMaterial({ uniforms: u, vertexShader: VS, fragmentShader: fs, depthTest: false, depthWrite: false });
+  mBright = mk(BRIGHT, { tDiffuse: { value: null }, uThr: { value: 0.70 } });
+  mBlurX = mk(BLUR, { tDiffuse: { value: null }, uDir: { value: new THREE.Vector2() } });
+  mBlurY = mk(BLUR, { tDiffuse: { value: null }, uDir: { value: new THREE.Vector2() } });
+  mComp = mk(COMP, { tScene: { value: null }, tBloom: { value: null }, uTexel: { value: new THREE.Vector2() }, uHaze: { value: 0 } });
+}
+function onResizeFx() {
+  const dpr = renderer.getPixelRatio();
+  rtScene.setSize(W * dpr, H * dpr);
+  const bw = Math.max(2, (W * dpr * 0.25) | 0), bh = Math.max(2, (H * dpr * 0.25) | 0);
+  rtBright.setSize(bw, bh); rtBlur.setSize(bw, bh);
+  mBlurX.uniforms.uDir.value.set(1.6 / bw, 0);
+  mBlurY.uniforms.uDir.value.set(0, 1.6 / bh);
+  mComp.uniforms.uTexel.value.set(1 / (W * dpr), 1 / (H * dpr));
+}
+initFX();
+function blit(mat) { quad.material = mat; renderer.render(quadScene, quadCam); }
+
+/* ---------------- 构建场景 ---------------- */
+const nRealTrees = placeTrees();
+const nProps = buildProps();
+const nBld = buildBuildings();
+if (IS_TOUCH) document.getElementById('tipTxt').textContent = '左下摇杆移动 · 真 3D 地面 + 真阴影';
+say('🌍 3D 世界：真 3D 树 ' + nRealTrees + ' · 道具 ' + nProps + ' · 建筑 ' + nBld);

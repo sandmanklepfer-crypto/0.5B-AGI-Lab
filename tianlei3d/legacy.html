@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>天泪纪元 · 旧版渲染备份</title>
+<style>
+body{margin:0;padding:28px 20px;background:#0d1017;color:#c9d4e5;
+     font:15px/1.75 -apple-system,"Noto Sans SC",sans-serif;max-width:640px}
+h1{font-size:20px;color:#7fd4ff;margin:0 0 6px}
+.sub{color:#66758c;font-size:13px;margin-bottom:22px}
+.box{background:#151a24;border:1px solid #232c3a;border-radius:10px;padding:16px 18px;margin:14px 0}
+.box b{color:#ffd479}
+a.btn{display:block;text-align:center;background:#1b6fd4;color:#fff;text-decoration:none;
+      padding:13px;border-radius:8px;margin:20px 0;font-weight:600}
+a.btn.alt{background:#2a3546;color:#a8b8cc}
+code{background:#0a0d13;padding:2px 6px;border-radius:4px;color:#8ee}
+ul{padding-left:20px;margin:8px 0}li{margin:5px 0}
+</style></head><body>
+<h1>天泪纪元 · 旧版渲染备份</h1>
+<div class="sub">保留此页仅为回退用，正常不加载</div>
+
+<div class="box">
+<b>这里是什么</b><br>
+网页版「画质发灰黑」时期的那一套渲染管线完整快照
+（index.html 130KB + arena3d.js 66KB + shooter.js 250KB + hearth/wildlands/sky 增量模块）。
+</div>
+
+<a class="btn" href="_legacy/index.html">▶ 打开旧版（回退验证）</a>
+<a class="btn alt" href="index.html">← 返回当前版本（APK 渲染）</a>
+
+<div class="box">
+<b>为什么要留</b>
+<ul>
+  <li>当前版本已强制覆盖为 APK 的渲染管线</li>
+  <li>若新管线出问题，可直接从这里取回旧的 index.html / js</li>
+  <li>旧版依赖的 hearth.js、wildlands.js、sky.js 也一并存在 <code>_legacy/js/</code></li>
+</ul>
+</div>
+
+<div class="box">
+<b>覆盖明细</b><br>
+<code>index.html</code> 130,700 → 115,017 字节（APK 原版）<br>
+<code>js/arena3d.js</code> 66,671 → 44,334 字节（APK 原版）<br>
+<code>js/shooter.js</code> 250,981 → 226,972 字节（APK 原版）
+</div>
+</body></html>

@@ -1,0 +1,90 @@
+{
+  "id": "/0.5B-AGI-Lab/tianlei3d/",
+  "name": "天泪纪元",
+  "short_name": "天泪",
+  "description": "雨夜之城 · 与人共建 —— 免注册、点链接就进的多人沙盒",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "landscape",
+  "background_color": "#06050d",
+  "theme_color": "#06050d",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "categories": [
+    "games",
+    "entertainment"
+  ],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "pwa-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "pwa-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "pwa-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "pwa-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "site/img/s3d_wide.jpg",
+      "sizes": "1279x799",
+      "type": "image/jpeg",
+      "form_factor": "wide",
+      "label": "雨夜都市 · 3D 开放视角"
+    },
+    {
+      "src": "site/img/shot1.jpg",
+      "sizes": "1280x1137",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "多人同屏 · 建筑全服共享"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "立即游玩",
+      "short_name": "开玩",
+      "url": "./index.html?auto=1",
+      "icons": [
+        {
+          "src": "pwa-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "玩家社区",
+      "short_name": "社区",
+      "url": "./site/forum.html",
+      "icons": [
+        {
+          "src": "pwa-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

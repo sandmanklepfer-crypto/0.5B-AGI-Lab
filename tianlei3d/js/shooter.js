@@ -29,19 +29,7 @@ var lerp = function (a, b, t) { return a + (b - a) * t; };
 var rnd = function (a, b) { return a + Math.random() * (b - a); };
 var norm360 = function (a) { a %= 360; return a < 0 ? a + 360 : a; };
 var _dummy = { style: {}, classList: { add: function () {}, remove: function () {}, toggle: function () {} }, textContent: '', innerHTML: '', appendChild: function () {}, removeChild: function () {}, querySelector: function () { return _dummy; }, addEventListener: function () {}, children: [], value: '', display: '', getBoundingClientRect: function () { return { left: 0, top: 0, width: 0, height: 0, right: 0, bottom: 0 }; } };
-/* ★ 带缓存的 $：全文 187 次调用，缓存后省掉重复的 getElementById。
-   注意：只缓存"存在"的结果；第一次查不到时仍走 _dummy 且不缓存，
-   避免元素晚于脚本创建时永久拿到 dummy。
-   DOM 被整体替换（如重建 HUD）时调用 $.clear() 清缓存。 */
-var _elCache = Object.create(null);
-var $ = function (id) {
-  var e = _elCache[id];
-  if (e) return e;
-  e = document.getElementById(id);
-  if (e) { _elCache[id] = e; return e; }
-  return _dummy;
-};
-$.clear = function () { _elCache = Object.create(null); };
+var $ = function (id) { return document.getElementById(id) || _dummy; };
 /* ★ 空安全 DOM 操作（元素缺失只跳过，绝不因 null.addEventListener 崩掉整脚本） */
 var _on = function (id, ev, fn) { var e = $(id); if (e) e.addEventListener(ev, fn); };
 var _txt = function (id, t) { var e = $(id); if (e) e.textContent = t; };
@@ -54,7 +42,6 @@ var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, f
 var SANDBOX = true;
 var VERSION = '1.4.0';                                   // ★ 语义化版本（与 APK versionName 同步）
 var BUILD = VERSION + ' · ' + Date.now().toString(36).slice(-5);   // 版本 + 构建号（界面可见）
-try { window.__BUILD = BUILD; } catch (e) {}                          // ★ 方便在控制台/排查时确认版本
 
 /* ============================== 音效（纯合成） ============================== */
 var Sfx = {
@@ -864,22 +851,7 @@ var Net = {
 
   sendState: function (p, extra) {
     if (!this.connected) return;
-
-    /* ★ 静止时不发包：位置/朝向/血量都没变，就没必要发。
-       远处的人本来就在插值，少几包看不出；站着不动的人流量归零。
-       只要有任何一个"会变"的量动了，就照常发。 */
-    try {
-      var sig = [Math.round(p.x * 10), Math.round(p.z * 10), Math.round(p.y * 10),
-                 Math.round(p.yaw * 10), Math.round(p.hp), p.weapon,
-                 p.alive ? 1 : 0, p.score, p.kills, p.deaths].join(',');
-      var now0 = performance.now();
-      if (sig === this._lastSig && !extra && (now0 - (this._lastSigAt || 0)) < 3000) return;
-      this._lastSig = sig; this._lastSigAt = now0;
-    } catch (e) {}
-    /* ★ 从 120ms 改 250ms：这个链路的真实延迟是 4~5 秒，
-       8Hz 的频率完全是浪费（每秒 8 包 × 200B = 1.6KB/s）。
-       降到 4Hz 后流量减半，而观感没有任何区别（延迟本来就几百毫秒起步）。 */
-    var now = performance.now(); if (now - this._st < 250) return; this._st = now;
+    var now = performance.now(); if (now - this._st < 120) return; this._st = now;
     var o = { id: this.id, name: this.name, x: +p.x.toFixed(2), z: +p.z.toFixed(2), y: +p.y.toFixed(2),
       yaw: +p.yaw.toFixed(1), hp: Math.round(p.hp), mx: Math.round(p.maxHp), wp: p.weapon,
       sc: p.score, kl: p.kills, dt: p.deaths, al: p.alive ? 1 : 0, tm: p.team, at: Date.now() };
@@ -1216,15 +1188,12 @@ var P = {
 };
 function resetAmmo() { P.ammo = {}; P.reserve = {}; WEAPONS.forEach(function (w) { P.ammo[w.id] = w.mag; P.reserve[w.id] = w.reserve; }); }
 
-var Cam = { yaw: 0, pitch: -0.30, dist: 4.9, adsDist: 2.6, mode: 'center', autoAim: false, shake: V3(0, 0, 0),
-  fp: false, fpEye: 1.62, _bob: 0 };        // ★ 第一人称：相机直接贴在眼睛上（点 1P 按钮切换）
-function pitchLim() { return Cam.fp ? [-1.30, 1.30] : [-1.15, 0.75]; }   // ★ 第一人称允许抬头看天
-function clampPitch(v) { var l = pitchLim(); return clamp(v, l[0], l[1]); }
+var Cam = { yaw: 0, pitch: -0.30, dist: 4.9, adsDist: 2.6, mode: 'center', autoAim: false, shake: V3(0, 0, 0) };
 var Recoil = { p: 0, y: 0 };   // ★ 后坐力偏移（独立于玩家俯仰 → 瞄准辅助无法抵消它）
 function camDir(out) {
   out = out || V3(0, 0, 0);
   if (A.getCamMode() === 'hd2d') { out.copy(A.CAM_DIR).negate(); return out.normalize(); }   // HD-2D：固定 45°
-  var yaw = Cam.yaw + Recoil.y, pitch = clamp(Cam.pitch + Recoil.p, -1.34, Cam.fp ? 1.34 : 1.0);
+  var yaw = Cam.yaw + Recoil.y, pitch = clamp(Cam.pitch + Recoil.p, -1.32, 1.0);
   var cp = Math.cos(pitch);
   out.set(Math.sin(yaw) * cp, Math.sin(pitch), Math.cos(yaw) * cp);
   return out.normalize();
@@ -1235,24 +1204,6 @@ function updateCamera(dt) {
     var oc = A.orthoCam, D = A.CAM_DIR;
     oc.position.set(P.x + D.x * 220, P.y + D.y * 220 + 1.0, P.z + D.z * 220);
     oc.lookAt(P.x, P.y + 1.0, P.z);
-    return;
-  }
-  /* ★★★ 第一人称：相机 = 眼睛（点 1P 切换）。第三人称那条路径一行不动 ★★★ */
-  if (Cam.fp) {
-    Cam._bob += dt;
-    var eyeY = P.y + (P.crouch ? 1.04 : Cam.fpEye);
-    if (P.alive) eyeY += P.moving ? Math.abs(Math.sin(Cam._bob * 9)) * 0.035 : Math.sin(Cam._bob * 2.2) * 0.012;   // 走路微晃
-    camDir(_cd);                                           // 含后坐力 → 枪口上抬时画面真的会抬
-    var shf = ScreenShake.amt;
-    var fx0 = P.x + rnd(-shf, shf) * 0.06, fy0 = eyeY + rnd(-shf, shf) * 0.06, fz0 = P.z + rnd(-shf, shf) * 0.06;
-    // ★ 头别埋进墙里：眼睛朝后 0.5m 就撞墙（贴着墙站）时把相机往身体里收一点
-    var hb = G.ray(fx0, fy0, fz0, -_cd.x, -_cd.y, -_cd.z, 0.5);
-    if (hb.dist < 0.32) { var kb = 0.32 - hb.dist; fx0 -= _cd.x * kb; fy0 -= _cd.y * kb; fz0 -= _cd.z * kb; }
-    cam().position.set(fx0, fy0, fz0);
-    _cp.set(fx0 + _cd.x, fy0 + _cd.y, fz0 + _cd.z);
-    cam().lookAt(_cp);
-    var fovF = P.ads ? 55 : 78;                            // 第一人称视野略大一点（默认比过肩宽）
-    cam().fov += (fovF - cam().fov) * Math.min(1, dt * 10); cam().updateProjectionMatrix();
     return;
   }
   // ★ 附近有巨物 Boss → 相机自动拉远，保证「巨物 + 渺小玩家」同框（透视压迫感）
@@ -1298,7 +1249,6 @@ function facingDir(x, z, yaw, camPos) {
 }
 function updateHero(dt, t, camYawAz) {
   if (!heroMesh) return;
-  heroMesh.visible = !Cam.fp;                 // ★ 第一人称：把自己藏掉（影子留着，低头有影子才不假）
   heroMesh.position.set(P.x, P.y, P.z);
   heroMesh.rotation.y = billboardYaw(P.x, P.z);
   var d = facingDir(P.x, P.z, P.yaw, cam().position);
@@ -1805,7 +1755,7 @@ var Combat = {
       if (P.ammo[w.id] === 0) { P.reloading = w.reload; Sfx.reload(); }
       HUD.ammo(); return;
     }
-    var eye = V3(P.x, P.y + (Cam.fp ? (P.crouch ? 1.04 : Cam.fpEye) : (P.crouch ? 1.15 : 1.5)), P.z);
+    var eye = V3(P.x, P.y + (P.crouch ? 1.15 : 1.5), P.z);
     var dir;
     if (A.getCamMode() === 'hd2d') {
       // ★ HD-2D：从「屏幕准星」发射正交射线，穿过 3D 空间 → 高度自动命中（不用控俯仰）
@@ -1827,9 +1777,7 @@ var Combat = {
       });
       if (_best) dir.lerp(_best.v, 0.18).normalize();   // 只轻修弹道，绝不改相机
     }
-    // ★ 第一人称：枪口就是从眼睛往前一点（弹道/枪口焰都在视线正前方，不偏不低）
-    var muzzle = Cam.fp ? eye.clone().addScaledVector(dir, 0.45)
-      : V3(P.x, P.y + (P.crouch ? 1.05 : 1.4), P.z).addScaledVector(dir, 0.75);
+    var muzzle = V3(P.x, P.y + (P.crouch ? 1.05 : 1.4), P.z).addScaledVector(dir, 0.75);
     var spread = w.spread + w.moveSpread * (P.moving ? 1 : 0) + (P.onGround ? 0 : 0.02);
     if (P.ads) spread *= 0.5;
     var right = V3(Math.cos(Cam.yaw), 0, -Math.sin(Cam.yaw));
@@ -1861,33 +1809,19 @@ var Combat = {
     Recoil.p += w.recoil * 0.0062;                       // ★ 后坐力：枪口上抬（打巨物时视觉上相对小）
     Recoil.y += rnd(-1, 1) * w.recoil * 0.0026;
     Recoil.p = Math.min(Recoil.p, 0.42); Recoil.y = clamp(Recoil.y, -0.26, 0.26);
-    Cam.pitch = clampPitch(Cam.pitch);
+    Cam.pitch = clamp(Cam.pitch, -1.15, 0.75);
     ScreenShake.add(w.recoil * 0.1); Sfx.gun(w.sfx, 0);
     if (P.ammo[w.id] === 0) { P.reloading = w.reload; Sfx.reload(); }
     HUD.ammo();
   },
   reload: function () { var w = WMAP[P.weapon]; if (P.reloading > 0 || P.ammo[w.id] >= w.mag || P.reserve[w.id] <= 0 || !P.alive) return; P.reloading = w.reload; Sfx.reload(); HUD.ammo(); },
   finishReload: function () { var w = WMAP[P.weapon], need = w.mag - P.ammo[w.id], got = Math.min(need, P.reserve[w.id]); P.ammo[w.id] += got; P.reserve[w.id] -= got; HUD.ammo(); },
-  canUse: function (w) {
-    if (!w || !w.req) return true;
-    if (Ref.count() >= w.req) return true;                       // 邀请人数达标
-    // ★ 两条路都能拿：① 直接邀请够人数 ② 积分攒到 100（官网/论坛/游玩都在攒）
-    try { if (window.TLReward && TLReward.pts() >= 100) return true; } catch (e) {}
-    // ★ 新邀请系统也计数（旧版 ref/ + 新版 inv/ 都算，避免老玩家的邀请白拉）
-    try { if (window.TLReward && TLReward.invite && TLReward.invite.count() >= w.req) return true; } catch (e) {}
-    return false;
-  },
+  canUse: function (w) { return !w || !w.req || Ref.count() >= w.req; },
   switchTo: function (i) {
     var w = WEAPONS[i];
     if (!w || w.id === P.weapon) return;
     if (!this.canUse(w)) {                                    // ★ 未解锁 → 提示怎么拿
-      var pts = 0, inv = 0;
-      try { pts = (window.TLReward ? TLReward.pts() : 0); } catch (e) {}
-      try { inv = (window.TLReward && TLReward.invite) ? TLReward.invite.count() : 0; } catch (e) {}
-      var n = Math.max(Ref.count(), inv);
-      HUD.center('🔒 ' + w.name,
-        '两条路任选：邀请 ' + w.req + ' 位好友（' + n + '/' + w.req + '）　或　积分攒满 100（当前 ' + pts + '/100）',
-        3000);
+      HUD.center('🔒 ' + w.name, '邀请 ' + w.req + ' 位好友即可解锁（当前 ' + Ref.count() + '/' + w.req + '）', 2400);
       Sfx.deny(); return;
     }
     P.weapon = w.id; P.reloading = 0; P.fireCd = Math.max(P.fireCd, 0.25); P.ads = false; HUD.weapon(); Sfx.tick(600, 0.04, 0.1);
@@ -2117,7 +2051,6 @@ function bindInput() {
     if (k >= '1' && k <= '8') Combat.switchTo(parseInt(k, 10) - 1);
     if (k === 'q') Combat.next();
     if (k === 'v') cycleCam();
-    if (k === 'f') toggleFP();          // ★ F = 第一人称
     if (k === 'x') toggleAim();
     if (k === 'y') toggleAssist();
     if (k === 'c') cycleView();
@@ -2133,8 +2066,8 @@ function bindInput() {
   document.addEventListener('pointerlockchange', function () { locked = (document.pointerLockElement === cvEl); });
   var dragging = false;
   document.addEventListener('mousemove', function (e) {
-    if (locked) { Cam.yaw -= e.movementX * 0.0022; Cam.pitch -= e.movementY * 0.0022; Cam.pitch = clampPitch(Cam.pitch); return; }
-    if (dragging) { Cam.yaw -= e.movementX * 0.004; Cam.pitch -= e.movementY * 0.004; Cam.pitch = clampPitch(Cam.pitch); Input.lookDrag = performance.now(); }
+    if (locked) { Cam.yaw -= e.movementX * 0.0022; Cam.pitch -= e.movementY * 0.0022; Cam.pitch = clamp(Cam.pitch, -1.15, 0.75); return; }
+    if (dragging) { Cam.yaw -= e.movementX * 0.004; Cam.pitch -= e.movementY * 0.004; Cam.pitch = clamp(Cam.pitch, -1.15, 0.75); Input.lookDrag = performance.now(); }
   });
   cvEl.addEventListener('mousedown', function (e) { if (e.button === 0) dragging = true; });
   window.addEventListener('mouseup', function () { dragging = false; });
@@ -2206,7 +2139,7 @@ function bindPointer() {
     else if (e.pointerId === lookId && lookLast) {
       var dx = e.clientX - lookLast.x, dy = e.clientY - lookLast.y;
       if (A.look) { A.look(dx * 0.005, dy * 0.005); }               // ★ 单指拖 = 转视角（HD-2D 也能转）
-      else { Cam.yaw -= dx * 0.005; Cam.pitch -= dy * 0.005; Cam.pitch = clampPitch(Cam.pitch); }
+      else { Cam.yaw -= dx * 0.005; Cam.pitch -= dy * 0.005; Cam.pitch = clamp(Cam.pitch, -1.15, 0.75); }
       Input.lookDrag = performance.now();
       lookLast = { x: e.clientX, y: e.clientY }; e.preventDefault();
     }
@@ -2251,7 +2184,7 @@ function bindLook() {
         Input.aimX = clamp((Input.aimX || 0) + dx / 300, -1, 1);     // ★ HD-2D：拖动移动屏幕准星
         Input.aimY = clamp((Input.aimY || 0) - dy / 300, -1, 1);
       } else {
-        Cam.yaw -= dx * 0.005; Cam.pitch -= dy * 0.005; Cam.pitch = clampPitch(Cam.pitch);
+        Cam.yaw -= dx * 0.005; Cam.pitch -= dy * 0.005; Cam.pitch = clamp(Cam.pitch, -1.15, 0.75);
       }
       Input.lookDrag = performance.now();
       mvd += Math.abs(dx) + Math.abs(dy);
@@ -2359,7 +2292,7 @@ function aimAssist() {
     var yawT = Math.atan2(target.x, target.z), pitchT = Math.asin(target.y);
     Cam.yaw += (yawT - Cam.yaw) * 0.25;
     Cam.pitch += (pitchT - Cam.pitch) * 0.25;
-    Cam.pitch = clampPitch(Cam.pitch);
+    Cam.pitch = clamp(Cam.pitch, -1.15, 0.75);
   }
 }
 
@@ -2515,45 +2448,6 @@ var HUD = {
 
 /* ============================== HD-2D 后期：泛光 + 移轴景深 + 调色 ============================== */
 var FXp = { on: true, fog: false };   // ★ 后处理管线保留（默认开）
-
-/* ★★ 帧耗时分解 + 自诊断 ★★
-   为什么需要：用户报"1 fps"，但看不出是渲染慢、逻辑慢、还是网络/GC。
-   这里把每帧拆成三段计时（逻辑 / 渲染 / 后处理），
-   并在控制台提供 Fps.where() 直接告诉你瓶颈在哪。 */
-var FpsDiag = {
-  logicMs: 0, renderMs: 0, postMs: 0, totalMs: 0,
-  _t: 0, _acc: { l: 0, r: 0, p: 0, n: 0 },
-  begin: function () { this._t = performance.now(); },
-  markLogic: function () { this.logicMs = performance.now() - this._t; this._t = performance.now(); },
-  markRender: function () { this.renderMs = performance.now() - this._t; this._t = performance.now(); },
-  markPost: function () {
-    this.postMs = performance.now() - this._t;
-    var a = this._acc;
-    a.l += this.logicMs; a.r += this.renderMs; a.p += this.postMs; a.n++;
-  },
-  where: function () {
-    var a = this._acc;
-    if (!a.n) return '还没有采样（先玩几秒）';
-    var l = a.l / a.n, r = a.r / a.n, p = a.p / a.n;
-    var tot = l + r + p;
-    var msg = '每帧平均 ' + tot.toFixed(1) + ' ms  (≈' + (1000 / Math.max(0.1, tot)).toFixed(0) + ' fps)\n' +
-      '  逻辑 ' + l.toFixed(1) + ' ms\n' +
-      '  渲染 ' + r.toFixed(1) + ' ms  ← WebGL draw\n' +
-      '  后处理 ' + p.toFixed(1) + ' ms  ← Bloom\n';
-    var worst = l > r && l > p ? '逻辑' : (r > p ? '渲染' : '后处理');
-    msg += '瓶颈: ' + worst;
-    try {
-      msg += '\n像素比 ' + (window.Perf ? Perf.name() : '?') +
-        ' / pr ' + (A && A.renderer ? A.renderer.getPixelRatio().toFixed(2) : '?') +
-        '\n天空 ' + (window.Sky && Sky.enabled ? '开' : '关') +
-        ' / 后处理 ' + (FXp.on ? '开' : '关') +
-        ' / 探照灯 ' + (A && A.LEAN ? (A.LEAN.spotLights ? '开' : '关') : '?');
-    } catch (e) {}
-    return msg;
-  },
-  reset: function () { this._acc = { l: 0, r: 0, p: 0, n: 0 }; }
-};
-window.FpsDiag = FpsDiag;
 function initFXpass() {
   var opt = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
   FXp.rtScene = new THREE.WebGLRenderTarget(1, 1, opt);
@@ -2634,7 +2528,7 @@ function buildMmBase() {
 /* ============================== 主循环 ============================== */
 /* ============================== ★ 性能调速器（保 60 帧：低了自动降画质，够了自动恢复） ============================== */
 var Perf = {
-  fps: 60, lo: 0, hi: 0, level: 1,   // ★ 从中间档起步：既不糊，也不会一进来就 3A
+  fps: 60, lo: 0, hi: 0, level: 2,   // 自适应: 0低 1中 2高(原版三档) ; 手动: 0标清..4顶级3A
   cap60: true, _skip: 0, _acc: 0,
   // 自适应=原版三档(0.55/0.75/1.0)；手动=5 档像素比
   PR: null, MANUAL: 0,                        // MANUAL>0 时手动锁定档位，不再自动调
@@ -2646,138 +2540,43 @@ var Perf = {
       var pr = this.PR[this.level];
       try { A.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pr)); A.resize(); } catch (e) {}
       MobRender.range = (U ? [28, 34, 46, 58, 72] : [22, 34, 46, 58, 72])[this.level];
-      /* ★ 探照灯：中档以上才开真实 SpotLight（很贵，但这是雨夜氛围的核心）
-         关着的时候只剩一个 2.6% 不透明度的锥体壳，看着就是"死灰" */
-      try {
-        A.setLean && A.setLean({
-          rain: [180, 320, 450, 520, 600][this.level],
-          reflect: this.level >= 2,          // ★ 持续更新湿地反光 ≥2 档（首帧必烘由 arena3d 保证）
-          spotLights: this.level >= 1,       // ★ 关键：≥1 档就开
-          pointLights: false
-        });
-      } catch (e) {}
-      if (FXp) FXp.on = true;   // ★ 手动档也强制开 Bloom
+      try { A.setLean && A.setLean({ rain: [180, 320, 450, 520, 600][this.level], reflect: false, spotLights: false, pointLights: false }); } catch (e) {}
+      if (FXp) FXp.on = true;
       try { if (A.scene && A.scene.fog) A.scene.fog.density = [0.016, 0.013, 0.010, 0.0082, 0.0068][this.level]; } catch (e) {}
     } else {
       /* ★★ 自适应 = 原版限流器，一模一样（0.55/0.75/1.0，三档，会掉到模糊） */
-      /* ★ 自适应 5 档（原来只有 3 档，且最低档 0.55 糊得厉害）
-         0: 0.75 省电（老机型）
-         1: 1.00 清晰（默认起步）
-         2: 1.25 很清晰
-         3: 1.50 高画质
-         4: 2.00 拉满（旗舰机） */
-      var lv = Math.min(this.level, 4);
-      var PRS = U ? [0.9, 1.25, 1.6, 2.0, 2.6] : [0.75, 1.0, 1.25, 1.5, 2.0];
-      try { A.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, PRS[lv])); A.resize(); } catch (e) {}
-      MobRender.range = [24, 34, 46, 58, 72][lv];
-      try {
-        A.setLean && A.setLean({
-          rain: [200, 320, 450, 520, 600][lv],
-          reflect: lv >= 3,                  // ★ 持续更新湿地反光只在高档（首帧必烘已由 arena3d 保证）
-          spotLights: lv >= 1,               // ★ ≥1 档就开真实探照灯
-          pointLights: false
-        });
-      } catch (e) {}
-      /* ★★★ 关键修正 ★★★
-         Bloom 后处理就是这个游戏的"体积光/霓虹辉光" ——
-         关掉它整片画面立刻变成死灰色（我之前为省性能设成 lv>=2 才开，是错的）。
-         改成：**始终开**。性能不够时用更便宜的方式省（降 rain / 缩短视野 / 降像素比），
-         而不是砍掉氛围光。 */
-      if (FXp) FXp.on = true;
-      try { if (A.scene && A.scene.fog) A.scene.fog.density = [0.014, 0.012, 0.010, 0.0086, 0.0072][lv]; } catch (e) {}
-      /* 阴影：中档以上自动打开（原来永远关着，画面很平） */
-      this.shadow(lv >= 2);
+      var lv = Math.min(this.level, 2);
+      try { A.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, [0.55, 0.75, 1.0][lv] * (A.LEAN ? A.LEAN.pixel : 1))); A.resize(); } catch (e) {}
+      MobRender.range = [22, 34, 46][lv];
+      try { A.setLean && A.setLean({ rain: [180, 320, 450][lv], reflect: false, spotLights: false, pointLights: false }); } catch (e) {}
+      if (FXp) FXp.on = lv >= 1;
+      try { if (A.scene && A.scene.fog) A.scene.fog.density = [0.014, 0.010, 0.0082][lv]; } catch (e) {}
     }
     window.__perfLevel = this.level;
-
-    // ★ 阴影也跟档位：最低档直接关（手机上最吃性能的就是这个），中档以上才开
-    this.shadow(this.MANUAL ? this.level : Math.min(this.level, 2));
-
-    /* ★ 天空：每像素 shader，弱 GPU 上很贵。
-       0 档直接关掉（省一半像素着色），1 档以上才开。 */
-    try {
-      if (window.Sky && Sky.inited && Sky.cfg.autoOff) {
-        Sky.setEnabled(this.level >= 1);
-      }
-    } catch (e) {}
-
-    /* ★ Bloom 保持常开（氛围不能砍）。但如果真的只有个位数帧，
-       说明瓶颈在像素着色，这时才临时降到低分辨率 half-res 后处理。 */
-    try { if (FXp) FXp.on = true; } catch (e) {}
-  },
-  shadow: function (lv) {
-    var on = lv >= 1;
-    if (this._sh === on) return;
-    this._sh = on;
-    try {
-      A.renderer.shadowMap.enabled = on;
-      A.renderer.shadowMap.needsUpdate = true;
-      A.scene.traverse(function (o) {
-        if (!o.material) return;
-        var ms = Array.isArray(o.material) ? o.material : [o.material];
-        for (var i = 0; i < ms.length; i++) if (ms[i]) ms[i].needsUpdate = true;
-      });
-    } catch (e) {}
   },
   tick: function (f) {                       // 每秒调用一次
     this.fps = f;
     if (this.MANUAL) return;                  // 用户手动锁档 → 不自动调
-    /* ★★★ 修了一个真 bug ★★★
-       原来：hiAt = 58，判断是 f > 58。
-       但 60 帧上限（cap60）会把实测 fps 压在 58~59，
-       于是 59 > 58 才勉强成立，58 > 58 不成立 —— 帧数正好 58 时永远不升档，
-       用户就永远卡在最低档 0.55 像素比（806×394），画质糊成一片。
-       现在：hiAt = 55（留出余量），并且升档更快（3 秒），上限提到 4 档。 */
-    /* ★★★ 紧急救帧：连续 3 秒低于 20fps → 直接砸到最低配
-       （1fps 那种情况，靠一档一档降要 6 秒以上，玩家早就退出了） */
-    if (f < 20) {
-      this._emerg = (this._emerg || 0) + 1;
-      if (this._emerg >= 3) {
-        this._emerg = 0;
-        if (this.level > 0) { this.level = 0; this.hi = 0; this.lo = 0; this.apply(); }
-        /* 再补一刀：天空这种纯装饰的，低帧时直接关掉 */
-        try { if (window.Sky && Sky.inited) Sky.setEnabled(false); } catch (e) {}
-        try { if (window.FXp) FXp.on = true; } catch (e) {}   // Bloom 保留，氛围不砍
-        try { HUD.center('已自动降到最省画质', '帧率过低 · 可在菜单里手动调回', 2400); } catch (e) {}
-      }
-      return;                       // 紧急态下不做常规升降档判断
-    }
-    this._emerg = 0;
-
-    var loAt = 50, hiAt = 55;
-    if (f < loAt && this.level > 0) {
-      this.lo++; this.hi = 0;
-      if (this.lo >= 2) { this.level--; this.lo = 0; this.apply(); }
-    } else if (f >= hiAt && this.level < 4) {
-      this.hi++; this.lo = 0;
-      if (this.hi >= 3) { this.level++; this.hi = 0; this.apply(); }
-    } else { this.lo = 0; this.hi = 0; }
+    // ★ 自适应（像网页版）：掉帧快降、流畅慢升，5 档全覆盖
+    var loAt = 52, hiAt = 58;      // ★ 与网页版完全一致（真的会升会降）
+    if (f < loAt && this.level > 0) { this.lo++; this.hi = 0; if (this.lo >= 2) { this.level--; this.lo = 0; this.apply(); } }
+    else if (f > hiAt && this.level < 2) { this.hi++; this.lo = 0; if (this.hi >= 5) { this.level++; this.hi = 0; this.apply(); } }   // ★ 自适应上限=2（原版三档）
+    else { this.lo = 0; this.hi = 0; }
   },
   // ★ 手动档位：0标清 1高清 2超清 3极高 4顶级3A
   setLevel: function (lv) { this.level = Math.max(0, Math.min(4, lv)); this.MANUAL = 1; this.apply(); return this.level; },
-  // ★ 自适应：永远从最低档起步（首帧最省），帧率够就自己往上爬
-  auto: function () { this.MANUAL = 0; this.level = 0; this.apply(); return '自适应'; },
+  auto: function () { this.MANUAL = 0; this.level = 2; this.apply(); return '自适应'; },
   name: function () { return this.MANUAL ? ['标清', '高清', '超清', '极高', '顶级3A'][this.level] : '自适应'; },
   tips: ['最省电 · 老机型', '清晰与流畅平衡', '高画质', '很高画质 · 旗舰', '顶级3A · 拉满'],
   // 60 帧上限（显示刷新率 >60 时省电/省热；掉帧时不限，保证能跑到 60）
   limit: function (now) { if (!this.cap60) return false; this._acc += (now - (this._last || now)); this._last = now; return false; },
-  // ★ 帧率上限：hz=60 稳（省电省热）/ hz=120 跟手（高刷屏满帧）
-  hz: 60,
-  minGap: function () { return (this.hz >= 120 ? 7.4 : 15.2) - 0.1; },
-  setHz: function (h) {
-    this.hz = (h >= 120 ? 120 : 60);
-    this.cap60 = true;
-    try { localStorage.setItem('tl_hz', String(this.hz)); } catch (e) {}
-    return this.hz;
-  },
 };
 
 var running = false, lastT = performance.now(), frames = 0, lastF = lastT, fps = 0, elapsed = 0, mmT = 0;
 function loop(now) {
   requestAnimationFrame(loop);
   // ★ 60 帧上限：显示刷新率 >60 时主动跳帧（省一半 GPU 时间 → 更稳、更省电/热）
-  var now = performance.now();
-  if (Perf.cap60 && now - (loop._t || 0) < Perf.minGap()) return;
+  if (Perf.cap60 && now - (loop._t || 0) < 15.2) return;
   loop._t = now;
   var dt = Math.min((now - lastT) / 1000, 0.05); lastT = now;
   if (!running) return;
@@ -2786,7 +2585,6 @@ function loop(now) {
 }
 function loopBody(dt, now) {
   try {
-  FpsDiag.begin();
   if (HOST && window.__OCTO) { var _hh = window.__OCTO.hero; P.x = _hh.x; P.z = _hh.y; P.y = 0; if (window.__OCTO.yaw) P.yaw = window.__OCTO.yaw(); }
   elapsed += dt; ScreenShake.update(dt);
 
@@ -2843,20 +2641,11 @@ function loopBody(dt, now) {
   HUD.score(); HUD.vitals();
   mmT += dt; if (mmT > 0.5) { mmT = 0; if (!mmBase) buildMmBase(); HUD.minimap(); }
 
-  /* ★ 天空：蓝天白云 + 昼夜（纯视觉，不碰玩法逻辑） */
-  try {
-    if (window.Sky && Sky.inited) Sky.update(dt, P.x, P.z);
-  } catch (e) { window.__skyErr = String((e && e.message) || e); }
-
-  FpsDiag.markLogic();
   if (!HOST) try { renderFrame(); } catch (e) { window.__renderErr = (e && (e.stack || e.message)) || String(e); try { renderer.setRenderTarget(null); renderer.render(actionScene, cam()); } catch (_) {} }
-  FpsDiag.markPost();
   frames++; if (now - lastF > 1000) {
     fps = frames * 1000 / (now - lastF); frames = 0; lastF = now;
     Perf.tick(fps);
-    $('perf').textContent = window.innerWidth + 'x' + window.innerHeight + '  ' + fps.toFixed(0) + ' fps' +
-      (window.__houseDraws ? ' · 房子 ' + window.__houseDraws + ' dc' : '') +
-      '\n怪物 ' + Host.mobs.filter(function (m) { return m.alive; }).length + ' · 玩家 ' + Net.peers;
+    $('perf').textContent = window.innerWidth + 'x' + window.innerHeight + '  ' + fps.toFixed(0) + ' fps\n怪物 ' + Host.mobs.filter(function (m) { return m.alive; }).length + ' · 玩家 ' + Net.peers;
   }
 }
 
@@ -3368,44 +3157,11 @@ function setMode(sandbox) {
 function sync3DBtn() {
   var n = (A.getCamMode() === 'persp') ? 'on' : '';
   var b = $('b3D'); if (b) b.className = n;
-  var bf = $('bFP'); if (bf) bf.className = Cam.fp ? 'on' : '';          // ★ 1P 按钮跟着相机状态亮
   var vb = $('bView'); if (vb) vb.textContent = '视角:' + (A.getCamMode() === 'hd2d' ? 'HD-2D' : '透视');
 }
-/* ★★★ 第一人称开关（点右上角 1P / 按 V）★★★
-   只动相机这一层：相机贴到眼睛、藏掉自己的立绘、弹道从视线出。
-   第三人称（居中/过肩）和 HD-2D 全部原样保留，随时切回。 */
-function setFP(on) {
-  on = !!on;
-  var was = Cam.fp;
-  Cam.fp = on;
-  save('tl_fp', on ? '1' : '0');
-  if (on) {
-    CamIntro.on = false;                                  // 开局运镜会抢相机，先掐掉
-    if (A.getCamMode() === 'hd2d') {                      // 正交 45° 没有"眼"，第一人称必须透视
-      A.setCamMode('persp'); save('tl_view', 'persp');
-      setCamDist(Cam.distV || 9); setCamHW(Cam.hwV || 0); sync3DBtn();
-      var b3 = $('b3D'); if (b3) b3.className = 'on';
-      HUD.tip3DHide();
-    }
-    Cam.pitch = clamp(Cam.pitch, -0.45, 0.45);            // 从俯视切过来别一头栽到地上
-    Input.aimX = 0; Input.aimY = 0;
-  }
-  if (heroMesh) heroMesh.visible = !on;
-  var bf = $('bFP'); if (bf) { bf.className = on ? 'on' : ''; bf.textContent = on ? '1P' : '1P'; }
-  var bf2 = $('bFP2'); if (bf2) { bf2.className = on ? 'on' : ''; bf2.textContent = on ? '👁 第一人称:开' : '👁 第一人称'; }
-  sync3DBtn();
-  if (was !== on) {
-    HUD.center(on ? '👁 第一人称' : '🎥 第三人称',
-      on ? '拖动/移动鼠标转视角 · 点 1P 或按 V 切回' : '回到居中/过肩机位', 1600);
-    Sfx.ui();
-  }
-}
-function toggleFP() { setFP(!Cam.fp); }
-
 function toggle3D() {
   Sfx.resume();
   var n = (A.getCamMode() === 'hd2d') ? 'persp' : 'hd2d';
-  if (n === 'hd2d' && Cam.fp) setFP(false);      // ★ 正交 45° 没有第一人称 → 切回 HD-2D 时自动退出 1P
   CamIntro.on = false;
   A.setCamMode(n); save('tl_view', n);
   setCamDist(Cam.distV || 9); setCamHW(Cam.hwV || 0);
@@ -3418,88 +3174,11 @@ function toggle3D() {
 }
 
 function bindUI() {
-  /* ★★ 手机 HUD：状态栏折叠 + 横屏提示（解决"挡住 3D 切换"）★★ */
-  (function () {
-    var tb = document.querySelector('.topbar'), mini = $('chipMini');
-    if (mini) mini.addEventListener('click', function () {
-      tb.classList.toggle('open');
-      Sfx.ui();
-    });
-    // 折叠时给个一眼能看懂的小结
-    var mt = $('miniTxt');
-    setInterval(function () {
-      if (!mt) return;
-      var k = $('kKill') ? $('kKill').textContent : '0';
-      var p = 0; try { p = TLReward ? TLReward.pts() : 0; } catch (e) {}
-      mt.textContent = '击杀 ' + k + ' · 积分 ' + p;
-    }, 1500);
-
-    /* 竖屏提示：只在"手机上 + 竖屏 + 没点过先这样玩"时出现 */
-    var hint = $('rotateHint');
-    var isTouch = /Mobi|Android|iPhone|iPad|HarmonyOS|MiuiBrowser|XiaoMi/i.test(navigator.userAgent) || (navigator.maxTouchPoints || 0) > 1;
-    function portrait() { return window.innerHeight > window.innerWidth; }
-    /* ★★ 修正：以前 "先这样玩" 会永久写 localStorage，导致再也看不到横屏提示，
-       也就再也没有机会一键全屏了。现在改成：
-         · 跳过只记"本次会话"（sessionStorage），关掉页面就忘
-         · 另外记录"已经全屏过"的标记，全屏成功后不再打扰
-         · 任何时候都能从 菜单 → 全屏横屏 手动开启 */
-    function skippedNow() {
-      try { return sessionStorage.getItem('tl_rotate_skip') === '1'; } catch (e) { return false; }
-    }
-    /* 清掉旧版留下的永久跳过标记（老用户不再被卡死） */
-    try { localStorage.removeItem('tl_rotate_skip'); } catch (e) {}
-    function isFullscreen() {
-      return !!(document.fullscreenElement || document.webkitFullscreenElement);
-    }
-    function upd() {
-      if (!hint || !isTouch) return;
-      if (isFullscreen()) { hint.classList.remove('on'); return; }   // 已全屏就不打扰
-      hint.classList.toggle('on', portrait() && !skippedNow());
-    }
-    upd();
-    addEventListener('resize', upd);
-    addEventListener('orientationchange', function () { setTimeout(upd, 260); });
-
-    /* 一键横屏：全屏 + 尝试锁横屏（浏览器允许就生效，不允许就只全屏） */
-    var go = $('rhGo');
-    if (go) go.addEventListener('click', function () {
-      var el = document.documentElement;
-      try {
-        var p = el.requestFullscreen ? el.requestFullscreen() : (el.webkitRequestFullscreen && el.webkitRequestFullscreen());
-        if (p && p.then) p.then(lockLandscape, lockLandscape);
-        else setTimeout(lockLandscape, 200);
-      } catch (e) { lockLandscape(); }
-      hint.classList.remove('on');
-      Sfx.ui();
-    });
-    function lockLandscape() {
-      try {
-        if (screen.orientation && screen.orientation.lock) {
-          screen.orientation.lock('landscape').catch(function () { });
-        }
-      } catch (e) {}
-      setTimeout(function () { try { A.resize(); resizeFX(); } catch (e) {} }, 320);
-    }
-    var skip = $('rhSkip');
-    if (skip) skip.addEventListener('click', function () {
-      /* 只跳过本次会话（sessionStorage），下次打开还会提示 */
-      try { sessionStorage.setItem('tl_rotate_skip', '1'); } catch (e) {}
-      hint.classList.remove('on');
-    });
-
-    /* 全屏切换后重新算尺寸（解决"全屏后格式乱"） */
-    ['fullscreenchange', 'webkitfullscreenchange'].forEach(function (ev) {
-      document.addEventListener(ev, function () {
-        setTimeout(function () { try { A.resize(); resizeFX(); } catch (e) {} upd(); }, 260);
-      });
-    });
-  })();
-
   // ★ 兜底：这些层绝不拦截触摸（即便 CSS 被缓存）
   try {
     ['dmgLayer', 'perf', 'tipTxt', 'chatLog'].forEach(function (id) { var e = $(id); if (e) e.style.pointerEvents = 'none'; });
     // ★ 顶栏所有按钮 + 聊天 + 开始面板：强制可点（.hud>* 的 pointer-events:none 特异性更高，会把它们全吃掉）
-    var clickable = document.querySelectorAll('.hrbtns button, #chatSend, #chatInput, #goBtn, #board button, .modeSel .m, .topbar .chip, #htChip, #chipMini, #htPanel, #htPanel *');
+    var clickable = document.querySelectorAll('.hrbtns button, #chatSend, #chatInput, #goBtn, #board button, .modeSel .m');
     for (var ci = 0; ci < clickable.length; ci++) clickable[ci].style.pointerEvents = 'auto';
     // ★ 强制触控元素可点（CSS 里 .hud>*{none} 会覆盖 #joy 等，这里内联兜底，杜绝"点不到"）
     ['joy', 'lookZone', 'btnFire', 'btnAds', 'btnJump', 'btnReload', 'btnSwap', 'btnGrenade'].forEach(function (id) { var e = $(id); if (e) e.style.pointerEvents = 'auto'; });
@@ -3516,93 +3195,6 @@ function bindUI() {
   _on('goBtn', 'click', startGame);
   _on('chatSend', 'click', sendChat);
   _on('chatInput', 'keydown', function (e) { if (e.key === 'Enter') { sendChat(); e.stopPropagation(); } });
-  /* ★ 天空开关 */
-  /* ★ 手动全屏 + 横屏（任何时候都能用，不依赖那个提示） */
-  /* ★ 点右上角 perf 那行 → 弹出帧耗时分解（诊断 1fps 到底卡在哪） */
-  (function () {
-    var pf = $('perf');
-    if (!pf) return;
-    pf.style.pointerEvents = 'auto';
-    pf.style.cursor = 'pointer';
-    pf.addEventListener('click', function () {
-      var msg = (window.FpsDiag ? FpsDiag.where() : '诊断未就绪');
-      try { HUD.center('帧耗时分解', msg, 9000); } catch (e) { alert(msg); }
-      try { console.log('[FpsDiag]\n' + msg); } catch (e) {}
-      if (window.FpsDiag) FpsDiag.reset();
-    });
-  })();
-
-  _on('bFull', 'click', function () {
-    openTree(false);
-    var el = document.documentElement;
-    var fs = document.fullscreenElement || document.webkitFullscreenElement;
-    if (fs) {
-      try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) {}
-      this.textContent = '⛶ 全屏横屏';
-      this.className = '';
-      HUD.center('已退出全屏', '', 1400);
-      Sfx.ui();
-      return;
-    }
-    try {
-      var pr = el.requestFullscreen ? el.requestFullscreen() : (el.webkitRequestFullscreen && el.webkitRequestFullscreen());
-      var done = function () {
-        try {
-          if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(function () {});
-        } catch (e) {}
-        setTimeout(function () { try { A.resize(); resizeFX(); } catch (e) {} }, 320);
-      };
-      if (pr && pr.then) pr.then(done, done); else setTimeout(done, 220);
-      this.textContent = '⛶ 退出全屏';
-      this.className = 'on';
-      HUD.center('全屏 · 横屏', '浏览器不允许锁横屏的话，把手机转过来即可', 2200);
-    } catch (e) {
-      HUD.center('无法全屏', '当前浏览器可能不支持，试试系统浏览器而不是微信', 2600);
-    }
-    Sfx.ui();
-  });
-  /* 全屏状态变化时同步按钮文案 */
-  ['fullscreenchange', 'webkitfullscreenchange'].forEach(function (ev) {
-    document.addEventListener(ev, function () {
-      var b = $('bFull'); if (!b) return;
-      var fs = document.fullscreenElement || document.webkitFullscreenElement;
-      b.textContent = fs ? '⛶ 退出全屏' : '⛶ 全屏横屏';
-      b.className = fs ? 'on' : '';
-    });
-  });
-
-  _on('bSky', 'click', function () {
-    var K = window.Sky; if (!K || !K.inited) { HUD.center('天空未就绪', '', 1200); return; }
-    var on = K.setEnabled(!K.enabled);
-    this.textContent = '天空:' + (on ? '开' : '关');
-    this.className = on ? 'on' : '';
-    HUD.center('天空 ' + (on ? '开' : '关'), on ? '蓝天白云 + 昼夜' : '已关闭（回到纯色背景）', 1800);
-    Sfx.ui();
-  });
-  /* ★ 昼夜：走 / 停 */
-  _on('bCycle', 'click', function () {
-    var K = window.Sky; if (!K || !K.inited) { HUD.center('天空未就绪', '', 1200); return; }
-    var moving = K.setCycle(!K.cfg.cycle);
-    this.textContent = '昼夜:' + (moving ? '走' : '停');
-    this.className = moving ? 'on' : '';
-    HUD.center('昼夜 ' + (moving ? '开始流动' : '已暂停'),
-      '当前 ' + K.clock() + ' · ' + K.phaseName(), 2000);
-    Sfx.ui();
-  });
-  /* ★ 时间：每点一次 +3 小时（停着时方便看清晨/黄昏/夜） */
-  _on('bTime', 'click', function () {
-    var K = window.Sky; if (!K || !K.inited) { HUD.center('天空未就绪', '', 1200); return; }
-    K.setCycle(false);
-    var nt = (K.getTime() + 3 / 24) % 1;
-    K.setTime(nt);
-    var cb = $('bCycle'); if (cb) { cb.textContent = '昼夜:停'; cb.className = ''; }
-    this.textContent = '时间:' + K.clock();
-    HUD.center(K.clock() + ' · ' + K.phaseName(),
-      nt > 0.2 && nt < 0.3 ? '正午：天最蓝，云最白' :
-      (nt > 0.42 && nt < 0.58 ? '黄昏：地平线泛橙' :
-      (nt > 0.7 && nt < 0.8 ? '午夜：有星空' : '点「昼夜:走」恢复自动')), 2200);
-    Sfx.ui();
-  });
   _on('bFx', 'click', function () {
     if (HOST && window.__OCTO && window.__OCTO.setFx) { var v = !window.__OCTO.getFx(); window.__OCTO.setFx(v); this.textContent = '后处理' + (v ? '' : '(关)'); this.className = v ? 'on' : ''; return; }
     FXp.on = !FXp.on; this.textContent = '后处理' + (FXp.on ? '' : '(关)'); this.className = FXp.on ? 'on' : '';
@@ -3646,19 +3238,6 @@ function bindUI() {
     _on('bRace2', 'click', function () { gotoRace(); });
     _on('bRace3', 'click', function () { openTree(false); openRace(true); });
     _on('raceClose', 'click', function () { openRace(false); });
-    /* ★ 兜底：任何情况下都能回主城（防止在赛车区/地图外被卡死） */
-    function backToCity() {
-      openTree(false);
-      try { openRace(false); } catch (e) {}
-      var R = window.__RACE_STRIP;
-      var tx = R && R.back ? R.back.x : 40, tz = R && R.back ? R.back.z : 12;
-      var O = window.__OCTO; if (O && O.hero) { O.hero.x = tx; O.hero.y = tz; }
-      try { P.x = tx; P.z = tz; P.y = 0; P.vy = 0; P.onGround = true; } catch (e) {}
-      HUD.center('🏠 已回到主城', '赛车区在北边，走连接路也能回来', 2200);
-      try { Sfx.ui(); } catch (e) {}
-    }
-    _on('bBackCity', 'click', backToCity);
-    window.__backToCity = backToCity;
     window.__openRace = openRace; window.__gotoRace = gotoRace;
   })();
   window.addEventListener('keydown', function (e) {
@@ -3688,14 +3267,11 @@ function bindUI() {
   })();
   _on('bVer', 'click', function () {
     var v = '构建 ' + BUILD + ' · 房间 ' + Net.room + ' · ' + (Net.connected ? '在线' : '离线') + ' · ' + Net.peers + ' 人';
-    // ★ 构建号带时间戳：如果和你刚看到的不一样，说明加载的是缓存旧版
-    HUD.center('版本 · ' + BUILD, v, 5200);
+    HUD.center('版本', v, 4000);
     try { if (navigator.clipboard) navigator.clipboard.writeText('天泪 ' + BUILD + ' ' + location.href); } catch (e) {}
     this.textContent = BUILD;
   });
   _on('b3D', 'click', toggle3D);
-  _on('bFP', 'click', toggleFP);
-  if ($('bFP2')) _on('bFP2', 'click', toggleFP);
   // ★ 关键修复：面板必须开在 ☰ 按钮"下方"，而不是写死 top:52px。
   //   顶栏按钮一多就会换行，☰ 掉到第二行时，写死的面板正好盖住它 → 展开后关不掉。
   // ★ 统一关闭所有「右上浮层」（菜单 + 子面板），避免"菜单关了子面板还留着"
@@ -3767,22 +3343,10 @@ function bindUI() {
   _on('bInv', 'click', function () { openTree(false); HUD.invite(); });
   _on('bShare', 'click', function () {
     openTree(false);
-    var n = Ref.count(), ni = 0, bonus = 0;
-    try {
-      if (window.TLReward && TLReward.invite) {
-        ni = TLReward.invite.count();
-        bonus = ni * TLReward.invite.rules.perFriend;
-      }
-    } catch (e) {}
-    n = Math.max(n, ni);
+    var n = Ref.count();
     HUD.qr(Net.inviteLink());
-    HUD.center('拉好友 · 已来 ' + n + ' 人' + (bonus ? '（+' + bonus + ' 分）' : ''),
-      n >= Ref.need
-        ? '神器已解锁！按 8 切出虚空之刃 · 继续拉还有称号和分'
-        : ('再来 ' + (Ref.need - n) + ' 人开神器 · 每拉 1 人 +' +
-           (window.TLReward && TLReward.invite ? TLReward.invite.rules.perFriend : 30) +
-           ' 分，对方 +' + (window.TLReward && TLReward.invite ? TLReward.invite.rules.newbieGift : 50) + ' 分'),
-      4200);
+    HUD.center('分享领神器 · ' + n + '/' + Ref.need,
+      n >= Ref.need ? '已解锁！按 8 切出虚空之刃' : '每成功邀请 1 位好友进世界，进度 +1', 3200);
     Sfx.ui();
   });
   _on('qrCopy', 'click', function () {
@@ -3807,24 +3371,6 @@ function bindUI() {
     }
   });
   _on('interactTip', 'click', function () { if (Piano.near) Piano.play(); });
-  _on('bHz', 'click', function () {
-    var h = Perf.setHz(Perf.hz >= 120 ? 60 : 120);
-    this.textContent = '帧率:' + h;
-    this.className = h >= 120 ? 'on' : '';
-    HUD.center('帧率上限 ' + h + ' fps',
-      h >= 120 ? '高刷屏满帧跟手（更费电、发热略高）' : '稳定 60，省电省热（推荐手机）', 2200);
-    Sfx.ui();
-  });
-  _on('bHouse', 'click', function () {
-    var on = !window.__houseFancy;
-    try { if (window.setHouseFancy) window.setHouseFancy(on); } catch (e) {}
-    this.textContent = '房子:' + (on ? '精' : '简');
-    this.className = on ? 'on' : '';
-    save('tl_house', on ? 'fancy' : 'simple');
-    HUD.center('房子 · ' + (on ? '精致版' : '火柴盒'),
-      on ? '扫描材质 + 发光窗 + 暖光（更好看，更吃性能）' : '纯色方块 + 尖顶，最省性能 · 不卡', 2200);
-    Sfx.ui();
-  });
   _on('bQual', 'click', function () {
     var order = ['auto', 0, 1, 2, 3, 4], cur = (Perf.MANUAL ? Perf.level : 'auto');
     var i = order.indexOf(cur); var nx = order[(i + 1) % order.length];
@@ -3833,15 +3379,6 @@ function bindUI() {
     this.className = Perf.MANUAL ? 'on' : '';
     save('tl_qual', Perf.MANUAL ? ('m' + Perf.level) : 'auto');
     HUD.center('画质 · ' + Perf.name(), Perf.MANUAL ? Perf.tips[Perf.level] : '按帧率自动升降档（当前 ' + ['标清', '高清', '超清', '极高', '顶级3A'][Perf.level] + '）', 1800);
-    Sfx.ui();
-  });
-  /* ★ 积分 chip：点一下看进度（神器解锁还差多少） */
-  _on('ptsChip', 'click', function () {
-    var p = 0, t = 0, g = null;
-    try { p = TLReward.pts(); t = TLReward.todayGain(); g = TLReward.nextGoal(); } catch (e) {}
-    HUD.center('🎁 我的积分 ' + p + ' · 今日 +' + t,
-      g ? ('再攒 ' + (g.at - p) + ' 分解锁「' + g.name + '」（' + g.desc + '）')
-        : '全部奖励已解锁 —— 谢谢你在玩！', 3200);
     Sfx.ui();
   });
   /* ★★ 开车：靠近车 → 按 E / 点提示 上车；再按 E 下车 ★★ */
@@ -3931,10 +3468,6 @@ function restorePrefs() {
   var r = load('tl_rain', '1') === '1'; A.setRain(r); $('bRain').textContent = '下雨' + (r ? '' : '(关)'); $('bRain').className = r ? 'on' : '';
   var sp = load('tl_spot', '1') === '1'; A.setSpot(sp); $('bSL').textContent = '探照灯' + (sp ? '' : '(关)'); $('bSL').className = sp ? 'on' : '';
   Cam.mode = load('tl_cam', 'center'); $('bCam').textContent = '机位:' + (Cam.mode === 'center' ? '居中' : '过肩');
-  // ★ 第一人称偏好：上次开着就继续开（?fp=1 强制开 / ?fp=0 强制关）
-  var _fpQ = (location.search.match(/[?&]fp=([01])/) || [])[1];
-  var _fp = (_fpQ !== undefined) ? (_fpQ === '1') : (load('tl_fp', '0') === '1');
-  if (_fp) setTimeout(function () { try { setFP(true); } catch (e) {} }, 60);
   var _cd = +load('tl_camdist', '9'); if (window.__zoomQ) _cd = +window.__zoomQ; if ($('camDist')) $('camDist').value = _cd; setCamDist(_cd);
   var _hwx = +load('tl_camhw', '0'); Cam.hwV = _hwx; if ($('camHW')) $('camHW').value = _hwx; setCamHW(_hwx);
   var _vm = load('tl_view', 'hd2d');
@@ -3949,24 +3482,10 @@ function restorePrefs() {
   if ($('modeChip')) { $('modeChip').textContent = SANDBOX ? '🧱 沙盒' : '⚔ 战斗'; $('modeChip').className = 'chip' + (SANDBOX ? '' : ' on'); }
   // ★ 恢复画质选择（auto / m0~m4）
   (function () {
-    /* ★ 画质存档迁移：
-       旧方案的 m0/m1 对应 0.55/0.75 像素比（很糊）。
-       很多用户点了「画质」之后被永久锁在 m0，新档位表完全用不上，
-       表现就是"分辨率一直上不去"。这里对 m0/m1 视为自动，主动解锁。 */
     var q = load('tl_qual', 'auto');
-    if (q === 'm0' || q === 'm1') {
-      q = 'auto';
-      save('tl_qual', 'auto');
-    }
     if (q === 'auto') Perf.auto();
     else if (/^m[0-4]$/.test(q)) Perf.setLevel(parseInt(q.slice(1), 10));
     var b = $('bQual'); if (b) b.textContent = '画质:' + Perf.name();
-    // ★ 房子细节档（默认火柴盒）
-    var bh = $('bHouse');
-    if (bh) { bh.textContent = '房子:' + (window.__houseFancy ? '精' : '简'); bh.className = window.__houseFancy ? 'on' : ''; }
-    // ★ 帧率上限（60 稳 / 120 跟手）
-    Perf.setHz(parseInt(load('tl_hz', '60'), 10) || 60);
-    var bz = $('bHz'); if (bz) bz.textContent = '帧率:' + Perf.hz;
   })();
   Sfx.on = load('tl_sfx', '1') !== '0';
   Sfx.volIdx = Math.max(0, Math.min(3, parseInt(load('tl_vol', '1'), 10) || 0));

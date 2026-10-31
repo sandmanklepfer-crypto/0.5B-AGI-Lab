@@ -1,0 +1,1125 @@
+/* ==========================================================================
+   arena3d.js —— 天泪纪元 · 雨夜立体竞技场（3A 质感 PBR / 探照灯 / 下雨 / 换地面）
+   --------------------------------------------------------------------------
+   · 立体高度场地图（街道 / 二层 / 高台 / 天台 / 地下 / 天桥 / 楼梯）
+   · 地面：多套 PBR 贴图可切换（王炸雨夜沥青 / 花岗岩 / 大理石 / 钢板 / 草地 / 湿土）
+   · 建筑：钢铁 + 玻璃幕墙 PBR（金属度高、反射霓虹、发光窗格）
+   · 楼顶探照灯扫射 → 地面色彩溢出（SpotLight + 体积光锥）
+   · 下雨 + 湿地面环境反射（CubeCamera 探针 → 地面反出霓虹）
+   对外：ARENA.{scene,renderer,camera,Ground,TILE,...,setGround,grounds,setRain,update}
+   ========================================================================== */
+(function () {
+'use strict';
+if (window.ARENA) return;   // 幂等：不重复建场景
+try {
+if (typeof THREE === 'undefined') { document.body.innerHTML = '<pre style="color:#f88;padding:30px">three.js 未加载</pre>'; return; }
+
+var TILE = 3.0, GW = 76, GH = 52, WALL_H = 11.5, YMIN = -6.5, WORLD = GW * TILE;
+var OFF_U = 24;   // 城市整体东移（西侧 OFF_U 格 = 农村营地）
+/* 离线烘焙 GI（全局光照）：把霓虹/探照灯/街灯光色烘进贴图，按世界坐标采样 → 表面被"染色" */
+var GI_TEX = null, GI_EM = [];
+function emAdd(x, z, y, hex, p, rad, force) {
+  if (!force) {
+    if (GI_EM.length > 150) return;
+    for (var i = 0; i < GI_EM.length; i++) { if (Math.abs(GI_EM[i].x - x) < 5 && Math.abs(GI_EM[i].z - z) < 5) return; }   // 网格化去重
+  }
+  var c = new THREE.Color(hex);
+  GI_EM.push({ x: x, z: z, y: y, r: c.r, g: c.g, b: c.b, p: p, rad: rad || 44 });
+}
+var H = new Float32Array(GW * GH);
+function setH(u, v, h) { if (u >= 0 && v >= 0 && u < GW && v < GH) H[v * GW + u] = h; }
+function getH(u, v) { if (u < 0 || v < 0 || u >= GW || v >= GH) return WALL_H; return H[v * GW + u]; }
+function rnd(a, b) { return a + Math.random() * (b - a); }
+
+/* ---------------- 地图（保留原布局） ---------------- */
+var ATTACH = !!window.__ATTACH_CITY;   // ★ 必须最先定义（buildMap 要用）
+(function buildMap() {
+  var i, j, u, v;
+  for (v = 0; v < GH; v++) for (u = 0; u < GW; u++) H[v * GW + u] = 0;
+  for (i = 0; i < GW; i++) { setH(i, 0, WALL_H); setH(i, 1, WALL_H); setH(i, GH - 1, WALL_H); setH(i, GH - 2, WALL_H); }
+
+  /* ★★★ 北墙开口：让「赛车区」和「主城」真的连通 ★★★
+     以前赛车条带在 z=-30..-14（地图外），北墙 z=0..6 又高 11.5，
+     传送到赛车区后往南走会被边界判定卡死在 z≈-11，永远回不来。
+     这里在高度图上把 u 10..15（世界 x 30..45）的两层北墙挖掉，
+     地形网格会自然生成一个"门洞"（两侧仍有墙面，边缘自动补侧壁）。
+     对应的通行判定在 racestrip.js 里同步放开。 */
+  var GATE_U0 = 10, GATE_U1 = 15;
+  for (var gu = GATE_U0; gu <= GATE_U1; gu++) { setH(gu, 0, 0); setH(gu, 1, 0); }
+  window.__GATE = { u0: GATE_U0, u1: GATE_U1, x0: GATE_U0 * TILE, x1: (GATE_U1 + 1) * TILE };
+  for (j = 0; j < GH; j++) { if (!ATTACH) { setH(0, j, WALL_H); setH(1, j, WALL_H); } setH(GW - 1, j, WALL_H); setH(GW - 2, j, WALL_H); }   // ★ 附加模式：西墙全开（与营地畅通）   // ★ 附加模式：西侧留一个大门与营地连通
+  function rect(x0, y0, x1, y1, h) { x0 += OFF_U; x1 += OFF_U; for (var v2 = y0; v2 <= y1; v2++) for (var u2 = x0; u2 <= x1; u2++) setH(u2, v2, h); }
+  function stairX(x0, y0, x1, y1, h0, h1) { var n = x1 - x0 + 1; for (var k = 0; k < n; k++) { var h = h0 + (h1 - h0) * (k / Math.max(1, n - 1)); rect(x0 + k, y0, x0 + k, y1, +h.toFixed(3)); } }
+  function stairZ(x0, y0, x1, y1, h0, h1) { var n = y1 - y0 + 1; for (var k = 0; k < n; k++) { var h = h0 + (h1 - h0) * (k / Math.max(1, n - 1)); rect(x0, y0 + k, x1, y0 + k, +h.toFixed(3)); } }
+  rect(5, 5, 14, 13, 3.2); rect(20, 5, 32, 15, 6.4); rect(37, 4, 47, 13, 3.2);
+  rect(6, 26, 18, 37, 6.4); rect(34, 27, 46, 41, 9.6); rect(23, 21, 31, 29, 3.2);
+  rect(22, 37, 33, 46, -3.2); stairZ(22, 35, 33, 36, 0, -3.2); rect(26, 35, 30, 36, 0);
+  rect(27, 33, 28, 40, 3.2);
+  stairX(14, 6, 18, 12, 0, 3.2); stairZ(21, 16, 31, 19, 0, 6.4); stairX(33, 6, 36, 12, 0, 3.2);
+  stairX(19, 27, 22, 36, 0, 6.4); stairZ(35, 23, 45, 26, 0, 9.6); stairX(19, 22, 22, 28, 0, 3.2);
+  var cov = [[8, 20], [12, 20], [24, 17], [28, 17], [40, 18], [44, 18], [15, 42], [19, 42], [40, 22], [44, 22], [10, 12], [24, 26]];
+  for (var c = 0; c < cov.length; c++) { var cu = cov[c][0], cv = cov[c][1]; rect(cu, cv, cu + 1, cv, 1.1); rect(cu, cv + 1, cu + 1, cv + 1, 1.1); }
+  var pil = [[17, 20], [33, 20], [17, 33], [33, 33], [3, 20], [48, 20], [20, 48], [32, 48]];
+  for (var p = 0; p < pil.length; p++) rect(pil[p][0], pil[p][1], pil[p][0], pil[p][1] + 1, 6.4);
+})();
+
+var Ground = {
+  GW: GW, GH: GH, TILE: TILE, H: H, WALL_H: WALL_H, YMIN: YMIN, world: WORLD,
+  h: function (x, z) { return getH(Math.floor(x / TILE), Math.floor(z / TILE)); },
+  canStand: function (nx, nz, y, step) {
+    step = step === undefined ? 0.62 : step;
+    if (nx < TILE * 1.6 || nz < TILE * 1.6 || nx > WORLD - TILE * 1.6 || nz > WORLD - TILE * 1.6) return false;
+    return (this.h(nx, nz) - y) <= step;
+  },
+  floor: function (x, z) { return this.h(x, z); },
+  ray: function (ox, oy, oz, dx, dy, dz, maxD) {
+    for (var t = 0.15; t < maxD; t += 0.1) {
+      var x = ox + dx * t, y = oy + dy * t, z = oz + dz * t;
+      if (y < YMIN) return { dist: t, x: x, y: YMIN, z: z };
+      if (y <= getH(Math.floor(x / TILE), Math.floor(z / TILE))) return { dist: t, x: x, y: y, z: z };
+    }
+    return { dist: maxD, x: ox + dx * maxD, y: oy + dy * maxD, z: oz + dz * maxD };
+  },
+  pick: function (fx, fz, minDist) {
+    var best = { x: 26 * TILE, z: 20 * TILE, y: 0 }, bd = -1;
+    for (var k = 0; k < 44; k++) {
+      var u = 3 + Math.floor(Math.random() * (GW - 6)), v = 3 + Math.floor(Math.random() * (GH - 6));
+      var h = getH(u, v); if (h > 7) continue;
+      var x = (u + 0.5) * TILE, z = (v + 0.5) * TILE, d = Math.hypot(x - fx, z - fz);
+      if (d >= minDist) return { x: x, z: z, y: h };
+      if (d > bd) { bd = d; best = { x: x, z: z, y: h }; }
+    }
+    return best;
+  },
+};
+
+/* ============================================================================
+ * ★★★ Solid —— 全局「一个整体」碰撞体（把复杂形状烘焙成凸体）★★★
+ * ----------------------------------------------------------------------------
+ *  要解决什么：
+ *    · 以前只有地形高度图碰撞，房子是"贴图"，人直接从墙里穿过去
+ *    · 如果按传统做法给每面墙/每根柱子都建碰撞体 → 几百个包围盒，越加越卡
+ *
+ *  做法（就是你提的「烘焙成一个形状」）：
+ *    1) 每个部件（墙体长方体 / 四棱锥屋顶 / 门框 / 烟囱）在"建立时"就被烘焙成
+ *       【一组半空间平面】 n·p <= d —— 凸多面体的最小完备表示。
+ *       长方体 = 6 个平面，四棱锥 = 5 个平面，任意凸体都能这么烘焙。
+ *    2) 所有部件的平面打包进 **一个扁平的 Float32Array**，全部房子共用一个结构
+ *       → 对外就是"一个整体碰撞体"，不是几百个独立物体。
+ *    3) 外面再套一层 1 米粗筛网格（Map），只测离你最近那几个凸体。
+ *
+ *  为什么这样"细枝末节也保得住"：
+ *    平面表示是【解析精确】的，不是体素近似 —— 屋顶尖角、外挑的屋檐、
+ *    烟囱拐角这些尖锐部分，碰撞体积和肉眼看到的完全一致，一个像素都不差。
+ *    而查询成本只是几次点积，比体素查表还便宜，也几乎不占内存（几 KB）。
+ *
+ *  接口：
+ *    Solid.addBox(cx,cy,cz, sx,sy,sz)      加入长方体（自动并入总结构）
+ *    Solid.addPyramid(cx,baseY,cz, half,h) 加入四棱锥屋顶
+ *    Solid.blocked(x,y,z)                  这一点是否在实体内
+ *    Solid.columnBlocked(x,z,y0,y1)        这一段高度是否被挡
+ *    Solid.stats()                         面数/体数（自检用）
+ * ========================================================================== */
+var Solid = (function () {
+  'use strict';
+  var PLANES = [];          // 扁平：每 4 个数 = 一个平面 (nx,ny,nz,d)
+  var SHAPES = [];          // { off, cnt, minx,miny,minz,maxx,maxy,maxz }
+  var GRID = new Map();     // 粗筛：1m 格 → 该格覆盖的凸体下标数组
+  var CELL = 1.0;
+  var EPS = 1e-4;
+
+  function cellKey(ix, iz) { return ix * 100003 + iz; }
+
+  var BB = { minx: 1e9, miny: 1e9, minz: 1e9, maxx: -1e9, maxy: -1e9, maxz: -1e9 };
+
+  function addConvex(pl, minx, miny, minz, maxx, maxy, maxz) {
+    var off = PLANES.length, cnt = pl.length / 4;
+    for (var i = 0; i < pl.length; i++) PLANES.push(pl[i]);
+    var idx = SHAPES.length;
+    SHAPES.push({ off: off, cnt: cnt, minx: minx, miny: miny, minz: minz, maxx: maxx, maxy: maxy, maxz: maxz });
+    if (minx < BB.minx) BB.minx = minx; if (miny < BB.miny) BB.miny = miny; if (minz < BB.minz) BB.minz = minz;
+    if (maxx > BB.maxx) BB.maxx = maxx; if (maxy > BB.maxy) BB.maxy = maxy; if (maxz > BB.maxz) BB.maxz = maxz;
+    // 只登记"竖直投影"覆盖的格子（凸体的水平范围）→ 查询时一次查表
+    var x0 = Math.floor(minx / CELL), x1 = Math.floor(maxx / CELL);
+    var z0 = Math.floor(minz / CELL), z1 = Math.floor(maxz / CELL);
+    for (var gx = x0; gx <= x1; gx++) for (var gz = z0; gz <= z1; gz++) {
+      var k = cellKey(gx, gz), a = GRID.get(k);
+      if (a) { a.push(idx); } else { GRID.set(k, [idx]); }
+    }
+    return idx;
+  }
+
+  /* 长方体：中心 + 尺寸 → 6 个平面 */
+  function addBox(cx, cy, cz, sx, sy, sz) {
+    var hx = sx / 2, hy = sy / 2, hz = sz / 2;
+    var pl = [
+      1, 0, 0, cx + hx, -1, 0, 0, -(cx - hx),
+      0, 1, 0, cy + hy, 0, -1, 0, -(cy - hy),
+      0, 0, 1, cz + hz, 0, 0, -1, -(cz - hz)
+    ];
+    return addConvex(pl, cx - hx, cy - hy, cz - hz, cx + hx, cy + hy, cz + hz);
+  }
+
+  /* 四棱锥（4 面 + 底）：底面正方形半宽 a，底面高度 baseY，高 h，顶点正上方
+     → 平面由顶点/底面角点叉积算出，保证与渲染出来的形状严丝合缝 */
+  function addPyramid(cx, baseY, cz, a, h) {
+    var P = [[cx - a, baseY, cz - a], [cx + a, baseY, cz - a], [cx + a, baseY, cz + a], [cx - a, baseY, cz + a]];
+    var A = [cx, baseY + h, cz];
+    var pl = [];
+    var faces = [[1, 0], [2, 1], [3, 2], [0, 3]];   // 与渲染同样的绕序
+    for (var i = 0; i < 4; i++) {
+      var p1 = P[faces[i][0]], p0 = P[faces[i][1]];
+      var e1 = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]];
+      var e2 = [A[0] - p1[0], A[1] - p1[1], A[2] - p1[2]];
+      var n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
+      var L = Math.hypot(n[0], n[1], n[2]) || 1; n = [n[0] / L, n[1] / L, n[2] / L];
+      // 朝外检查：法线应背离轴心
+      var mx = (p1[0] + p0[0] + A[0]) / 3 - cx, mz = (p1[2] + p0[2] + A[2]) / 3 - cz;
+      if (n[0] * mx + n[2] * mz < 0) { n = [-n[0], -n[1], -n[2]]; }
+      pl.push(n[0], n[1], n[2], n[0] * p0[0] + n[1] * p0[1] + n[2] * p0[2]);
+    }
+    pl.push(0, -1, 0, -baseY);      // 底面
+    return addConvex(pl, cx - a, baseY, cz - a, cx + a, baseY + h, cz + a);
+  }
+
+  function inside(sh, x, y, z) {
+    if (x < sh.minx - EPS || x > sh.maxx + EPS || y < sh.miny - EPS || y > sh.maxy + EPS || z < sh.minz - EPS || z > sh.maxz + EPS) return false;
+    for (var i = 0, o = sh.off, n = sh.cnt; i < n; i++, o += 4) {
+      if (PLANES[o] * x + PLANES[o + 1] * y + PLANES[o + 2] * z > PLANES[o + 3] + EPS) return false;
+    }
+    return true;
+  }
+
+  function blocked(x, y, z) {
+    var a = GRID.get(cellKey(Math.floor(x / CELL), Math.floor(z / CELL)));
+    if (!a) return false;
+    for (var i = 0; i < a.length; i++) if (inside(SHAPES[a[i]], x, y, z)) return true;
+    return false;
+  }
+
+  // 竖直这一段（人身高范围）是否被挡
+  function columnBlocked(x, z, y0, y1) {
+    var a = GRID.get(cellKey(Math.floor(x / CELL), Math.floor(z / CELL)));
+    if (!a) return false;
+    var step = Math.max(0.18, (y1 - y0) / 4), y;
+    for (var i = 0; i < a.length; i++) {
+      var sh = SHAPES[a[i]];
+      if (sh.maxy < y0 || sh.miny > y1) continue;      // 竖直不重叠 → 直接跳过（便宜）
+      for (y = y0; y <= y1 + 0.001; y += step) if (inside(sh, x, y, z)) return true;
+    }
+    return false;
+  }
+
+  function clear() { PLANES.length = 0; SHAPES.length = 0; GRID.clear(); BB = { minx: 1e9, miny: 1e9, minz: 1e9, maxx: -1e9, maxy: -1e9, maxz: -1e9 }; }
+
+  /* 只保留前 n 个凸体（重建房子时用：一次调用就把上一批全摘掉，不留重复） */
+  function truncate(n) {
+    if (n >= SHAPES.length) return;
+    var keep = 0;
+    if (n > 0) keep = SHAPES[n - 1].off + SHAPES[n - 1].cnt * 4;
+    PLANES.length = keep;
+    SHAPES.length = n;
+    // 重建粗筛网格（只保留仍然有效的下标）
+    GRID.clear();
+    BB = { minx: 1e9, miny: 1e9, minz: 1e9, maxx: -1e9, maxy: -1e9, maxz: -1e9 };
+    for (var i = 0; i < n; i++) {
+      var sh = SHAPES[i];
+      if (sh.minx < BB.minx) BB.minx = sh.minx; if (sh.miny < BB.miny) BB.miny = sh.miny; if (sh.minz < BB.minz) BB.minz = sh.minz;
+      if (sh.maxx > BB.maxx) BB.maxx = sh.maxx; if (sh.maxy > BB.maxy) BB.maxy = sh.maxy; if (sh.maxz > BB.maxz) BB.maxz = sh.maxz;
+      var x0 = Math.floor(sh.minx / CELL), x1 = Math.floor(sh.maxx / CELL);
+      var z0 = Math.floor(sh.minz / CELL), z1 = Math.floor(sh.maxz / CELL);
+      for (var gx = x0; gx <= x1; gx++) for (var gz = z0; gz <= z1; gz++) {
+        var k = cellKey(gx, gz), a = GRID.get(k);
+        if (a) a.push(i); else GRID.set(k, [i]);
+      }
+    }
+  }
+
+  /* 线段是否可能碰到任何实体（O(1) 粗筛）—— 射线绝大多数时候在这里就被否掉 */
+  function nearSeg(ox, oy, oz, dx, dy, dz, maxD) {
+    if (SHAPES.length === 0) return false;
+    var ex = ox + dx * maxD, ey = oy + dy * maxD, ez = oz + dz * maxD;
+    if (Math.max(ox, ex) < BB.minx || Math.min(ox, ex) > BB.maxx) return false;
+    if (Math.max(oy, ey) < BB.miny || Math.min(oy, ey) > BB.maxy) return false;
+    if (Math.max(oz, ez) < BB.minz || Math.min(oz, ez) > BB.maxz) return false;
+    return true;
+  }
+
+  return {
+    addBox: addBox, addPyramid: addPyramid, addConvex: addConvex,
+    blocked: blocked, columnBlocked: columnBlocked, clear: clear,
+    truncate: truncate, nearSeg: nearSeg,
+    bounds: function () { return BB; },
+    stats: function () { return { shapes: SHAPES.length, planes: PLANES.length / 4, cells: GRID.size, kb: (PLANES.length * 4 / 1024).toFixed(1) }; },
+    _shapes: function () { return SHAPES; }
+  };
+})();
+
+/* ---- 把 Solid 接进地形碰撞 / 射线（一处挂钩，全场生效） ---- */
+try {
+  (function () {
+    var _cs = Ground.canStand;
+    Ground.canStand = function (nx, nz, y, step) {
+      // 身体范围（y+step 以上才算挡；低于台阶高度的直接踩上去）
+      if (Solid.columnBlocked(nx, nz, y + Math.max(0.12, step), y + 1.72)) return false;
+      return _cs.call(this, nx, nz, y, step);
+    };
+    var _ray = Ground.ray;
+    Ground.ray = function (ox, oy, oz, dx, dy, dz, maxD) {
+      var r = _ray.call(this, ox, oy, oz, dx, dy, dz, maxD);
+      // ★ 只在这条线确实靠近实体时才补测（O(1) 粗筛，绝大多数射线直接跳过）
+      var lim = Math.min(r.dist, maxD);
+      if (!Solid.nearSeg(ox, oy, oz, dx, dy, dz, lim)) return r;
+      for (var t = 0.15; t < lim; t += 0.12) {
+        if (Solid.blocked(ox + dx * t, oy + dy * t, oz + dz * t))
+          return { dist: t, x: ox + dx * t, y: oy + dy * t, z: oz + dz * t };
+      }
+      return r;
+    };
+  })();
+} catch (e) {}
+
+/* ---------------- 渲染器 / 场景 / 相机 ---------------- */
+var cv = ATTACH ? null : document.getElementById('cv');
+var renderer = ATTACH ? window.__ATTACH_RENDERER : new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: false, preserveDrawingBuffer: true });
+var LEAN = { reflect: false, spotLights: false, pointLights: false, pixel: 1.0, rain: 180 };   // ★ pixel 是"乘数"，必须保持 1.0；档位由 Perf.apply 决定
+if (!ATTACH) renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 0.55));   // ★ 首帧最低档
+if (!ATTACH) { renderer.shadowMap.enabled = false; renderer.shadowMap.type = THREE.PCFSoftShadowMap; }   // ★ 默认关阴影
+if (!ATTACH && THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
+if (!ATTACH && THREE.ACESFilmicToneMapping) { renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0; }
+
+var scene = ATTACH ? (function () { var g = new THREE.Group(); g.position.x = 72; g.userData.attachCity = true; window.__ATTACH_SCENE.add(g); return g; })() : new THREE.Scene();
+if (THREE.FogExp2) scene.fog = new THREE.FogExp2(0x0a0d18, 0.0038);
+scene.background = (function () {
+  var c = document.createElement('canvas'); c.width = 64; c.height = 512; var g = c.getContext('2d');
+  var gr = g.createLinearGradient(0, 0, 0, 512);
+  /* ★ 移植《极限刹车》天空：顶 #1D2140 深蓝紫 → 中 #7A4A63 → 地平 #B07766 暖雾 → 落日 #FFA055 光带 */
+  gr.addColorStop(0, '#141b36'); gr.addColorStop(0.34, '#3c2e4e'); gr.addColorStop(0.52, '#7a4a63');
+  gr.addColorStop(0.68, '#b07766'); gr.addColorStop(0.80, '#e08a4e'); gr.addColorStop(0.895, '#6a4a3e'); gr.addColorStop(1, '#2a1d22');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 512);
+  for (var i = 0; i < 190; i++) { g.fillStyle = 'rgba(210,200,220,' + (Math.random() * 0.35) + ')'; g.fillRect(Math.random() * 64, Math.random() * 220, 1, 1); }
+  var t = new THREE.CanvasTexture(c); t.mapping = THREE.EquirectangularReflectionMapping; return t;
+})();
+var camera = new THREE.PerspectiveCamera(74, 1, 0.08, 700); camera.rotation.order = 'YXZ';
+/* ★ 同一世界 · 双视角相机：HD-2D（正交45°锁死） ↔ 透视（自由旋转） */
+var CAM_DIR = new THREE.Vector3(Math.cos(Math.PI / 6) * Math.cos(Math.PI / 4), Math.sin(Math.PI / 6), Math.cos(Math.PI / 6) * Math.sin(Math.PI / 4)).normalize();
+var orthoCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 900);
+var camMode = 'persp';
+var orthoVH = 9, orthoHW = 0;
+function getCam() { return camMode === 'hd2d' ? orthoCam : camera; }
+function setOrthoVH(v) { orthoVH = Math.max(2, Math.min(60, v || 9)); resize(); }
+function setOrthoHW(v) { orthoHW = (v > 0) ? Math.max(2, Math.min(120, v)) : 0; resize(); }
+function getOrthoHW() { return orthoHW; }
+function setCamMode(m) { camMode = (m === 'hd2d') ? 'hd2d' : 'persp'; return camMode; }
+function getCamMode() { return camMode; }
+function resize() {
+  if (ATTACH) return;
+  var W = window.innerWidth, Hh = window.innerHeight;
+  renderer.setSize(W, Hh, false); cv.style.width = W + 'px'; cv.style.height = Hh + 'px';
+  camera.aspect = W / Math.max(1, Hh); camera.updateProjectionMatrix();
+  var _vh = orthoVH, _asp = W / Math.max(1, Hh), _hw = orthoHW > 0 ? orthoHW : _vh * _asp;
+  orthoCam.left = -_hw; orthoCam.right = _hw; orthoCam.top = _vh; orthoCam.bottom = -_vh;
+  orthoCam.updateProjectionMatrix();
+}
+if (!ATTACH) window.addEventListener('resize', resize);
+
+/* ---------------- 环境反射探针（CubeCamera → 地面/楼体反出霓虹） ---------------- */
+var cubeRT = new THREE.WebGLCubeRenderTarget(256, { generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
+/* ★ far 从 400 → 2000：原来拍不到半径 1600 的天空球，
+   导致环境反射里天空区域是纯黑 —— 这也是"死光"的一部分。
+   现在能把天空一起拍进去，湿地面才会反射出天光。 */
+var cubeCam = new THREE.CubeCamera(0.5, 2000, cubeRT);
+var cubeBaked = false;      // ★ 环境探针是否至少烘焙过一次（false = envMap 全是黑的）
+var cubeBakeN = 0;          // 前几次烘焙（应对贴图异步加载，避免烘进黑图就锁定）
+
+/* ---------------- PBR 贴图集（assets/tex：albedo + normal + roughness） ---------------- */
+var TL = new THREE.TextureLoader();
+function tex(url, srgb, repeat) {
+  var t = TL.load(url);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  if (srgb && THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding;
+  t.anisotropy = Math.min(8, renderer.capabilities && renderer.capabilities.getMaxAnisotropy ? renderer.capabilities.getMaxAnisotropy() : 8);
+  if (repeat) t.repeat.set(repeat, repeat);
+  return t;
+}
+/* 地面可选材质（名称 → 贴图 + 物理参数）；沥青 = 之前那张「王炸雨夜沥青」 */
+var GROUNDS = [
+  { id: 'asphalt', name: '瑞丽沥青', base: 'city',   metal: 0.18, rough: 0.72, tint: 0xe6ebf5, refl: 0.85, uvRep: 0.7 },
+  { id: 'granite', name: '花岗岩',   base: 'stone',  metal: 0.10, rough: 0.88, tint: 0xd2cdc4, refl: 0.45, uvRep: 0.8 },
+  { id: 'marble',  name: '大理石',   base: 'marble', metal: 0.12, rough: 0.62, tint: 0xdcd8ce, refl: 0.7, uvRep: 0.9 },
+  { id: 'steel',   name: '钢板',     base: 'city',   metal: 0.80, rough: 0.30, tint: 0xaebfd4, refl: 1.2, uvRep: 0.6 },
+  { id: 'grass',   name: '草地',     base: 'grass',  metal: 0.02, rough: 1.0,  tint: 0xa6bf8e, refl: 0.06, uvRep: 1.2 },
+  { id: 'dirt',    name: '湿土',     base: 'dirt',   metal: 0.05, rough: 0.95, tint: 0xad967c, refl: 0.18, uvRep: 0.8 },
+  { id: 'wood',    name: '木栈道',   base: 'wood',   metal: 0.04, rough: 0.82, tint: 0xc8b090, refl: 0.22, uvRep: 0.9 },
+];
+var GROUNDSETS = {};
+GROUNDS.forEach(function (g) {
+  var rep2 = g.uvRep || 3;                       // 一张贴图铺几格（越大越细密）
+  var set = { map: tex('assets/tex/' + g.base + '.jpg', true, rep2) };
+  var hasN = (g.base !== 'dirt' && g.base !== 'marble');
+  if (hasN) set.normalMap = tex('assets/tex/' + g.base + '_n.jpg', false, rep2);
+  set.roughnessMap = tex('assets/tex/' + g.base + '_r.jpg', false, rep2);
+  GROUNDSETS[g.id] = set;
+});
+
+/* ★★ 全站统一 PBR 材质工厂（把"纯色塑料件"换成顶级扫描贴图）★★
+   name 取 assets/tex 里的扫描材质：stone/marble/brick/concrete/plaster/metal/
+   rustmetal/corrugated/roof/wood/planks/bark/foliage/grass/dirt/sand/gravel/
+   snow/rock/road/fabric/water/city ...   （albedo .jpg + 法线 _n.jpg + 粗糙 _r.jpg） */
+var _matCache = {};
+function matTex(name, opts) {
+  opts = opts || {};
+  var rep = opts.rep || 1;
+  var key = [name, rep, opts.color || '', opts.rough, opts.metal, opts.ns || '', opts.emissive || '', opts.emInt || '', opts.vcol ? 'vc' : ''].join('|');
+  if (_matCache[key]) return _matCache[key];
+  var m = new THREE.MeshStandardMaterial({
+    map: tex('assets/tex/' + name + '.jpg', true, rep),
+    normalMap: tex('assets/tex/' + name + '_n.jpg', false, rep),
+    roughnessMap: tex('assets/tex/' + name + '_r.jpg', false, rep),
+    roughness: (opts.rough != null ? opts.rough : 0.92),
+    metalness: (opts.metal != null ? opts.metal : 0.06)
+  });
+  if (opts.color) m.color.setHex(opts.color);
+  if (opts.ns) m.normalScale = new THREE.Vector2(opts.ns, opts.ns);
+  if (opts.emissive) { m.emissive.setHex(opts.emissive); m.emissiveIntensity = (opts.emInt != null ? opts.emInt : 0.4); }
+  if (opts.env != null) { m.envMap = cubeRT.texture; m.envMapIntensity = opts.env; }
+  if (opts.vcol) m.vertexColors = true;      // ★ 合并几何用：顶点色 × 贴图
+  _matCache[key] = m;
+  return m;
+}
+
+/* ★ 程序化树叶簇贴图（带 alpha）：一张 256² 里撒几十片叶子，边缘透明 → 交叉面片能看出树冠轮廓 */
+function leafTex(cols) {
+  var c = document.createElement('canvas'); c.width = c.height = 256; var g = c.getContext('2d');
+  g.clearRect(0, 0, 256, 256);
+  for (var i = 0; i < 130; i++) {
+    var a = Math.random() * 6.283, r = Math.pow(Math.random(), 0.55) * 112;
+    var x = 128 + Math.cos(a) * r, y = 128 + Math.sin(a) * r * 0.94;
+    var sz = 8 + Math.random() * 12;
+    g.save(); g.translate(x, y); g.rotate(Math.random() * 6.283);
+    g.fillStyle = cols[(Math.random() * cols.length) | 0];
+    g.beginPath(); g.ellipse(0, 0, sz, sz * 0.52, 0, 0, 6.283); g.fill();
+    g.strokeStyle = 'rgba(0,0,0,.16)'; g.lineWidth = 1; g.beginPath(); g.moveTo(-sz, 0); g.lineTo(sz, 0); g.stroke();
+    g.restore();
+  }
+  var t = new THREE.CanvasTexture(c);
+  if (THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding;
+  return t;
+}
+/* ★ 交叉面片 geometry：n 张平面绕 Y 轴均布（一个 draw call 出"立体树冠"） */
+function crossGeo(w, h, n) {
+  n = n || 3;
+  var pos = [], uv = [], nor = [], idx = [], b = 0, hw = w / 2;
+  for (var i = 0; i < n; i++) {
+    var a = (i / n) * Math.PI, dx = Math.cos(a), dz = Math.sin(a);
+    pos.push(-dx * hw, 0, -dz * hw, dx * hw, 0, dz * hw, dx * hw, h, dz * hw, -dx * hw, h, -dz * hw);
+    uv.push(0, 0, 1, 0, 1, 1, 0, 1);
+    for (var k = 0; k < 4; k++) nor.push(-dz, 0, dx);
+    idx.push(b, b + 1, b + 2, b, b + 2, b + 3); b += 4;
+  }
+  var gg = new THREE.BufferGeometry();
+  gg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  gg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  gg.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  gg.setIndex(idx);
+  return gg;
+}
+
+/* ---------------- 钢铁楼 / 玻璃幕墙（程序化 PBR 贴图） ---------------- */
+function makeSteel() {
+  var c = document.createElement('canvas'); c.width = c.height = 256; var g = c.getContext('2d');
+  g.fillStyle = '#7b8493'; g.fillRect(0, 0, 256, 256);
+  for (var y = 0; y < 256; y += 2) {            // 竖向拉丝金属
+    g.fillStyle = 'rgba(' + (150 + Math.random() * 60 | 0) + ',' + (160 + Math.random() * 60 | 0) + ',' + (175 + Math.random() * 60 | 0) + ',.16)';
+    g.fillRect(0, y, 256, 1);
+  }
+  g.strokeStyle = 'rgba(40,46,58,.9)'; g.lineWidth = 4;
+  for (var x = 0; x <= 256; x += 128) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 256); g.stroke(); }  // 竖向幕墙分割
+  for (var y2 = 0; y2 <= 256; y2 += 64) { g.beginPath(); g.moveTo(0, y2); g.lineTo(256, y2); g.stroke(); } // 楼层线
+  g.fillStyle = 'rgba(210,220,235,.55)';        // 铆钉
+  for (var i = 0; i < 16; i++) for (var j = 0; j < 8; j++) { g.beginPath(); g.arc(10 + i * 16, 22 + j * 32, 1.3, 0, 6.3); g.fill(); }
+  var t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; if (THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding; return t;
+}
+function makeGlassEmis() {
+  var c = document.createElement('canvas'); c.width = c.height = 256; var g = c.getContext('2d');
+  g.fillStyle = '#020308'; g.fillRect(0, 0, 256, 256);
+  var cols = ['#ffd9a0', '#ffc070', '#bfe0ff', '#8fd0ff', '#ffffff', '#ffe9c0'];
+  for (var y = 8; y < 248; y += 30) for (var x = 8; x < 248; x += 22) {   // 稀疏小窗（写实：多数暗、少数亮）
+    if (Math.random() < 0.80) continue;
+    g.fillStyle = cols[(Math.random() * cols.length) | 0];
+    g.globalAlpha = 0.25 + Math.random() * 0.55;
+    g.fillRect(x, y, 13, 18); g.globalAlpha = 1;
+  }
+  var t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; if (THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding; return t;
+}
+var TEX_STEEL = makeSteel(), TEX_GLASS = makeGlassEmis();
+
+/* ============================================================================
+ * ★★★ 房屋：合并成「一个整体」★★★
+ * ----------------------------------------------------------------------------
+ *  以前：5 栋房子 = 10~30 个独立 Mesh（墙/屋顶/窗/门框各一个）
+ *        → 每个都是一次 draw call，每增加一栋再涨一次；切精致还要 5 盏点光源
+ *
+ *  现在：所有房子（不管几栋、加多少细节）只占 **1~3 个 draw call**，且恒定不变：
+ *        · 顶点手动塞进同一个 Float32Array（position/normal/color/uv）
+ *        · 只按"材质种类"分桶：墙体 / 屋顶 / 发光件
+ *          - 火柴盒：一个顶点色材质吃下全部 → **1 次 draw call**
+ *          - 精致版：扫墙 + 扫瓦 + 发光 → 3 次（原来是 30+）
+ *        · 细节全部合并进同一个缓冲，等于"免费"：加窗口、门框、烟囱不再涨开销
+ *        · 不再用 5 盏 PointLight（这才是手机上真正的帧率杀手），
+ *          暖光靠 自发光材质 + 烘焙 GI 表现，观感几乎一样，开销为 0
+ *
+ *  碰撞同时烘焙：每个部件调 Solid.addBox / addPyramid，全部并进
+ *               一个全局平面结构（见文件上方 Solid 模块），
+ *               既能整栋当一个体积，又精确到屋顶尖角。
+ * ========================================================================== */
+var HOUSES = [[7, 10], [14, 38], [4, 30], [17, 16], [10, 44]];
+var houseGroup = null;
+window.__houseFancy = (function () {
+  try { return localStorage.getItem('tl_house') === 'fancy'; } catch (e) { return false; }
+})();
+
+/* ---- 顶点缓冲累加器：把一大堆方块/屋顶/窗塞进一个几何体 ---- */
+function VB() { this.p = []; this.n = []; this.c = []; this.uv = []; this.i = []; this.v = 0; }
+VB.prototype.quad = function (p0, p1, p2, p3, nx, ny, nz, col, uvq) {
+  var i0 = this.v, k, pts = [p0, p1, p2, p3];
+  for (k = 0; k < 4; k++) {
+    this.p.push(pts[k][0], pts[k][1], pts[k][2]);
+    this.n.push(nx, ny, nz);
+    this.c.push(col[0], col[1], col[2]);
+  }
+  if (uvq) for (k = 0; k < 4; k++) this.uv.push(uvq[k][0], uvq[k][1]);
+  this.i.push(i0, i0 + 1, i0 + 2, i0, i0 + 2, i0 + 3);
+  this.v += 4;
+};
+VB.prototype.tri = function (p0, p1, p2, nx, ny, nz, col, uvq) {
+  var i0 = this.v, k, pts = [p0, p1, p2];
+  for (k = 0; k < 3; k++) {
+    this.p.push(pts[k][0], pts[k][1], pts[k][2]);
+    this.n.push(nx, ny, nz);
+    this.c.push(col[0], col[1], col[2]);
+  }
+  if (uvq) for (k = 0; k < 3; k++) this.uv.push(uvq[k][0], uvq[k][1]);
+  this.i.push(i0, i0 + 1, i0 + 2);
+  this.v += 3;
+};
+/* 长方体（法线/绕序已逐面验算过：法线一律朝外） */
+VB.prototype.box = function (cx, cy, cz, sx, sy, sz, col, uvs) {
+  var hx = sx / 2, hy = sy / 2, hz = sz / 2;
+  var x0 = cx - hx, x1 = cx + hx, y0 = cy - hy, y1 = cy + hy, z0 = cz - hz, z1 = cz + hz;
+  var u = uvs || [[0, 1], [1, 1], [1, 0], [0, 0]];
+  this.quad([x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], 1, 0, 0, col, u);
+  this.quad([x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], -1, 0, 0, col, u);
+  this.quad([x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], 0, 1, 0, col, u);
+  this.quad([x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], 0, -1, 0, col, u);
+  this.quad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], 0, 0, 1, col, u);
+  this.quad([x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], 0, 0, -1, col, u);
+};
+/* 四棱锥屋顶（底面半宽 a，底在高 baseY，高 h）—— 4 个三角面，与 Solid 的平面完全对应 */
+VB.prototype.pyramid = function (cx, baseY, cz, a, h, col) {
+  var P = [[cx - a, baseY, cz - a], [cx + a, baseY, cz - a], [cx + a, baseY, cz + a], [cx - a, baseY, cz + a]];
+  var A = [cx, baseY + h, cz];
+  var faces = [[1, 0], [2, 1], [3, 2], [0, 3]];   // 绕序已验算：从外面看是逆时针
+  var uvq = [[0, 0], [1, 0], [0.5, 1]];
+  for (var i = 0; i < 4; i++) {
+    var p1 = P[faces[i][0]], p0 = P[faces[i][1]];
+    // ★ 法线必须按"实际发出的顶点顺序" (p1→p0→A) 算，否则整片屋顶法线朝内 → 发黑
+    var a1 = [p0[0] - p1[0], p0[1] - p1[1], p0[2] - p1[2]];
+    var a2 = [A[0] - p0[0], A[1] - p0[1], A[2] - p0[2]];
+    var n = [a1[1] * a2[2] - a1[2] * a2[1], a1[2] * a2[0] - a1[0] * a2[2], a1[0] * a2[1] - a1[1] * a2[0]];
+    var L = Math.hypot(n[0], n[1], n[2]) || 1;
+    this.tri(p1, p0, A, n[0] / L, n[1] / L, n[2] / L, col, uvq);
+  }
+};
+VB.prototype.build = function (mat) {
+  var g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(this.p, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(this.n, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(this.c, 3));
+  if (this.uv.length) g.setAttribute('uv', new THREE.Float32BufferAttribute(this.uv, 2));
+  g.setIndex(this.v > 65535 ? new THREE.Uint32BufferAttribute(this.i, 1) : new THREE.Uint16BufferAttribute(this.i, 1));
+  g.computeBoundingSphere();
+  var m = new THREE.Mesh(g, mat);
+  m.matrixAutoUpdate = false;         // 静态合体：不参与每帧矩阵计算
+  m.frustumCulled = true;
+  return m;
+};
+VB.prototype.count = function () { return this.v; };
+
+var HOUSE_DIM = { w: 3.4, h: 2.6, d: 3.0, roofA: 2.121, roofH: 1.8 };   // 与历史火柴盒尺寸一致
+
+function buildHouses() {
+  /* ---- 1) 拆旧的（几何/材质 dispose，不给 GPU 留垃圾）---- */
+  if (houseGroup) {
+    scene.remove(houseGroup);
+    houseGroup.traverse(function (o) {
+      if (o.geometry) { try { o.geometry.dispose(); } catch (e) {} }
+      if (o.material && o.material._houseOwn) { try { o.material.dispose(); } catch (e) {} }   // ★ 只销毁自建的，matTex 缓存是共享的
+    });
+  }
+  for (var i = GI_EM.length - 1; i >= 0; i--) if (GI_EM[i] && GI_EM[i].house) GI_EM.splice(i, 1);
+  // 碰撞也重建：把上一次房子那批凸体整批摘掉（整场始终只有一个一致性快照）
+  if (window.__houseSolidN != null) Solid.truncate(window.__houseSolidN);
+  else window.__houseSolidN = Solid._shapes().length;
+  var oldN = Solid._shapes().length;
+
+  var G = new THREE.Group(); G.name = 'houses'; houseGroup = G; scene.add(G);
+  var fancy = !!window.__houseFancy;
+  var D = HOUSE_DIM;
+
+  /* ---- 2) 三个桶：墙 / 瓦 / 发光 —— 桶数=draw call 数，与房子数量无关 ---- */
+  var bWall = new VB(), bRoof = new VB(), bGlow = fancy ? new VB() : null;
+
+  var CW = [0.541, 0.416, 0.282], CR = [0.490, 0.227, 0.165];       // 火柴盒配色（同历史版）
+  var CW2 = [0.470, 0.352, 0.235], CR2 = [0.400, 0.180, 0.130];      // 一点明暗变化，避免死板
+  var CGLOW = [1.0, 0.82, 0.54];
+  // ★ 精致版带贴图：顶点色是"乘"上去的 → 必须接近白，否则整栋发暗
+  if (fancy) {
+    CW = [0.98, 0.96, 0.93]; CW2 = [0.90, 0.86, 0.82];
+    CR = [0.98, 0.94, 0.90]; CR2 = [0.88, 0.82, 0.78];
+  }
+
+  function emHouse(x, z, y, hex, p, rad) {
+    var c = new THREE.Color(hex);
+    GI_EM.push({ x: x, z: z, y: y, r: c.r, g: c.g, b: c.b, p: p, rad: rad || 26, house: true });
+  }
+
+  for (var h = 0; h < HOUSES.length; h++) {
+    var hx = HOUSES[h][0] * TILE, hz = HOUSES[h][1] * TILE;
+    var wc = (h % 2 ? CW2 : CW), rc = (h % 2 ? CR2 : CR);
+
+    /* 墙体 —— 渲染一次、碰撞烘焙一次（同一个尺寸，永远对得上） */
+    bWall.box(hx, D.h / 2, hz, D.w, D.h, D.d, wc);
+    Solid.addBox(hx, D.h / 2, hz, D.w, D.h, D.d);
+
+    /* 屋顶（四棱锥，比墙宽 0.42 → 有屋檐外挑；尖角碰撞也精确） */
+    bRoof.pyramid(hx, D.h, hz, D.roofA, D.roofH, rc);
+    Solid.addPyramid(hx, D.h, hz, D.roofA, D.roofH);
+
+    if (fancy) {
+      /* 精致版细节：门（暗部 + 暖光）+ 四扇窗 + 烟囱 —— 全部并进同一批缓冲，0 额外开销 */
+      var dz = hz + D.d / 2;                      // 正面（+Z）
+      bGlow.box(hx, 1.05, dz + 0.012, 0.62, 1.5, 0.02, [1.0, 0.74, 0.42]);   // 门里透出的暖光
+      [[-1.05, 0], [1.05, 0]].forEach(function (o) {
+        bGlow.box(hx + o[0], 1.62, dz + 0.014, 0.62, 0.56, 0.02, CGLOW);     // 正面窗
+        bGlow.box(hx + o[0], 1.62, hz - D.d / 2 - 0.014, 0.62, 0.56, 0.02, CGLOW);  // 背面窗
+      });
+      bGlow.box(hx + D.w / 2 + 0.014, 1.62, hz, 0.02, 0.56, 0.7, CGLOW);    // 侧窗
+      bGlow.box(hx - D.w / 2 - 0.014, 1.62, hz, 0.02, 0.56, 0.7, CGLOW);
+      /* 烟囱：既是细节也是碰撞体（尖角照样能挡住人/子弹） */
+      bWall.box(hx + 0.95, 2.9, hz - 0.6, 0.46, 1.5, 0.46, wc);
+      Solid.addBox(hx + 0.95, 2.9, hz - 0.6, 0.46, 1.5, 0.46);
+    }
+
+    emHouse(hx, hz, 2.4, 0xffc07a, 1.2, 26);       // 暖光进烘焙 GI（切档不重烘，避免卡一下）
+  }
+
+  /* ---- 3) 出模型：2 个材质（火柴盒）/ 3 个材质（精致），与房子数量无关 ---- */
+  var wallM, roofM, glowM, draws = 0;
+
+  if (fancy) {
+    // 精致：真扫描贴图。UV 已按面生成（box 每面 0..1，屋顶 v 沿斜面）
+    wallM = matTex('planks', { rep: 1, rough: 0.85, emissive: 0x2a1a0c, emInt: 0.45, vcol: 1 });
+    roofM = matTex('roof',   { rep: 1, rough: 0.80, emissive: 0x1c0e08, emInt: 0.35, vcol: 1 });
+  } else {
+    // 火柴盒：单材质 + 顶点色 → 整片房子 1 次 draw call
+    wallM = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0.02, emissive: 0x241608, emissiveIntensity: 0.42 });
+    roofM = wallM;
+  }
+  if (!fancy) wallM._houseOwn = true;      // 火柴盒材质是本函数 new 的，可以销毁
+  if (fancy && roofM !== wallM) { /* matTex 共享材质：不销毁 */ }
+
+  var mW = bWall.build(wallM); mW.castShadow = fancy; mW.receiveShadow = true; G.add(mW); draws++;
+  if (bRoof.count()) {
+    var mR = bRoof.build(roofM); mR.castShadow = fancy; mR.receiveShadow = true; G.add(mR);
+    if (roofM !== wallM) draws++;
+  }
+  if (bGlow && bGlow.count()) {
+    glowM = new THREE.MeshBasicMaterial({ vertexColors: true });
+    glowM._houseOwn = true;
+    var mG = bGlow.build(glowM); mG.castShadow = false; mG.receiveShadow = false; G.add(mG); draws++;
+  }
+
+  window.__houseDraws = draws;
+  window.__houseVerts = bWall.count() + bRoof.count() + (bGlow ? bGlow.count() : 0);
+  window.__houseSolid = Solid.stats();
+  window.__houseSolidShapes = Solid._shapes().length - oldN;
+  window.__houseSolidN = oldN;      // 记住"房子开始的位置"，下次重建从这里截断
+  try {
+    console.log('[house] 合并完成 · draw calls = ' + draws +
+      ' · 顶点 ' + window.__houseVerts + ' · 碰撞体 ' + window.__houseSolid.shapes + ' 个/' + window.__houseSolid.planes + ' 平面 (' + window.__houseSolid.kb + ' KB)');
+  } catch (e) {}
+}
+
+/* 菜单里切换：window.setHouseFancy(true/false)，立即重建 + 记住 */
+window.setHouseFancy = function (on) {
+  window.__houseFancy = !!on;
+  try { localStorage.setItem('tl_house', on ? 'fancy' : 'simple'); } catch (e) {}
+  buildHouses();
+  try { if (typeof onHouseFancyChanged === 'function') onHouseFancyChanged(!!on); } catch (e) {}
+  return !!on;
+};
+
+/* ---------------- ★ 农村营地（西侧 OFF_U 格，与城市连成一片） ---------------- */
+(function buildCamp() {
+  var campW = OFF_U + 2;                     // 营地宽度（格）
+  // 草地地面
+  var gg = new THREE.PlaneGeometry(campW * TILE, GH * TILE); gg.rotateX(-Math.PI / 2);
+  var gt = (function () { var c = document.createElement('canvas'); c.width = c.height = 256; var g = c.getContext('2d');
+    g.fillStyle = '#3f5a34'; g.fillRect(0, 0, 256, 256);
+    for (var i = 0; i < 2600; i++) { g.fillStyle = 'rgba(' + (60 + Math.random() * 50 | 0) + ',' + (95 + Math.random() * 60 | 0) + ',' + (48 + Math.random() * 40 | 0) + ',' + (Math.random() * 0.5) + ')'; g.fillRect(Math.random() * 256, Math.random() * 256, 1 + Math.random() * 2, 1 + Math.random() * 3); }
+    var t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(campW * TILE / 3, GH * TILE / 3);
+    if (THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding; return t; })();
+  var gm = new THREE.Mesh(gg, matTex('grass', { rep: 7, rough: 1, metal: 0.02 }));
+  gm.position.set(campW * TILE / 2, 0.04, GH * TILE / 2); gm.receiveShadow = true;
+  injectGI ? null : null; scene.add(gm);
+  // 泥土路（营地→城市）
+  var rg = new THREE.PlaneGeometry(OFF_U * TILE, 4.2 * TILE); rg.rotateX(-Math.PI / 2);
+  var rm = new THREE.Mesh(rg, matTex('dirt', { rep: 5, rough: 1 }));
+  rm.position.set(OFF_U * TILE * 0.5 + 3, 0.06, GH * TILE * 0.5); scene.add(rm);
+  // ★ 真·阔叶树：树干(树皮贴图) + 交叉面片树冠(程序化树叶 alpha)，3 种叶片混排
+  var trunkG = new THREE.CylinderGeometry(0.13, 0.22, 2.6, 6);
+  var trunkM = matTex('bark', { rep: 2, rough: 1 });
+  var LEAF_TEX = [
+    leafTex(['#2f5a2a', '#3a6b30', '#264d22', '#437a35']),   // 深绿阔叶
+    leafTex(['#4a6b22', '#5d7a2c', '#3d5a1c', '#6b8a38']),   // 黄绿
+    leafTex(['#356b45', '#2a5a3a', '#40804f', '#2d6440'])    // 青绿
+  ];
+  var LEAF_MAT = LEAF_TEX.map(function (t) {
+    return new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.92, metalness: 0 });
+  });
+  var leafGeo = crossGeo(3.6, 4.0, 3); leafGeo.translate(0, 1.7, 0);
+  var spots = [], d = new THREE.Object3D();
+  for (var i = 0; i < 96; i++) {
+    var u = 2 + Math.random() * (campW - 4), v = 2 + Math.random() * (GH - 4);
+    if (Math.abs(v - GH / 2) < 3) continue;                  // 让开中间的路
+    spots.push([u * TILE, v * TILE, i % 3]);
+  }
+  var tim = new THREE.InstancedMesh(trunkG, trunkM, spots.length);
+  var lims = [0, 1, 2].map(function (k) { return { im: new THREE.InstancedMesh(leafGeo, LEAF_MAT[k], spots.length), n: 0 }; });
+  spots.forEach(function (s2, j) {
+    d.position.set(s2[0], 1.3, s2[1]); d.rotation.set(0, Math.random() * 6.28, 0); d.scale.set(1, 1, 1); d.updateMatrix(); tim.setMatrixAt(j, d.matrix);
+    var g2 = lims[s2[2]], sc = 0.85 + Math.random() * 0.4;
+    d.position.set(s2[0], 0, s2[1]); d.rotation.set(0, Math.random() * 6.28, 0); d.scale.set(sc, 0.9 + Math.random() * 0.4, sc); d.updateMatrix();
+    g2.im.setMatrixAt(g2.n++, d.matrix);
+  });
+  lims.forEach(function (g2) { g2.im.count = g2.n; g2.im.castShadow = true; scene.add(g2.im); });
+  tim.castShadow = true; scene.add(tim);
+  // ★★ 木屋：默认「火柴盒」（便宜、不卡），想要精致版由用户在菜单里自己开 ★★
+  buildHouses();
+
+  // 营地入口 · 告示牌（指引箭头）
+  var sx = (campW - 1) * TILE, sz = GH * TILE * 0.5;
+  var post = new THREE.Mesh(new THREE.BoxGeometry(0.22, 2.4, 0.22), matTex('wood', { rep: 1, rough: 1 }));
+  post.position.set(sx, 1.2, sz); scene.add(post);
+  var signCv = document.createElement('canvas'); signCv.width = 256; signCv.height = 128; var sg = signCv.getContext('2d');
+  sg.fillStyle = '#c9a266'; sg.fillRect(0, 0, 256, 128); sg.fillStyle = '#3a2a18'; sg.font = 'bold 34px sans-serif'; sg.textAlign = 'center';
+  sg.fillText('← 农村营地', 128, 52); sg.fillText('CAMP', 128, 96);
+  var st = new THREE.CanvasTexture(signCv); if (THREE.sRGBEncoding) st.encoding = THREE.sRGBEncoding;
+  var board = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.3), new THREE.MeshStandardMaterial({ map: st, roughness: 0.8 }));
+  board.position.set(sx, 2.6, sz); board.rotation.y = Math.PI; scene.add(board);
+  window.__campReady = true;
+})();
+
+
+/* ---------------- 地形网格（顶面=地面材质，侧面=钢铁+玻璃楼） ---------------- */
+var matTop, matSide, matGlass, topMesh = null, GROUNDMATS = {};
+var terrain = (function buildTerrain() {
+  var top = { pos: [], uv: [], col: [], idx: [], b: 0 };
+  var side = { pos: [], uv: [], col: [], idx: [], b: 0 };
+  var glass = { pos: [], uv: [], idx: [], b: 0 };
+  function shade(h) { var t = (h - YMIN) / (WALL_H - YMIN); var b = 0.68 + 0.5 * t; return [b * 1.0, b * 1.0, b * 1.0]; }
+  function quadTop(x, z, h, col) {
+    var y = h, o = top.b;
+    top.pos.push(x, y, z, x + TILE, y, z, x + TILE, y, z + TILE, x, y, z + TILE);
+    top.uv.push(x / 4.2, z / 4.2, (x + TILE) / 4.2, z / 4.2, (x + TILE) / 4.2, (z + TILE) / 4.2, x / 4.2, (z + TILE) / 4.2);
+    for (var i = 0; i < 4; i++) top.col.push(col[0], col[1], col[2]);
+    top.idx.push(o, o + 1, o + 2, o, o + 2, o + 3); top.b += 4;
+  }
+  function quadWall(ax, ay, az, bx, by, bz, cx, cy, cz, dx2, dy2, dz2, ox, oz) {
+    var o = side.b, c = shade(Math.max(ay, cy));
+    side.pos.push(ax, ay, az, bx, by, bz, cx, cy, cz, dx2, dy2, dz2);
+    var w = Math.hypot(bx - ax, bz - az), hh = Math.hypot(dx2 - ax, dy2 - ay, dz2 - az);
+    side.uv.push(w / 2.6, 0, 0, 0, 0, hh / 2.6, w / 2.6, hh / 2.6);   // ★ 加密：墙面纹理更细腻
+    for (var i = 0; i < 4; i++) side.col.push(c[0] * 0.95, c[1] * 0.97, c[2] * 1.0);
+    side.idx.push(o, o + 1, o + 2, o, o + 2, o + 3); side.b += 4;
+    // 幕墙玻璃（楼体上部 62% 挂深色玻璃，强反射霓虹）
+    if (hh > 1.3) {
+      var gy1 = Math.max(ay, by) - 0.10, gy0 = gy1 - 0.62 * hh, g = glass.b;
+      glass.pos.push(ax + ox, gy1, az + oz, bx + ox, gy1, bz + oz, cx + ox, gy0, cz + oz, dx2 + ox, gy0, dz2 + oz);
+      var gu = w / 3.4, gv = (gy1 - gy0) / 3.4;
+      glass.uv.push(gu, 1, 0, 1, 0, 1 - gv, gu, 1 - gv);
+      glass.idx.push(g, g + 1, g + 2, g, g + 2, g + 3); glass.b += 4;
+    }
+  }
+  for (var v = 0; v < GH; v++) for (var u = 0; u < GW; u++) {
+    var h = H[v * GW + u], x = u * TILE, z = v * TILE, col = shade(h);
+    quadTop(x, z, h, col);
+    var nR = getH(u + 1, v), nL = getH(u - 1, v), nD = getH(u, v + 1), nU = getH(u, v - 1);
+    if (nR < h) quadWall(x + TILE, h, z, x + TILE, h, z + TILE, x + TILE, nR, z + TILE, x + TILE, nR, z, 0.05, 0);
+    if (nL < h) quadWall(x, h, z + TILE, x, h, z, x, nL, z, x, nL, z + TILE, -0.05, 0);
+    if (nD < h) quadWall(x + TILE, h, z + TILE, x, h, z + TILE, x, nD, z + TILE, x + TILE, nD, z + TILE, 0, 0.05);
+    if (nU < h) quadWall(x, h, z, x + TILE, h, z, x + TILE, nU, z, x, nU, z, 0, -0.05);
+  }
+  function mk(d, mat, idx) {
+    var g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(d.pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(d.uv, 2));
+    if (d.col && d.col.length) g.setAttribute('color', new THREE.Float32BufferAttribute(d.col, 3));
+    g.setIndex(d.idx); g.computeVertexNormals();
+    var m = new THREE.Mesh(g, mat); scene.add(m); return m;
+  }
+  matTop = new THREE.MeshStandardMaterial({ map: GROUNDSETS.asphalt.map, normalMap: GROUNDSETS.asphalt.normalMap,
+    roughnessMap: GROUNDSETS.asphalt.roughnessMap, vertexColors: true, roughness: 0.72, metalness: 0.18,
+    color: new THREE.Color(0xe6ebf5), envMap: cubeRT.texture, envMapIntensity: 0.85 });
+  // ★ 真实石材/混凝土墙（写实 PBR：albedo + normal + roughness）
+  matSide = new THREE.MeshStandardMaterial({ map: tex('assets/tex/concrete.jpg', true), normalMap: tex('assets/tex/concrete_n.jpg'),
+    roughnessMap: tex('assets/tex/concrete_r.jpg'), normalScale: new THREE.Vector2(1.7, 1.7),
+    color: 0xa8adb6, vertexColors: true,
+    roughness: 0.93, metalness: 0.12, envMap: cubeRT.texture, envMapIntensity: 0.7, side: THREE.DoubleSide });
+  // ★ 玻璃幕墙（深色高反射 + 稀疏亮窗）
+  matGlass = new THREE.MeshStandardMaterial({ color: 0x243d5e, metalness: 1.0, roughness: 0.05,
+    envMap: cubeRT.texture, envMapIntensity: 2.6, emissiveMap: TEX_GLASS, emissive: 0xffffff, emissiveIntensity: 1.1,
+    transparent: true, opacity: 0.62, side: THREE.DoubleSide, depthWrite: false });
+  var mt = mk(top, matTop); mt.receiveShadow = true;
+  var ms = mk(side, matSide); ms.castShadow = true; ms.receiveShadow = true;
+  if (glass.b) { var mg = mk(glass, matGlass); mg.renderOrder = 1; }
+  topMesh = mt; return { top: mt, side: ms };
+})();
+
+/* ---------------- 楼顶写实细节：女儿墙 / 通风管 / 空调外机 ---------------- */
+(function buildRoofDetail() {
+  var dummy = new THREE.Object3D(), parts = [], pipes = [], acs = [];
+  for (var v = 2; v < GH - 2; v++) for (var u = 2; u < GW - 2; u++) {
+    var h = H[v * GW + u]; if (h < 3.0) continue;
+    var ex = getH(u + 1, v) < h - 0.5, ez = getH(u, v + 1) < h - 0.5;
+    if (ex && ((u * 3 + v) % 3 === 0)) parts.push([(u + 1) * TILE, h + 0.42, (v + 0.5) * TILE, 0.20, 0.84, TILE]);
+    if (ez && ((u + v * 3) % 3 === 0)) parts.push([(u + 0.5) * TILE, h + 0.42, (v + 1) * TILE, TILE, 0.84, 0.20]);
+    if (!ex && !ez) {
+      var r = (u * 7 + v * 11) % 100;
+      if (r < 5) pipes.push([(u + 0.5) * TILE, h, (v + 0.5) * TILE]);
+      else if (r < 8) acs.push([(u + 0.5) * TILE, h, (v + 0.5) * TILE, (u * v) % 2]);
+    }
+  }
+  var mConc = matTex('concrete', { rep: 2, color: 0x9aa0a8, rough: 0.95, metal: 0.10, env: 0.45 });
+  var mMetal = matTex('metal', { rep: 2, rough: 0.35, metal: 0.9, env: 1.1 });
+  var boxG = new THREE.BoxGeometry(1, 1, 1);
+  function inst(geo, mat, list, apply) {
+    if (!list.length) return;
+    var im = new THREE.InstancedMesh(geo, mat, list.length);
+    for (var i = 0; i < list.length; i++) { apply(dummy, list[i], i); dummy.updateMatrix(); im.setMatrixAt(i, dummy.matrix); }
+    im.castShadow = true; im.receiveShadow = true; scene.add(im);
+  }
+  inst(boxG, mConc, parts, function (d, p) { d.position.set(p[0], p[1], p[2]); d.scale.set(p[3], p[4], p[5]); d.rotation.set(0, 0, 0); });
+  inst(new THREE.CylinderGeometry(0.42, 0.42, 1.3, 12), mMetal, pipes, function (d, p) { d.position.set(p[0], p[1] + 0.65, p[2]); d.scale.set(1, 1, 1); d.rotation.set(0, 0, 0); });
+  inst(new THREE.BoxGeometry(1.7, 1.1, 1.1), mMetal, acs, function (d, p) { d.position.set(p[0], p[1] + 0.55, p[2]); d.scale.set(1, 1, 1); d.rotation.set(0, p[3] * Math.PI / 2, 0); });
+})();
+
+/* ★ 地面切换（可切换 + 外部保存） */
+function setGround(id) {
+  var m = GROUNDMATS[id]; if (!m) return false;
+  if (topMesh) topMesh.material = m;            // ★ 换材质对象 → THREE 必定重新编译，一定生效
+  matTop = m; currentGround = id;
+  return true;
+}
+var currentGround = 'asphalt';
+
+/* ---------------- 楼顶霓虹边缘 + 街灯（保留并强化） ---------------- */
+(function buildNeon() {
+  var box = new THREE.BoxGeometry(1, 1, 1);
+  var cols = [0x39e0ff, 0xff3d8b, 0xffb43d, 0x7cff6a, 0xa855f7, 0x7aa8ff];
+  var ci = 0, items = [];
+  for (var v = 2; v < GH - 2; v++) for (var u = 2; u < GW - 2; u++) {
+    var h = H[v * GW + u];
+    if (h < 3.0 || h > 10.5) continue;
+    if (!((getH(u + 1, v) < h - 0.1) || (getH(u, v + 1) < h - 0.1) || (getH(u - 1, v) < h - 0.1) || (getH(u, v - 1) < h - 0.1))) continue;
+    if (((u * 7 + v * 13) % 3) !== 0) continue;
+    var c = cols[(ci++) % cols.length];
+    items.push({ x: (u + 0.5) * TILE, y: h + 0.09, z: (v + 0.5) * TILE, c: c });
+    emAdd((u + 0.5) * TILE, (v + 0.5) * TILE, h + 0.6, c, 1.35, 30);
+  }
+  if (items.length) {                                  // ★ InstancedMesh：一次 draw call
+    var im = new THREE.InstancedMesh(box, new THREE.MeshBasicMaterial(), items.length);
+    var d = new THREE.Object3D(), col = new THREE.Color();
+    for (var i = 0; i < items.length; i++) {
+      d.position.set(items[i].x, items[i].y, items[i].z); d.scale.set(TILE * 0.96, 0.16, TILE * 0.96);
+      d.updateMatrix(); im.setMatrixAt(i, d.matrix); im.setColorAt(i, col.setHex(items[i].c));
+    }
+    if (im.instanceColor) im.instanceColor.needsUpdate = true;
+    im.frustumCulled = false; scene.add(im);
+  }
+  // 路灯：柱+头也用 InstancedMesh
+  var lamps = [[16, 9], [35, 20], [9, 30], [40, 30], [26, 44], [44, 8], [6, 16], [30, 49]];
+  var poleG = new THREE.CylinderGeometry(0.07, 0.09, 5.2, 6), headG = new THREE.SphereGeometry(0.26, 10, 8);
+  var poleM = matTex('metal', { rep: 1, color: 0x3a3f4a, rough: 0.4, metal: 0.85, env: 1.0 });
+  var headM = new THREE.MeshBasicMaterial({ color: 0xffd9a0 });
+  var poles = new THREE.InstancedMesh(poleG, poleM, lamps.length);
+  var heads = new THREE.InstancedMesh(headG, headM, lamps.length);
+  var dd = new THREE.Object3D();
+  for (var j = 0; j < lamps.length; j++) {
+    var u2 = lamps[j][0], v2 = lamps[j][1], hh = getH(u2, v2);
+    dd.position.set((u2 + 0.5) * TILE, hh + 2.6, (v2 + 0.5) * TILE); dd.updateMatrix(); poles.setMatrixAt(j, dd.matrix);
+    dd.position.set((u2 + 0.5) * TILE, hh + 5.2, (v2 + 0.5) * TILE); dd.updateMatrix(); heads.setMatrixAt(j, dd.matrix);
+    emAdd((u2 + 0.5) * TILE, (v2 + 0.5) * TILE, hh + 5.2, 0xffc07a, 1.9, 50, true);
+  }
+  scene.add(poles); scene.add(heads);
+})();
+
+(function buildSkyline() {
+  var mat = new THREE.MeshStandardMaterial({ color: 0x232a3e, roughness: 0.45, metalness: 0.85, emissive: 0x0a0e1c });
+  var Cx = ATTACH ? 78 : WORLD / 2, Cz = ATTACH ? 78 : WORLD / 2, R = ATTACH ? 215 : 165, N = 40;   // ★ 附加模式围住「营地+城市」
+  var im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat, N);
+  var d = new THREE.Object3D();
+  for (var i = 0; i < N; i++) {
+    var a = (i / N) * Math.PI * 2 + Math.random() * 0.09, dist = R + rnd(-20, 50);
+    var w = rnd(11, 28), hgt = rnd(30, 100);
+    d.position.set(Math.cos(a) * dist + Cx, hgt / 2 - 4, Math.sin(a) * dist + Cz);
+    d.rotation.set(0, Math.random() * 1.57, 0); d.scale.set(w, hgt, w); d.updateMatrix(); im.setMatrixAt(i, d.matrix);
+  }
+  im.frustumCulled = false; scene.add(im);
+})();
+
+/* ---------------- 楼顶探照灯（扫射 → 地面色彩溢出 + 体积光锥） ---------------- */
+var SEARCH = [];
+var SPOT_ON = true;
+var DECAL_TEX = (function () {
+  var c = document.createElement('canvas'); c.width = c.height = 128; var g = c.getContext('2d');
+  var gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gr.addColorStop(0, 'rgba(255,255,255,.95)'); gr.addColorStop(0.35, 'rgba(255,255,255,.5)'); gr.addColorStop(0.75, 'rgba(255,255,255,.16)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c);
+})();
+(function buildSearchlights() {
+  var spots = [
+    { x: 26, z: 10, c: 0x39e0ff }, { x: 12, z: 31, c: 0xff3d8b },
+    { x: 40, z: 34, c: 0xffb43d }, { x: 34, z: 9, c: 0x8affc0 },
+  ];
+  for (var i = 0; i < spots.length; i++) {
+    var s = spots[i], bx = (s.x + 0.5) * TILE, bz = (s.z + 0.5) * TILE, by = getH(s.x, s.z) + 4.2;
+    var sp = new THREE.SpotLight(s.c, 0, 100, 0.30, 0.55, 1.5);
+    sp.position.set(bx, by, bz); sp.castShadow = false;
+    var tg = new THREE.Object3D(); tg.position.set(bx, 0, bz + 12);
+    /* ★★ 关键修复：以前是 `if (LEAN.spotLights) { ... scene.add(sp) }`
+       —— SpotLight 只在启动那一刻判断一次，之后 Perf 再怎么改 LEAN 都没用，
+       灯根本没被加进场景，"体积光"永远是缺失的。
+       现在：始终创建并加入场景，用 .visible 做运行时开关。 */
+    scene.add(tg); sp.target = tg; scene.add(sp);
+    sp.visible = !!LEAN.spotLights;
+    sp.intensity = LEAN.spotLights ? 3.2 : 0;
+    emAdd(bx, bz, by, s.c, 3.2, 80, true);
+    var hgt = by, cone = new THREE.Mesh(new THREE.ConeGeometry(Math.tan(0.30) * hgt * 1.25, hgt, 22, 1, true),
+      new THREE.MeshBasicMaterial({ color: s.c, transparent: true, opacity: 0.026, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    cone.rotation.x = Math.PI; scene.add(cone);
+    var bulb = new THREE.Mesh(new THREE.SphereGeometry(0.4, 10, 8), new THREE.MeshBasicMaterial({ color: s.c }));
+    bulb.position.set(bx, by, bz); scene.add(bulb);
+    var decal = new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ map: DECAL_TEX, color: s.c, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending, depthWrite: false }));
+    decal.rotation.x = -Math.PI / 2; decal.scale.set(11, 11, 1); scene.add(decal);
+    SEARCH.push({ sp: sp, tg: tg, cone: cone, decal: decal, bx: bx, by: by, bz: bz, phase: Math.random() * 6.28, spd: rnd(0.25, 0.5) });
+    /* 把光锥壳调亮一点：即使 SpotLight 关了，锥体本身也该看得出是光柱 */
+    cone.material.opacity = 0.055;
+  }
+})();
+
+/* ---------------- 下雨（雨丝） ---------------- */
+var RAIN = { on: true };
+var RAIN_N = 450, rainMesh = null, rainPos = null, rainSpd = null;
+(function buildRain() {
+  rainPos = new Float32Array(RAIN_N * 6); rainSpd = new Float32Array(RAIN_N);
+  for (var i = 0; i < RAIN_N; i++) {
+    var x = rnd(-60, 60), y = rnd(0, 45), z = rnd(-60, 60), sp = rnd(26, 40);
+    rainPos[i * 6] = x; rainPos[i * 6 + 1] = y; rainPos[i * 6 + 2] = z;
+    rainPos[i * 6 + 3] = x + 0.06; rainPos[i * 6 + 4] = y - 0.75; rainPos[i * 6 + 5] = z;
+    rainSpd[i] = sp;
+  }
+  var g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
+  var m = new THREE.LineBasicMaterial({ color: 0xbcd6ff, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false });
+  rainMesh = new THREE.LineSegments(g, m); rainMesh.frustumCulled = false; scene.add(rainMesh);
+})();
+
+/* ---------------- ★ 离线烘焙 GI（全局光照贴图） ---------------- */
+function bakeGI() {
+  var R = 256, data = new Uint8Array(R * R * 4);
+  for (var gy = 0; gy < R; gy++) for (var gx = 0; gx < R; gx++) {
+    var wx = (gx + 0.5) / R * WORLD, wz = (gy + 0.5) / R * WORLD;
+    var r = 0, g = 0, b = 0;
+    for (var i = 0; i < GI_EM.length; i++) {
+      var e = GI_EM[i], d = Math.hypot(e.x - wx, e.z - wz);
+      if (d > e.rad) continue;
+      var vis = 1, K = 9;
+      for (var k = 1; k <= K; k++) {
+        var f = k / (K + 1), sx = wx + (e.x - wx) * f, sz = wz + (e.z - wz) * f;
+        var hh = getH(Math.floor(sx / TILE), Math.floor(sz / TILE));
+        if (hh > Math.max(0.6, e.y * 0.55)) { vis = 0.12; break; }
+      }
+      var att = vis * e.p / (1 + d * d * 0.032);
+      r += e.r * att; g += e.g * att; b += e.b * att;
+    }
+    var o = (gy * R + gx) * 4;
+    data[o] = Math.min(255, r * 200); data[o + 1] = Math.min(255, g * 200); data[o + 2] = Math.min(255, b * 200); data[o + 3] = 255;
+  }
+  var t = new THREE.DataTexture(data, R, R, THREE.RGBAFormat);
+  t.needsUpdate = true; t.minFilter = THREE.LinearFilter; t.magFilter = THREE.LinearFilter;
+  t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+  return t;
+}
+/* 把 GI 注入任意标准材质：按世界坐标采样 → 表面被霓虹/探照灯染色（色彩溢出） */
+function injectGI(mat, amt) {
+  if (!mat) return mat;
+  mat.onBeforeCompile = function (sh) {
+    sh.uniforms.uGI = { value: GI_TEX };
+    sh.uniforms.uGIA = { value: amt === undefined ? 1.2 : amt };
+    sh.uniforms.uWld = { value: WORLD };
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec2 vWPx;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWPx=(modelMatrix*vec4(transformed,1.0)).xz;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform sampler2D uGI;uniform float uGIA,uWld;varying vec2 vWPx;')
+      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\n  vec3 _gi=texture2D(uGI, vWPx/uWld).rgb;\n  gl_FragColor.rgb *= (1.0 + _gi*uGIA);');
+  };
+  mat.needsUpdate = true;
+  return mat;
+}
+
+/* ---------------- 光照（★ 移植《极限刹车》夜城氛围） ---------------- */
+var hemi = new THREE.HemisphereLight(0x554566, 0x201a20, 0.34); scene.add(hemi);
+var moon = new THREE.DirectionalLight(0xffb27a, 0.70);
+moon.position.set(70, 96, 34); moon.castShadow = true;
+moon.shadow.mapSize.set(512, 512);
+var SC = 118;
+moon.shadow.camera.left = -SC; moon.shadow.camera.right = SC; moon.shadow.camera.top = SC; moon.shadow.camera.bottom = -SC;
+moon.shadow.camera.near = 1; moon.shadow.camera.far = 340; moon.shadow.bias = -0.0014;
+scene.add(moon); scene.add(moon.target);
+var warm = new THREE.DirectionalLight(0xff9a5a, 0.12); warm.position.set(-60, 40, -50); scene.add(warm);
+
+/* ---------------- 每帧更新（探照灯 / 雨 / 反射探针） ---------------- */
+/* ★ 烘焙一次并注入：地面/墙/玻璃 都会被霓虹与探照灯"染色"（离线 GI） */
+GI_TEX = bakeGI();
+(function buildGroundMats() {
+  for (var i = 0; i < GROUNDS.length; i++) {
+    var g = GROUNDS[i], s2 = GROUNDSETS[g.id];
+    var mm = new THREE.MeshStandardMaterial({
+      map: s2.map, normalMap: s2.normalMap || null, roughnessMap: s2.roughnessMap || null,
+      vertexColors: true, color: new THREE.Color(g.tint),
+      roughness: g.rough, metalness: g.metal, envMap: cubeRT.texture, envMapIntensity: g.refl,
+    });
+    injectGI(mm, g.id === 'asphalt' ? 1.15 : 0.95);
+    GROUNDMATS[g.id] = mm;
+  }
+})();
+if (topMesh && GROUNDMATS.asphalt) { matTop = GROUNDMATS.asphalt; topMesh.material = matTop; }
+injectGI(matSide, 0.75);
+injectGI(matGlass, 1.0);
+
+/* ★★ 关键修复：把「城市霓虹 GI + 环境反射」补给全部材质 ★★
+   之前只有地面/楼体吃到了 GI，树/木屋/金属件/路灯都是"裸材质" → 夜里死黑。
+   这里在 GI 贴图与反射探针就绪后统一补齐，一律不再出现纯黑。 */
+(function bakeAllStaticMats() {
+  var seen = [];
+  scene.traverse(function (o) {
+    if (!o.isMesh && !o.isInstancedMesh) return;
+    var ms = Array.isArray(o.material) ? o.material : [o.material];
+    ms.forEach(function (m) {
+      if (!m || !m.isMeshStandardMaterial) return;
+      if (seen.indexOf(m) >= 0) return; seen.push(m);
+      if (!m.envMap) { m.envMap = cubeRT.texture; m.envMapIntensity = (m.envMapIntensity || 0.55); }
+      injectGI(m, 0.8);
+      m.needsUpdate = true;
+    });
+  });
+})();
+
+var T = 0, envAcc = 0, lastEnvX = 0, lastEnvZ = 0;
+function update(dt, camPos) {
+  T += dt;
+  // 探照灯扫射
+  for (var i = 0; i < SEARCH.length; i++) {
+    var s = SEARCH[i], a = Math.sin(T * s.spd + s.phase) * 0.85, pw = Math.cos(T * s.spd * 0.7 + s.phase) * 0.25;
+    var len = s.by;
+    var tx = s.bx + Math.sin(a) * len * 1.15, tz = s.bz + Math.cos(a) * len * 0.7;
+    s.tg.position.set(tx, Math.max(0, s.by - len - pw * 12), tz);
+    s.cone.position.set(s.bx, s.by / 2, s.bz);
+    s.cone.rotation.set(Math.PI, 0, 0);
+    s.cone.lookAt(tx, 0, tz); s.cone.rotateX(Math.PI / 2);
+    s.cone.position.set((s.bx + tx) / 2, s.by / 2, (s.bz + tz) / 2);
+    if (s.decal) { s.decal.position.set(tx, getH(Math.floor(tx / TILE), Math.floor(tz / TILE)) + 0.04, tz); }
+  }
+  // 雨
+  if (RAIN.on && rainMesh && camPos) {
+    var arr = rainPos, N = Math.min(RAIN_N, LEAN.rain || RAIN_N);
+    if (rainMesh.geometry.setDrawRange) rainMesh.geometry.setDrawRange(0, N * 2);
+    for (var k = 0; k < N; k++) {
+      var o = k * 6, dy = rainSpd[k] * dt;
+      arr[o + 1] -= dy; arr[o + 4] -= dy;
+      if (arr[o + 1] < camPos.y - 16) {
+        var nx = camPos.x + rnd(-40, 40), nz = camPos.z + rnd(-40, 40), ny = camPos.y + rnd(14, 34);
+        arr[o] = nx; arr[o + 1] = ny; arr[o + 2] = nz;
+        arr[o + 3] = nx + 0.06; arr[o + 4] = ny - 0.75; arr[o + 5] = nz;
+      }
+    }
+    rainMesh.geometry.attributes.position.needsUpdate = true;
+    rainMesh.visible = true;
+  } else if (rainMesh) rainMesh.visible = false;
+  /* ★★★ 环境反射探针 ★★★
+     ！！这里原来有个致命 bug ！！
+     条件写成 `if (LEAN.reflect && ...)` —— 而 LEAN.reflect 默认 false，
+     于是 cubeCam.update() **一次都没执行过**。
+     但所有材质（地面/墙面/玻璃/金属）的 envMap 都指向 cubeRT.texture，
+     探针没更新 = 环境贴图全黑 = 表面完全没有环境反射 = 画面"死光"。
+     这就是"整体看不到全局光照"的真正原因。
+
+     现在的策略：
+       · 首帧（或玩家移动后）**无条件烘焙至少一次**，保证 envMap 有内容
+       · 之后才按档位决定"要不要持续更新"
+         - reflect=true  : 每 4 秒更新（湿地反出霓虹，最贵）
+         - reflect=false : 只在首次 / 玩家大幅移动时更新一次（很便宜） */
+  envAcc += dt;
+  var _moved = camPos ? Math.hypot(camPos.x - (lastEnvX || 1e9), camPos.z - (lastEnvZ || 1e9)) : 0;
+  /* 前 5 次强制烘：贴图是异步加载的，第一帧烘进去可能还是黑的，
+     所以头几秒多烘几次，等贴图就绪后自然就正确了。 */
+  var needFirst = (!cubeBaked) || cubeBakeN < 5;
+  var needUpdate = LEAN.reflect
+    ? (envAcc > 4.0 && _moved > 6.0)                    // 高档：持续低频更新
+    : (envAcc > 12.0 && _moved > 40.0);                 // 低档：只在走远时才补一次
+  if (camPos && (needFirst || needUpdate)) {
+    envAcc = 0; lastEnvX = camPos.x; lastEnvZ = camPos.z;
+    cubeCam.position.set(camPos.x, camPos.y + 1.5, camPos.z);
+    if (rainMesh) rainMesh.visible = false;
+    try { cubeCam.update(renderer, scene); cubeBaked = true; cubeBakeN++; } catch (e) {}
+    if (rainMesh && RAIN.on) rainMesh.visible = true;
+  }
+}
+
+function setSpot(on) {
+  SPOT_ON = !!on;
+  for (var i = 0; i < SEARCH.length; i++) {
+    var on = SPOT_ON && LEAN.spotLights;
+    SEARCH[i].sp.visible = on;
+    /* ★ 原来这里写 0.62 —— 4 盏探照灯 0.62 强度在雨夜里几乎看不见。
+       提到 5.0 才是肉眼能看到的"光柱打在地面上"的效果。 */
+    SEARCH[i].sp.intensity = on ? 5.0 : 0;
+    SEARCH[i].cone.visible = SPOT_ON;
+    SEARCH[i].cone.material.opacity = on ? 0.09 : 0.045;
+    if (SEARCH[i].decal) SEARCH[i].decal.material.opacity = on ? 0.22 : 0.12;
+  }
+}
+function getSpot() { return SPOT_ON; }
+// ★ 标记「自制都市内容」→ 外部（tileworld3d）可整体隐藏，只留环境（天/雨/雾/光/GI）
+scene.traverse(function (o) { if ((o.isMesh || o.isSprite || o.isInstancedMesh) && o !== rainMesh && !o.userData.keep) o.userData.city = true; });
+
+resize();
+var _API = {
+  TILE: TILE, GW: GW, GH: GH, H: H, Ground: Ground, scene: scene, renderer: renderer, camera: camera,
+  moon: moon, resize: resize, update: update, grounds: GROUNDS, CAM_DIR: CAM_DIR, getCam: getCam, setCamMode: setCamMode, getCamMode: getCamMode, orthoCam: orthoCam, setOrthoVH: setOrthoVH, getOrthoVH: function () { return orthoVH; }, setOrthoHW: setOrthoHW, getOrthoHW: getOrthoHW, setOrthoHW2: setOrthoHW,
+  cubeRT: cubeRT, setSpot: setSpot, getSpot: getSpot, LEAN: LEAN, setLean: function (o) { for (var k in o) LEAN[k] = o[k]; }, matSide: matSide, matGlass: matGlass, topMesh: function () { return topMesh; }, GI: function () { return GI_TEX; }, world: WORLD, injectGI: injectGI, setGround: setGround, getGround: function () { return currentGround; }, setRain: function (on) { RAIN.on = !!on; }, getRain: function () { return RAIN.on; },
+};
+if (ATTACH) window.__CITY3D = _API; else window.__CITY3D = _API;
+window.ARENA_UNUSED = {
+  TILE: TILE, GW: GW, GH: GH, H: H, Ground: Ground, scene: scene, renderer: renderer, camera: camera,
+  moon: moon, resize: resize, update: update, grounds: GROUNDS, CAM_DIR: CAM_DIR, getCam: getCam, setCamMode: setCamMode, getCamMode: getCamMode, orthoCam: orthoCam, setOrthoVH: setOrthoVH, getOrthoVH: function () { return orthoVH; }, setOrthoHW: setOrthoHW, getOrthoHW: getOrthoHW,
+  setGround: setGround, getGround: function () { return currentGround; },
+  setRain: function (on) { RAIN.on = !!on; }, getRain: function () { return RAIN.on; },
+  cubeRT: cubeRT, setSpot: setSpot, getSpot: getSpot, LEAN: LEAN, setLean: function (o) { for (var k in o) LEAN[k] = o[k]; }, matSide: matSide, matGlass: matGlass, topMesh: function () { return topMesh; }, GI: function () { return GI_TEX; }, world: WORLD, injectGI: injectGI,
+};
+} catch (e) { window.__aerr = (e.stack || e.message); }
+})();
