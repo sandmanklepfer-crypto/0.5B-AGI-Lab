@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>渲染管线诊断</title>
+<style>
+body{margin:0;padding:10px;background:#111;color:#0f0;font:12px/1.55 monospace;white-space:pre-wrap;word-break:break-all}
+h3{color:#ff0;margin:14px 0 4px;font-size:13px}
+.k{color:#8cf}.v{color:#fff}.b{color:#f66;font-weight:bold}.g{color:#6f6}
+iframe{position:fixed;left:-9999px;width:420px;height:780px;border:0}
+</style></head><body>
+<div id="out">加载游戏中…（约 15 秒）</div>
+<iframe id="fr" src="./index.html?q=auto"></iframe>
+<script>
+var L=[]; function p(s){L.push(s); document.getElementById('out').textContent=L.join('\n');}
+function kv(k,v,mark){ p('<span class="k">'+k+'</span>: <span class="'+(mark?'b':'v')+'">'+v+'</span>'); }
+
+p('=== 设备 ===');
+kv('UA', navigator.userAgent);
+kv('devicePixelRatio', window.devicePixelRatio);
+kv('屏幕', screen.width+'x'+screen.height);
+kv('协议', location.protocol);
+
+try{
+  var c=document.createElement('canvas');
+  var gl=c.getContext('webgl2')||c.getContext('webgl');
+  if(gl){
+    p('\n=== WebGL ===');
+    kv('版本', gl.getParameter(gl.VERSION));
+    kv('GLSL', gl.getParameter(gl.SHADING_LANGUAGE_VERSION));
+    var dbg=gl.getExtension('WEBGL_debug_renderer_info');
+    if(dbg){
+      kv('GPU厂商', gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL));
+      kv('GPU型号', gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL));
+    }
+    kv('最大纹理', gl.getParameter(gl.MAX_TEXTURE_SIZE));
+    kv('最大渲染缓冲', gl.getParameter(gl.MAX_RENDERBUFFER_SIZE));
+    kv('浮点纹理', !!gl.getExtension('OES_texture_float'));
+    kv('半浮点', !!gl.getExtension('OES_texture_half_float'));
+    kv('深度纹理', !!gl.getExtension('WEBGL_depth_texture'));
+    kv('各向异性', !!gl.getExtension('EXT_texture_filter_anisotropic'));
+  }else{ p('<span class="b">WebGL 不可用！</span>'); }
+}catch(e){ p('WebGL探测异常: '+e); }
+
+p('\n=== localStorage (画质记忆) ===');
+['tl_qual','tl_sandbox','tl_rain','tl_spot','tl_cam','tl_vol','tl_fp'].forEach(function(k){
+  kv(k, localStorage.getItem(k)===null?'(未设置)':localStorage.getItem(k));
+});
+
+setTimeout(function(){
+  var w=document.getElementById('fr').contentWindow;
+  p('\n=== 游戏运行时 ===');
+  try{
+    if(w.Perf){
+      kv('Perf.MANUAL', w.Perf.MANUAL, w.Perf.MANUAL===0);
+      kv('Perf.level', w.Perf.level, w.Perf.level===0);
+      kv('Perf.name()', w.Perf.name());
+      kv('Perf._sh(阴影)', w.Perf._sh);
+    } else p('<span class="b">window.Perf 不存在</span>');
+  }catch(e){ p('Perf读取失败: '+e); }
+  try{ kv('FXp.on (Bloom)', w.FXp && w.FXp.on, !(w.FXp&&w.FXp.on)); }catch(e){}
+  try{ kv('Sky.enabled', w.Sky && w.Sky.enabled, !(w.Sky&&w.Sky.enabled)); }catch(e){}
+  try{ kv('Sky.cfg.time', w.Sky && w.Sky.cfg && w.Sky.cfg.time); }catch(e){}
+  try{ kv('__ULTRA', w.__ULTRA, !w.__ULTRA); }catch(e){}
+  try{ kv('__perfLevel', w.__perfLevel); }catch(e){}
+  try{
+    var A=w.ARENA||w.A;
+    if(A && A.renderer){
+      kv('实际像素比', A.renderer.getPixelRatio(), A.renderer.getPixelRatio()<1);
+      kv('toneMapping', A.renderer.toneMapping);
+      kv('exposure', A.renderer.toneMappingExposure);
+      kv('shadowMap.enabled', A.renderer.shadowMap.enabled, !A.renderer.shadowMap.enabled);
+      kv('输出编码', A.renderer.outputEncoding);
+      if(A.scene){
+        kv('雾', A.scene.fog? (A.scene.fog.constructor.name+' density='+A.scene.fog.density) : '无', !A.scene.fog);
+        kv('背景', A.scene.background? A.scene.background.constructor.name : 'null');
+        var lights={}, n=0;
+        A.scene.traverse(function(o){ if(o.isLight){n++; lights[o.type]=(lights[o.type]||0)+1;} });
+        kv('灯光总数', n); kv('灯光构成', JSON.stringify(lights));
+      }
+    } else p('<span class="b">ARENA.renderer 不存在</span>');
+  }catch(e){ p('ARENA读取失败: '+e); }
+  try{ if(w.__renderErr) kv('渲染异常', w.__renderErr, true); }catch(e){}
+  p('\n=== 完成 ===');
+}, 15000);
+</script></body></html>
