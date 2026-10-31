@@ -3420,6 +3420,50 @@ function bindUI() {
   if ($('camHW')) _on('camHW', 'input', function () { setCamHW(+this.value); });
   _on('bRain', 'click', function () { var on = !A.getRain(); A.setRain(on); save('tl_rain', on ? '1' : '0'); this.textContent = '下雨' + (on ? '' : '(关)'); this.className = on ? 'on' : ''; });
   _on('bSL', 'click', function () { var on = !A.getSpot(); A.setSpot(on); save('tl_spot', on ? '1' : '0'); this.textContent = '探照灯' + (on ? '' : '(关)'); this.className = on ? 'on' : ''; });
+
+  /* ★★★ 一键全屏横屏（从网页版移植）★★★
+     浏览器要求全屏必须由用户手势触发，所以只能挂在按钮上。
+     screen.orientation.lock('landscape') 在部分浏览器会被拒，
+     此时提示用户手动转屏即可。 */
+  _on('bFull', 'click', function () {
+    var el = document.documentElement;
+    var fs = document.fullscreenElement || document.webkitFullscreenElement;
+    if (fs) {
+      try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) {}
+      this.textContent = '⛶ 全屏横屏';
+      this.className = '';
+      try { HUD.center('已退出全屏', '', 1400); } catch (e) {}
+      try { Sfx.ui(); } catch (e) {}
+      return;
+    }
+    try {
+      var pr = el.requestFullscreen ? el.requestFullscreen() : (el.webkitRequestFullscreen && el.webkitRequestFullscreen());
+      var done = function () {
+        try {
+          if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(function () {});
+        } catch (e) {}
+        setTimeout(function () { try { A.resize(); } catch (e) {} try { resizeFX(); } catch (e) {} }, 320);
+      };
+      if (pr && pr.then) pr.then(done, done); else setTimeout(done, 220);
+      this.textContent = '⛶ 退出全屏';
+      this.className = 'on';
+      try { HUD.center('全屏 · 横屏', '浏览器不允许锁横屏的话，把手机转过来即可', 2200); } catch (e) {}
+    } catch (e) {
+      try { HUD.center('无法全屏', '当前浏览器可能不支持，试试系统浏览器而不是微信', 2600); } catch (e) {}
+    }
+    try { Sfx.ui(); } catch (e) {}
+  });
+  /* 全屏状态变化时同步按钮文案 */
+  ['fullscreenchange', 'webkitfullscreenchange'].forEach(function (ev) {
+    document.addEventListener(ev, function () {
+      var b = $('bFull'); if (!b) return;
+      var fs = document.fullscreenElement || document.webkitFullscreenElement;
+      b.textContent = fs ? '⛶ 退出全屏' : '⛶ 全屏横屏';
+      b.className = fs ? 'on' : '';
+    });
+  });
+  /* ★ 添加到桌面（📲）= 由 pwa.js 全局点击委托接管（见 pwa.js:305）
+     这里不再绑定，避免重复触发安装。 */
   _on('bHelp', 'click', function () { HUD.center('WASD 移动 · 鼠标转视角 · 左键开火', 'R 换弹 · 1/2/3/4 切枪 · Shift 疾跑 · 空格 跳 · G 手雷 · 右键开镜', 4200); });
   _on('bBack', 'click', function () { running = false; Net.disconnect(); location.href = 'index.html'; });
   $('inName').value = Net.name; $('inRoom').value = Net.room;
