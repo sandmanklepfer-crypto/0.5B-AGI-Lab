@@ -367,12 +367,15 @@ const cv = document.getElementById('cv'), hudLog = document.getElementById('log'
 window.onerror = function(m, u, l, c){ try{ document.getElementById('log').textContent='❌ '+m+' @'+(l||'')+':'+(c||''); }catch(e){} };
 addEventListener('unhandledrejection', e=>{ try{ document.getElementById('log').textContent='❌ '+e.reason; }catch(_){} });
 /* ★ 画质档：APK 内是 file:// → 资源本地、零流量 → 直接顶级画质；网页版保守 */
-const ULTRA = (location.protocol === 'file:') || /android_asset/i.test(location.href);
+/* ★ 画质对齐 APK：网页版也走 ULTRA（原来只有 file:// 时才 true → 网页版被压到 0.55 像素比）
+   要回退保守模式，在地址后加 ?q=low 即可 */
+const ULTRA = !/[?&]q=low/i.test(location.href);
 window.__ULTRA = ULTRA;
 const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: false, preserveDrawingBuffer: true });
-/* ★ 首帧就从最低档起（0.55 像素比 · 关阴影），后面由 Perf 自适应往上加。
-   以前这里直接 2.0 + 4096 真阴影 → 一进游戏就是 3A，手机必卡。 */
-renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 0.55));
+/* ★ 首帧像素比：对齐 APK（ULTRA→2.0 / 否则 1.5）。
+   原先是写死 0.55 —— 在 DPR=3 的手机上等于只渲染 55% 分辨率，画面发糊。
+   性能不够时由 Perf 自适应降档，不再用牺牲清晰度的方式省性能。 */
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, ULTRA ? 2.0 : 1.5));
 renderer.shadowMap.enabled = false;    // ★ 默认关；画质爬到中档以上才由 Perf.shadow() 打开
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 if (THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
