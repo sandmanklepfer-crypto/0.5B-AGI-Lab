@@ -948,12 +948,16 @@
       if (!S.tour) setTimeout(() => startTour(false), 700);
     }
 
-    // 后台加载采样；遮罩最多挡 4 秒，之后照样能用（音频继续加载）
-    function whenSamples(cb) {
-      if (window.__SAMPLES__) return cb();
-      setTimeout(() => whenSamples(cb), 40);
+    // 后台加载采样：等 __SAMPLES__ 就绪（单文件版里它在末尾），再解码
+    function whenSamples() {
+      return new Promise((res) => {
+        (function wait() {
+          if (window.__SAMPLES__) return res();
+          setTimeout(wait, 40);
+        })();
+      });
     }
-    whenSamples(() => AE.load((p) => {
+    whenSamples().then(() => AE.load((p) => {
       const n = Math.round(p * 100);
       if (fill) fill.style.width = n + "%";
       if (pctEl) pctEl.textContent = n + "%";

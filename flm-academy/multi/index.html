@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0c11">
+<title>FLM 学院 · 从噪音到大师</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="splash" class="splash">
+  <div class="splash-inner">
+    <div class="splash-logo">
+      <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true">
+        <path d="M4 18V9M9 18V5M14 18v-6M19 18V8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="splash-title">FLM 学院</div>
+    <div class="splash-sub">正在加载音色库</div>
+    <div class="splash-bar"><i id="splashFill"></i></div>
+    <div class="splash-pct" id="splashPct">0%</div>
+  </div>
+</div>
+<div class="bg-glow bg-glow-a"></div>
+<div class="bg-glow bg-glow-b"></div>
+
+<header class="topbar">
+  <button class="icon-btn only-mobile" id="btnMenu" aria-label="菜单">☰</button>
+  <a class="brand" href="#/home">
+    <span class="brand-mark">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+        <path d="M4 18V9M9 18V5M14 18v-6M19 18V8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+      </svg>
+    </span>
+    <span class="brand-txt"><b>FLM 学院</b><i>从噪音到大师</i></span>
+  </a>
+
+  <div class="top-mid">
+    <div class="rank-chip" id="rankChip">
+      <span class="dot"></span><span id="rankName">Lv.0 噪音制造者</span>
+    </div>
+    <div class="xp-wrap" title="经验值">
+      <div class="xp-bar"><i id="xpFill" style="width:0%"></i></div>
+      <span class="xp-txt" id="xpTxt">0 XP</span>
+    </div>
+  </div>
+
+  <div class="top-right">
+    <div class="vol">
+      <button class="icon-btn" id="btnMute" aria-label="静音">🔊</button>
+      <input type="range" id="volSlider" min="0" max="100" value="85" aria-label="总音量">
+    </div>
+    <button class="icon-btn" id="btnHelp" aria-label="新手引导" title="新手引导">?</button>
+    <button class="icon-btn" id="btnSettings" aria-label="设置" title="设置">⚙</button>
+  </div>
+</header>
+
+<aside class="rail" id="rail">
+  <nav class="rail-nav">
+    <a href="#/home" data-nav="home"><span class="nico">◈</span>首页</a>
+    <a href="#/studio" data-nav="studio"><span class="nico">▦</span>工作台</a>
+    <a href="#/piano" data-nav="piano"><span class="nico">▤</span>钢琴房</a>
+    <a href="#/cert" data-nav="cert"><span class="nico">✦</span>毕业证书</a>
+  </nav>
+  <div class="rail-levels" id="railLevels"></div>
+  <div class="rail-foot">
+    <div class="mini-progress">
+      <div class="mp-head"><span>总进度</span><b id="mpPct">0%</b></div>
+      <div class="mp-bar"><i id="mpFill" style="width:0%"></i></div>
+      <div class="mp-sub" id="mpSub">0 / 18 课</div>
+    </div>
+  </div>
+</aside>
+
+<main id="view" class="view"></main>
+<div class="rail-scrim" id="railScrim"></div>
+
+<div id="toast" class="toast"></div>
+<div id="modal" class="modal"></div>
+<div id="tour" class="tour"></div>
+
+<script src="js/data.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/widgets.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
