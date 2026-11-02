@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0e17">
+<title>Android 上没有 Root，把 Wayland 跑起来了 · fakesock</title>
+<meta name="description" content="SELinux 拦住 bind()，我们用 LD_PRELOAD 把它翻译成抽象 socket。红米 Android 15，CapEff=0，GPU 210 FPS。">
+<style>
+:root{
+  --bg:#0a0e17; --bg2:#0f1521; --line:#1c2636;
+  --fg:#e6edf3; --dim:#8b98a9; --dimmer:#5a6675;
+  --acc:#00e5a0; --acc2:#00a3ff; --warn:#ff6b5e; --gold:#ffc857;
+  --mono:'SF Mono',Menlo,Consolas,'Liberation Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg); color:var(--fg);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+  line-height:1.75; overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--acc);color:#000}
+a{color:var(--acc2);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* ---------- 网格 + 光斑背景 ---------- */
+#bgfx{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.55}
+.grid-bg{
+  position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.16;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),
+                   linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:64px 64px;
+  mask-image:radial-gradient(ellipse 90% 60% at 50% 0%,#000 40%,transparent 100%);
+  -webkit-mask-image:radial-gradient(ellipse 90% 60% at 50% 0%,#000 40%,transparent 100%);
+}
+.wrap{max-width:1080px;margin:0 auto;padding:0 22px;position:relative;z-index:2}
+
+/* ---------- Hero ---------- */
+.hero{padding:90px 0 60px;text-align:center;position:relative}
+.badge{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:7px 16px;border:1px solid var(--line);border-radius:99px;
+  font-size:12.5px;color:var(--dim);font-family:var(--mono);
+  background:rgba(15,21,33,.7);backdrop-filter:blur(10px);margin-bottom:30px;
+}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--acc);
+  box-shadow:0 0 12px var(--acc);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+
+h1{
+  font-size:clamp(30px,6.2vw,62px);line-height:1.16;font-weight:800;
+  letter-spacing:-.028em;margin-bottom:22px;
+}
+h1 .grad{
+  background:linear-gradient(105deg,var(--acc) 0%,var(--acc2) 48%,#a78bfa 100%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 0 28px rgba(0,229,160,.28));
+}
+.sub{font-size:clamp(15px,2.1vw,18.5px);color:var(--dim);max-width:660px;margin:0 auto 40px}
+.sub b{color:var(--fg);font-weight:600}
+
+/* ---------- 统计条 ---------- */
+.stats{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:1px;background:var(--line);border:1px solid var(--line);
+  border-radius:14px;overflow:hidden;margin:0 auto 54px;max-width:880px;
+}
+.stat{background:var(--bg2);padding:22px 14px;text-align:center;transition:background .25s}
+.stat:hover{background:#141c2b}
+.stat .v{font-family:var(--mono);font-size:clamp(20px,3.4vw,27px);font-weight:700;color:var(--acc);letter-spacing:-.02em}
+.stat .v.b{color:var(--acc2)}
+.stat .v.g{color:var(--gold)}
+.stat .k{font-size:11.5px;color:var(--dimmer);margin-top:5px;letter-spacing:.04em}
+
+/* ---------- 按钮 ---------- */
+.btns{display:flex;gap:13px;justify-content:center;flex-wrap:wrap;margin-bottom:20px}
+.btn{
+  display:inline-flex;align-items:center;gap:9px;padding:13px 26px;border-radius:10px;
+  font-size:14.5px;font-weight:600;border:1px solid transparent;transition:all .2s;cursor:pointer;
+}
+.btn-p{background:linear-gradient(135deg,var(--acc),#00c48a);color:#04120d;
+  box-shadow:0 4px 24px rgba(0,229,160,.26)}
+.btn-p:hover{transform:translateY(-2px);box-shadow:0 8px 34px rgba(0,229,160,.4);text-decoration:none}
+.btn-s{background:rgba(0,163,255,.1);color:var(--acc2);border-color:rgba(0,163,255,.34)}
+.btn-s:hover{background:rgba(0,163,255,.18);transform:translateY(-2px);text-decoration:none}
+
+/* ---------- 章节 ---------- */
+section{padding:64px 0;position:relative}
+.eyebrow{
+  font-family:var(--mono);font-size:12px;color:var(--acc);letter-spacing:.14em;
+  text-transform:uppercase;margin-bottom:13px;display:flex;align-items:center;gap:10px;
+}
+.eyebrow::before{content:'';width:26px;height:1px;background:var(--acc)}
+h2{font-size:clamp(23px,4vw,35px);font-weight:750;letter-spacing:-.02em;margin-bottom:15px;line-height:1.3}
+.lead{color:var(--dim);font-size:16px;max-width:760px;margin-bottom:34px}
+.lead b{color:var(--fg)}
+
+/* ---------- 终端 ---------- */
+.term{
+  background:#070a10;border:1px solid var(--line);border-radius:12px;overflow:hidden;
+  margin:26px 0;box-shadow:0 18px 50px rgba(0,0,0,.5);
+}
+.term-bar{
+  display:flex;align-items:center;gap:7px;padding:11px 15px;background:#0d1219;
+  border-bottom:1px solid var(--line);
+}
+.term-bar i{width:11px;height:11px;border-radius:50%;display:block}
+.term-bar i:nth-child(1){background:#ff5f57}
+.term-bar i:nth-child(2){background:#febc2e}
+.term-bar i:nth-child(3){background:#28c840}
+.term-name{margin-left:9px;font-family:var(--mono);font-size:11.5px;color:var(--dimmer)}
+.term-body{
+  padding:17px 19px;font-family:var(--mono);font-size:12.8px;line-height:1.95;
+  overflow-x:auto;white-space:pre;color:#c9d5e3;
+}
+.c-p{color:var(--acc)}      /* prompt */
+.c-e{color:var(--warn)}     /* error */
+.c-ok{color:var(--acc)}     /* success */
+.c-w{color:var(--gold)}     /* warn */
+.c-d{color:var(--dimmer)}   /* dim */
+.c-b{color:var(--acc2)}     /* blue */
+
+/* ---------- 卡片 ---------- */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(285px,1fr));gap:17px;margin:30px 0}
+.card{
+  background:var(--bg2);border:1px solid var(--line);border-radius:13px;padding:24px;
+  transition:all .25s;position:relative;overflow:hidden;
+}
+.card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--acc),var(--acc2));opacity:0;transition:opacity .25s;
+}
+.card:hover{transform:translateY(-4px);border-color:#2a3a50;box-shadow:0 14px 40px rgba(0,0,0,.4)}
+.card:hover::before{opacity:1}
+.card .ic{font-size:24px;margin-bottom:13px;display:block}
+.card h3{font-size:16.5px;font-weight:650;margin-bottom:9px}
+.card p{font-size:13.8px;color:var(--dim);line-height:1.72}
+.card code{font-family:var(--mono);font-size:12px;background:#0b1018;
+  padding:2px 6px;border-radius:4px;color:var(--acc);border:1px solid var(--line)}
+
+/* ---------- 表格 ---------- */
+.tbl-wrap{overflow-x:auto;margin:26px 0;border:1px solid var(--line);border-radius:11px}
+table{width:100%;border-collapse:collapse;font-size:13.6px;min-width:560px}
+th{background:#0d1219;padding:12px 15px;text-align:left;font-weight:600;
+  color:var(--dim);font-size:12px;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid var(--line)}
+td{padding:12px 15px;border-bottom:1px solid rgba(28,38,54,.6);color:var(--dim)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(0,229,160,.03)}
+td b{color:var(--fg)}
+td code{font-family:var(--mono);font-size:12px;color:var(--acc2)}
+.ok{color:var(--acc);font-weight:600}
+.no{color:var(--warn);font-weight:600}
+
+/* ---------- 图片 ---------- */
+.shot{margin:26px 0;border:1px solid var(--line);border-radius:12px;overflow:hidden;
+  background:#070a10;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+.shot img{width:100%;display:block}
+.shot-cap{padding:13px 18px;font-size:12.8px;color:var(--dimmer);
+  border-top:1px solid var(--line);font-family:var(--mono)}
+.shot-cap b{color:var(--dim)}
+
+/* ---------- 引用 ---------- */
+blockquote{
+  border-left:3px solid var(--acc);padding:15px 22px;margin:26px 0;
+  background:rgba(0,229,160,.045);border-radius:0 9px 9px 0;font-size:15px;
+}
+blockquote b{color:var(--acc)}
+
+/* ---------- 架构图 ---------- */
+.arch{
+  background:#070a10;border:1px solid var(--line);border-radius:12px;
+  padding:26px;font-family:var(--mono);font-size:12.6px;line-height:2.1;
+  overflow-x:auto;white-space:pre;color:#c9d5e3;margin:26px 0;
+}
+.arch .hl{color:var(--acc)}
+.arch .hl2{color:var(--acc2)}
+.arch .dm{color:var(--dimmer)}
+
+/* ---------- 页脚 ---------- */
+footer{border-top:1px solid var(--line);padding:46px 0 65px;text-align:center;position:relative;z-index:2}
+footer p{font-size:13px;color:var(--dimmer);margin-bottom:9px}
+footer .big{font-size:15px;color:var(--dim);margin-bottom:22px}
+footer .big b{color:var(--fg)}
+
+/* ---------- 滚动动画 ---------- */
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .7s cubic-bezier(.2,.7,.3,1),transform .7s cubic-bezier(.2,.7,.3,1)}
+.reveal.in{opacity:1;transform:none}
+
+@media(max-width:640px){
+  .hero{padding:60px 0 40px}
+  section{padding:46px 0}
+  .term-body{font-size:11.4px}
+  .stat{padding:17px 10px}
+}
+</style>
+</head>
+<body>
+
+<canvas id="bgfx"></canvas>
+<div class="grid-bg"></div>
+
+<!-- ==================== HERO ==================== -->
+<header class="hero">
+  <div class="wrap">
+    <div class="badge">
+      <span class="dot"></span>
+      Redmi 25053RT47C · Android 15 · 无 Root · CapEff=0
+    </div>
+
+    <h1>
+      SELinux 不让你建 socket<br>
+      <span class="grad">那就把它翻译掉</span>
+    </h1>
+
+    <p class="sub">
+      一台普通国行红米，没解锁、没刷 Magisk、<b>权限位全空</b>。<br>
+      我们用 30 行 <code style="font-family:var(--mono);color:var(--acc)">LD_PRELOAD</code>
+      劫持 <b>bind / connect / shm_open</b>，
+      把 Wayland 从「不可能」变成 <b>210 FPS</b>。
+    </p>
+
+    <div class="stats">
+      <div class="stat"><div class="v">210.7</div><div class="k">FPS · GPU</div></div>
+      <div class="stat"><div class="v b">26.9×</div><div class="k">对比 CPU 软渲染</div></div>
+      <div class="stat"><div class="v g">28.8</div><div class="k">抓帧 FPS（原 5.7）</div></div>
+      <div class="stat"><div class="v">0</div><div class="k">Root / Magisk</div></div>
+      <div class="stat"><div class="v b">0000</div><div class="k">CapEff</div></div>
+    </div>
+
+    <div class="btns">
+      <a class="btn btn-p" href="#wall">为什么要这么做 →</a>
+      <a class="btn btn-s" href="https://github.com/sandmanklepfer-crypto/0.5B-AGI-Lab/tree/android-wayland-shim">看源码</a>
+    </div>
+  </div>
+</header>
+
+<!-- ==================== 第一道墙 ==================== -->
+<section id="wall">
+  <div class="wrap">
+    <div class="eyebrow reveal">第一章 · 第一道墙</div>
+    <h2 class="reveal">它告诉你「没有权限」，<br>但它没说是什么权限</h2>
+    <p class="lead reveal">
+      在 Android 非 root 环境里跑任何 Wayland 合成器，第一条命令就会死。
+      而且死法极其误导 —— 它会让你以为是路径问题、目录不存在、环境变量没设。
+      <b>全都不是。</b>
+    </p>
+
+    <div class="term reveal">
+      <div class="term-bar"><i></i><i></i><i></i><span class="term-name">$ sway</span></div>
+      <div class="term-body"><span class="c-d">[wl_display_add_socket]</span> <span class="c-e">failed to bind socket: Permission denied</span>
+
+<span class="c-p">$</span> XDG_RUNTIME_DIR=/tmp/xdg weston
+<span class="c-e">fatal: environment variable XDG_RUNTIME_DIR</span>
+<span class="c-e">is set to "/tmp/xdg", which is not a directory.</span>
+<span class="c-d">Refer to your distribution on how to get it...</span>
+
+<span class="c-p">$</span> ls -ld /tmp/xdg
+<span class="c-ok">drwx------ 2 root root 4096 /tmp/xdg</span>   <span class="c-w">← 明明是目录</span>
+</div>
+    </div>
+
+    <p class="lead reveal">
+      「明明存在，但它说不存在」。这不是 bug，这是 <b>SELinux 在 <code style="font-family:var(--mono);color:var(--acc)">bind()</code> 那一刻把调用掐掉了</b>，
+      而 glibc 的 <code style="font-family:var(--mono);color:var(--acc)">stat()</code> 检查被拦后返回 <code style="font-family:var(--mono);color:var(--warn)">EACCES</code>，
+      weston 把它当成「不存在」处理，于是打出了那句误导人的话。
+    </p>
+
+    <div class="arch reveal">Wayland 的启动流程，<span class="dm">（wl_display_add_socket 内部）</span>
+
+  socket(AF_UNIX, SOCK_STREAM, 0)     <span class="hl">✓ 允许</span>
+  bind(fd, <span class="hl2">"/run/user/1000/wayland-0"</span>)   <span class="hl">✗ EACCES ← 死在这</span>
+  listen(fd, backlog)                 <span class="dm">（根本没走到）</span>
+
+<span class="dm">为什么？因为文件路径 socket 落地成 sock_file，</span>
+<span class="dm">而 untrusted_app / shell 域没有 sock_file 的 create 权限。</span>
+
+<span class="hl">抽象 socket 不落地成文件 → 没有 sock_file 标签 → 不拦。</span></div>
+
+    <div class="tbl-wrap reveal">
+      <table>
+        <tr><th>尝试</th><th>结果</th><th>原因</th></tr>
+        <tr><td><code>XDG_RUNTIME_DIR=/sdcard/..</code></td><td class="no">✗ EACCES</td><td>/sdcard 是 FUSE，不支持 unix socket</td></tr>
+        <tr><td><code>XDG_RUNTIME_DIR=/data/local/tmp</code></td><td class="no">✗ EACCES</td><td>SELinux 拒 <code>sock_file</code> create</td></tr>
+        <tr><td><code>XDG_RUNTIME_DIR=/dev/shm</code></td><td class="no">✗ ENOENT</td><td>Android 根本没有可写 /dev/shm</td></tr>
+        <tr><td><b>翻译成抽象 socket</b></td><td class="ok">✓ 成功</td><td>无文件标签，策略放行</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 解法 ==================== -->
+<section id="shim" style="background:linear-gradient(180deg,transparent,rgba(0,229,160,.028),transparent)">
+  <div class="wrap">
+    <div class="eyebrow reveal">第二章 · 解法</div>
+    <h2 class="reveal">核心只有 30 行</h2>
+    <p class="lead reveal">
+      FNV-1a 哈希把路径压成 32 位，格式化成抽象名。
+      <b>服务端 bind 和客户端 connect 必须用同一个算法</b> —— 这是唯一容易翻车的地方，
+      两边差一个字节，你就是永远的 <code style="font-family:var(--mono);color:var(--warn)">ENOENT</code>。
+    </p>
+
+    <div class="term reveal">
+      <div class="term-bar"><i></i><i></i><i></i><span class="term-name">src/shim/fakesock.c</span></div>
+      <div class="term-body"><span class="c-d">/* FNV-1a 32bit —— 无依赖、6 行、编译进 .so */</span>
+<span class="c-b">static unsigned int</span> fnv1a(<span class="c-b">const char</span> *s) {
+    <span class="c-b">unsigned int</span> h = <span class="c-w">2166136261u</span>;
+    <span class="c-b">while</span> (*s) { h ^= (<span class="c-b">unsigned char</span>)*s++; h *= <span class="c-w">16777619u</span>; }
+    <span class="c-b">return</span> h;
+}
+
+<span class="c-b">int</span> bind(<span class="c-b">int</span> fd, <span class="c-b">const struct</span> sockaddr *addr, socklen_t len) {
+    <span class="c-b">if</span> (addr->sa_family == AF_UNIX) {
+        <span class="c-b">const struct</span> sockaddr_un *in = (<span class="c-b">const struct</span> sockaddr_un *)addr;
+        <span class="c-d">/* 文件路径 socket → 翻译成抽象 socket */</span>
+        <span class="c-b">if</span> (in->sun_path[<span class="c-w">0</span>] != <span class="c-w">'\0'</span>) {
+            <span class="c-b">struct</span> sockaddr_un out = {<span class="c-w">0</span>};
+            out.sun_family = AF_UNIX;
+            snprintf(out.sun_path + <span class="c-w">1</span>, <span class="c-b">sizeof</span>(out.sun_path) - <span class="c-w">1</span>,
+                     <span class="c-ok">"TLWL:%08x"</span>, fnv1a(in->sun_path));
+            <span class="c-b">return</span> real_bind(fd, (<span class="c-b">struct</span> sockaddr *)&amp;out, <span class="c-b">sizeof</span>(out));
+        }
+    }
+    <span class="c-b">return</span> real_bind(fd, addr, len);
+}</div>
+    </div>
+
+    <div class="cards">
+      <div class="card reveal">
+        <span class="ic">🔌</span>
+        <h3>bind() / connect()</h3>
+        <p>文件路径 socket 落地成 <code>sock_file</code> 被 SELinux 拒。
+        翻译成抽象名 <code>@TLWL:&lt;fnv1a8hex&gt;</code>，不产生文件系统对象，策略直接放行。</p>
+      </div>
+      <div class="card reveal">
+        <span class="ic">🧠</span>
+        <h3>shm_open()</h3>
+        <p>Wayland 的 <code>wl_shm</code> 全靠它。Android 没有可写 <code>/dev/shm</code>。
+        退化到 <code>memfd_create</code> —— fd 语义完全一致，客户端察觉不到。</p>
+      </div>
+      <div class="card reveal">
+        <span class="ic">🖥️</span>
+        <h3>open() / fstat() / drmGetDevices2()</h3>
+        <p><code>/dev/dri/renderD128</code> 权限位 666 却打不开。伪造 DRM 节点让
+        EGL 走 surfaceless 路径，绕过 DRM render node 探测。</p>
+      </div>
+    </div>
+
+    <div class="term reveal">
+      <div class="term-bar"><i></i><i></i><i></i><span class="term-name">$ make &amp;&amp; 验证</span></div>
+      <div class="term-body"><span class="c-p">$</span> gcc -O2 -fPIC -shared -o fakesock.so src/shim/fakesock.c -ldl
+
+<span class="c-p">$</span> grep "@" /proc/net/unix | sed 's/.*@/@/' | sort -u
+<span class="c-ok">@TLWL:dffa372e</span>        <span class="c-d">← 服务端 bind 出来的</span>
+<span class="c-ok">@TLWL:ffc89242</span>        <span class="c-d">← 第二个 display</span>
+
+<span class="c-p">$</span> LD_PRELOAD=./fakesock.so sway
+<span class="c-ok">Running compositor on wayland display 'wayland-1'</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 第二道墙 ==================== -->
+<section id="wlroots">
+  <div class="wrap">
+    <div class="eyebrow reveal">第三章 · 第二道墙</div>
+    <h2 class="reveal">socket 通了，<br>然后它说「缓冲能力不匹配」</h2>
+    <p class="lead reveal">
+      这是最硬的一堵墙，卡了整整一天。合成器起来了，但画面出不来：
+    </p>
+
+    <div class="term reveal">
+      <div class="term-bar"><i></i><i></i><i></i><span class="term-name">$ sway -d</span></div>
+      <div class="term-body"><span class="c-d">renderer.buffer_caps =</span> <span class="c-e">0x2</span>  <span class="c-d">(DMABUF only)</span>
+<span class="c-d">allocator.caps       =</span> <span class="c-w">0x5</span>  <span class="c-d">(DATA_PTR | SHM)</span>
+<span class="c-d">交集 =</span> <span class="c-e">0</span>
+
+<span class="c-e">renderer and allocator buffer capabilities don't match</span></div>
+    </div>
+
+    <p class="lead reveal">
+      <b>根因</b>：<code style="font-family:var(--mono);color:var(--acc)">render/gles2/renderer.c</code> 里，
+      <code style="font-family:var(--mono);color:var(--acc)">gles2_get_render_buffer_caps()</code> 只返回
+      <code style="font-family:var(--mono);color:var(--warn)">WLR_BUFFER_CAP_DMABUF</code>；
+      而 <code style="font-family:var(--mono);color:var(--acc)">get_or_create_buffer()</code>
+      压根没有 SHM 分支，直接 <code style="font-family:var(--mono);color:var(--warn)">goto error_buffer</code>。
+      <br><br>
+      但 Android 上没有 DRM render node，<b>GLES2 渲染器拿不到 DMABUF</b>，只有 SHM。
+      所以两边永远对不上。
+    </p>
+
+    <blockquote class="reveal">
+      上游 wlroots 假设「你既然用 GLES2，就一定有 DMABUF」。<br>
+      <b>在 Android 上这个假设是错的。</b>
+    </blockquote>
+
+    <p class="lead reveal">我们改了 90 行，给它补上 SHM 输出路径：</p>
+
+    <div class="tbl-wrap reveal">
+      <table>
+        <tr><th>文件</th><th>改动</th></tr>
+        <tr><td><code>include/render/gles2.h</code></td><td>结构体加 <code>is_shm / shm_tex / shm_data / shm_stride</code></td></tr>
+        <tr><td><code>render/gles2/renderer.c</code></td><td>返回 <code>DMABUF | SHM</code></td></tr>
+        <tr><td><code>render/gles2/renderer.c</code></td><td><code>get_or_create_buffer()</code> 加 <code>shm_path:</code> 分支（纹理 + FBO）</td></tr>
+        <tr><td><code>render/gles2/pass.c</code></td><td><code>render_pass_submit()</code> 加 <code>glReadPixels</code> + 垂直翻转</td></tr>
+      </table>
+    </div>
+
+    <div class="term reveal">
+      <div class="term-bar"><i></i><i></i><i></i><span class="term-name">补丁之后</span></div>
+      <div class="term-body"><span class="c-ok">EGL driver name: zink</span>
+<span class="c-ok">GL renderer: zink Vulkan 1.4(Adreno (TM) 825 (MESA_TURNIP))</span>
+<span class="c-ok">Created SHM GL FBO for buffer 1440x696 (stride 5760)</span>
+<span class="c-ok">Running compositor on wayland display 'wayland-2'</span>
+
+<span class="c-d">错误数 (Failed to commit / capabilities don't match):</span> <span class="c-ok">0</span></div>
+    </div>
+
+    <p class="lead reveal">
+      <b>像素级验证</b>：swaybg 设纯色 <code style="font-family:var(--mono);color:var(--acc)">#1a1626</code>，
+      grim 截图，逐像素比对 —— <b>1,002,240 个像素全部精确匹配 <code style="font-family:var(--mono);color:var(--acc)">(26,22,38)</code></b>。
+      不是「看起来对」，是数学上对。
+    </p>
+  </div>
+</section>
+
+<!-- ==================== 性能 ==================== -->
+<section id="perf" style="background:linear-gradient(180deg,transparent,rgba(0,163,255,.03),transparent)">
+  <div class="wrap">
+    <div class="eyebrow reveal">第四章 · 性能</div>
+    <h2 class="reveal">GPU 真的在跑，<br>不是「贴图」</h2>
+
+    <div class="tbl-wrap reveal">
+      <table>
+        <tr><th>指标</th><th>CPU 软渲染 (llvmpipe)</th><th>GPU (zink / Turnip)</th><th>提升</th></tr>
+        <tr><td><b>FPS</b></td><td>7.8</td><td class="ok">210.7</td><td class="ok">26.9×</td></tr>
+        <tr><td><b>单帧耗时</b></td><td>127.74 ms</td><td class="ok">4.75 ms</td><td class="ok">26.9×</td></tr>
+        <tr><td><b>算力</b></td><td>2.11 GFLOPS</td><td class="ok">56.79 GFLOPS</td><td class="ok">26.9×</td></tr>
+        <tr><td><b>抓帧</b></td><td>5.7 fps (grim+转换)</td><td class="ok">28.8 fps (常驻 grabber)</td><td class="ok">4.7×</td></tr>
+      </table>
+    </div>
+
+    <h2 class="reveal" style="margin-top:52px;font-size:clamp(19px,3vw,25px)">为什么抓帧要从 5.7 提到 28.8</h2>
+    <p class="lead reveal">
+      最初用 <b>grim 单次截图 + ppm2xwd 转换</b>，实测：grim 102~119ms，转换 56~75ms，
+      合计约 <b>175ms = 5.7 fps</b>。桌面卡得像 PPT。
+      <br><br>
+      改成<b>常驻 grabber</b>（长连 wlr-screencopy 客户端，自己管理 buffer 复用），一次连接持续出帧。
+      这里踩了 4 个坑，每个都能让人查一整天：
+    </p>
+
+    <div class="cards">
+      <div class="card reveal">
+        <span class="ic">🎯</span>
+        <h3>格式是 DRM fourcc，不是 wl_shm 枚举</h3>
+        <p>广播来的是 <code>0x34324241</code>，看起来像乱码，其实是
+        <code>DRM_FORMAT_ABGR8888</code>。写死 <code>WL_SHM_FORMAT_XRGB8888</code>
+        会得到 <code>error 1: invalid buffer format</code>。</p>
+      </div>
+      <div class="card reveal">
+        <span class="ic">📡</span>
+        <h3>capture_output 的 output 不能传 NULL</h3>
+        <p>传 NULL 会报 <code>error marshalling arguments (signature nio)</code>。
+        必须先 <code>bind</code> 一个 <code>wl_output</code> 再把它的 id 传进去。</p>
+      </div>
+      <div class="card reveal">
+        <span class="ic">⏱️</span>
+        <h3>必须先等 frame.buffer 事件</h3>
+        <p>不能在 capture_output 之后立刻建 <code>wl_buffer</code>，
+        必须等 compositor 把 <code>frame.buffer</code> 事件发过来，拿到 fd 和 stride。</p>
+      </div>
+      <div class="card reveal">
+        <span class="ic">🔇</span>
+        <h3>日志全丢 → 加 setvbuf</h3>
+        <p>重定向到文件时 stderr 是全缓冲，进程被杀就什么都没了。
+        <code>setvbuf(stderr, NULL, _IONBF, 0)</code> 一行救回所有调试信息。</p>
+      </div>
+    </div>
+
+    <div class="term reveal">
+      <div class="term-bar"><i></i><i></i><i></i><span class="term-name">$ ./grabber</span></div>
+      <div class="term-body"><span class="c-ok">grabber: fps=28.8  total=144</span>
+<span class="c-ok">grabber: fps=28.2  total=283</span>
+<span class="c-ok">grabber: fps=28.8  total=434</span>
+
+<span class="c-d">对比 grim 单次：175ms/帧 = 5.7 fps</span>
+<span class="hl">提升 4.7 倍，同样硬件，不换算法换架构。</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 实拍 ==================== -->
+<section id="proof">
+  <div class="wrap">
+    <div class="eyebrow reveal">第五章 · 实拍</div>
+    <h2 class="reveal">跑起来是什么样</h2>
+    <p class="lead reveal">
+      不是概念图，不是 mockup。<b>手机截下来的原始帧</b>。
+    </p>
+
+    <div class="shot reveal">
+      <img src="img/desktop.png" alt="Cinnamon 桌面实拍">
+      <div class="shot-cap"><b>Cinnamon 6.0.4 桌面</b> · 1440×696 · nemo-desktop 画的图标层 ·
+      底部面板 + 时钟走时正常 · Firefox 在面板第四格（带角标 2）</div>
+    </div>
+
+    <div class="shot reveal">
+      <img src="img/firefox-bilibili.png" alt="Firefox 加载 B 站">
+      <div class="shot-cap"><b>Firefox 159 加载 bilibili.com</b> · 原生 Linux 版 Firefox（非套壳）·
+      标签页 / 地址栏 / 书签栏全部可用 · 11,663 色</div>
+    </div>
+
+    <div class="shot reveal">
+      <img src="img/cinnamon-settings.png" alt="Cinnamon 设置">
+      <div class="shot-cap"><b>系统设置 · Date &amp; Time</b> · 世界地图渲染 / Region 下拉 / 开关控件全部正常 ·
+      8,450 色</div>
+    </div>
+
+    <blockquote class="reveal">
+      另外还跑通过：<b>Nemo 文件管理器 · GNOME Terminal · xterm · xdotool 自动化 ·
+      xrandr 调分辨率 · gsettings 改壁纸 · Muffin 窗口管理器（最小化/最大化/关闭全部可用）</b>
+    </blockquote>
+  </div>
+</section>
+
+<!-- ==================== 完整链路 ==================== -->
+<section id="arch">
+  <div class="wrap">
+    <div class="eyebrow reveal">第六章 · 完整链路</div>
+    <h2 class="reveal">这不是一个 hack，<br>是一条完整的栈</h2>
+
+    <div class="arch reveal"><span class="dm">┌─ Android 层</span>
+│  TLHome.apk (SurfaceView / GLView)
+│    <span class="hl2">↑ 零拷贝推送</span>  <span class="dm">（MappedByteBuffer 直传 GL，省掉每帧 12MB 内存流量）</span>
+│
+├─ <span class="hl">grabber</span>  <span class="dm">28.8 fps, wlr-screencopy 常驻客户端</span>
+│
+├─ <span class="hl">sway / weston</span>  <span class="dm">(wlroots 0.17.1 已打 SHM 补丁)</span>
+│    <span class="hl2">↑ GLES2 → zink → Vulkan → Turnip → Adreno 825</span>
+│
+├─ <span class="hl">Xwayland</span>  <span class="dm">(跑 X11 应用)</span>
+│
+├─ Cinnamon 6.0.4 / Muffin / Nemo / Firefox 159
+│
+├─ <span class="hl">fakesock.so</span>  <span class="dm">← 本仓库主角</span>
+│    bind() connect() shm_open() open() fstat() drmGetDevices2()
+│
+└─ <span class="dm">proot (用户态 chroot) · Ubuntu 24.04 · 无 Root · SELinux 原样开启</span></div>
+
+    <div class="tbl-wrap reveal">
+      <table>
+        <tr><th>组件</th><th>作用</th><th>在本仓库</th></tr>
+        <tr><td><code>src/shim/fakesock.c</code></td><td>SELinux 绕过（bind/connect/shm_open/DRM）</td><td class="ok">✓ 全部源码</td></tr>
+        <tr><td><code>src/patch/</code></td><td>wlroots SHM 输出路径（4 处改动 + 补丁包）</td><td class="ok">✓ 全部源码</td></tr>
+        <tr><td><code>src/grabber/</code></td><td>常驻抓帧器 28.8 fps</td><td class="ok">✓ 全部源码</td></tr>
+        <tr><td><code>src/input/tliin.c</code></td><td>触控/键盘注入（XTEST，6ms 轮询）</td><td class="ok">✓ 全部源码</td></tr>
+        <tr><td><code>src/android/</code></td><td>TLHome 完整 Java 源码 + 已签名 APK</td><td class="ok">✓ 全部源码</td></tr>
+        <tr><td><code>proof/</code></td><td>实测截图</td><td class="ok">✓</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 诚实 ==================== -->
+<section id="limits">
+  <div class="wrap">
+    <div class="eyebrow reveal">第七章 · 诚实的部分</div>
+    <h2 class="reveal">它做不到什么</h2>
+    <p class="lead reveal">
+      讲技术的文章最容易犯的错，是只讲成功。<b>这里讲失败。</b>
+    </p>
+
+    <div class="tbl-wrap reveal">
+      <table>
+        <tr><th>限制</th><th>状态</th><th>原因</th></tr>
+        <tr><td><b>Cinnamon 本身仍是 CPU 绘制</b></td><td class="no">未解决</td><td>Muffin 用 cairo 软件渲染，GPU 只接管最终合成。<b>不能说「全 GPU」</b></td></tr>
+        <tr><td><b>Xvfb 无法用 GPU</b></td><td class="no">架构限制</td><td>libglx → glvnd → drisw 只认 swrast/llvmpipe，zink 属硬件 DRI，drisw 根本不加载</td></tr>
+        <tr><td><b>weston 无法截图</b></td><td class="no">未解决</td><td>weston 13 三个 shell 都没注册 authorizer，只能改源码</td></tr>
+        <tr><td><b>sway 的 Xwayland 需手配</b></td><td class="w">部分</td><td>wlroots 需 <code>-Dxwayland=enabled</code> + 装 13 个 xcb dev 包</td></tr>
+        <tr><td><b>内存极度紧张</b></td><td class="w">需管理</td><td>15GB 总量，微信+飞书占 1.7GB，B站视频页要 1.5GB</td></tr>
+        <tr><td><b>键盘映射有偏差</b></td><td class="no">已知</td><td>Android keycode → X11 keycode 部分符号错位</td></tr>
+        <tr><td><b>B站视频播放器</b></td><td class="no">未验证</td><td>可能报「浏览器不支持 HTML5 播放器」</td></tr>
+      </table>
+    </div>
+
+    <blockquote class="reveal">
+      上次我犯过一个错：把「猜测」当成「结论」写进文档。<br>
+      <b>这次不会。上面每一条要么有日志，要么标了未解决。</b>
+    </blockquote>
+  </div>
+</section>
+
+<!-- ==================== 适合谁 ==================== -->
+<section id="who">
+  <div class="wrap">
+    <div class="eyebrow reveal">第八章 · 适合谁</div>
+    <h2 class="reveal">别拿它当 Termux 替代品</h2>
+
+    <div class="cards">
+      <div class="card reveal">
+        <span class="ic">✅</span>
+        <h3>适合你，如果</h3>
+        <p>想在 Android 上跑 Wayland 合成器 · 在做 Termux:X11 类似替代品 ·
+        遇到「明明有权限但 bind 就是 EACCES」· 在 Android 做容器/图形栈移植</p>
+      </div>
+      <div class="card reveal">
+        <span class="ic">❌</span>
+        <h3>不适合你，如果</h3>
+        <p>只是想在手机上跑个 Linux —— 用 <b>Termux + proot-distro</b>，一行命令搞定 ·
+        有 Root —— 直接 <code>supolicy</code> 加规则，不用劫持 ·
+        想要流畅办公 —— 买台二手笔记本</p>
+      </div>
+    </div>
+
+    <div class="term reveal">
+      <div class="term-bar"><i></i><i></i><i></i><span class="term-name">实测环境</span></div>
+      <div class="term-body"><span class="c-b">设备</span>    Redmi 25053RT47C / onyx
+<span class="c-b">SoC</span>     骁龙 8s Gen 4 / Adreno 825
+<span class="c-b">系统</span>    Android 15 (SDK 35)，补丁 2025-10-01
+<span class="c-b">内核</span>    6.6.56-android15-8
+<span class="c-b">身份</span>    uid=2000(shell)  <span class="c-w">u:r:shell:s0</span>  CapEff: <span class="c-w">0000000000000000</span>
+<span class="c-b">合成器</span>  sway 1.9 + wlroots 0.17.1（自编译，GLES2）
+<span class="c-b">驱动</span>    Mesa 27.0.0-devel / zink on Turnip / Vulkan 1.4</div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 页脚 ==================== -->
+<footer>
+  <div class="wrap">
+    <p class="big">后续会单发：<b>wlroots SHM 补丁</b> · <b>grabber 抓帧</b> · <b>DRM 节点伪装</b></p>
+    <p>MIT License · 拿去用，不用问</p>
+    <p style="margin-top:18px">
+      <a href="https://github.com/sandmanklepfer-crypto/0.5B-AGI-Lab/tree/android-wayland-shim">GitHub 源码</a>
+      &nbsp;·&nbsp;
+      <a href="README.md">README</a>
+      &nbsp;·&nbsp;
+      <a href="docs/01-selinux-wall.md">技术长文</a>
+    </p>
+  </div>
+</footer>
+
+<script>
+/* ---------- 滚动淡入 ---------- */
+const io = new IntersectionObserver((es)=>{
+  es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+},{threshold:.12,rootMargin:'0px 0px -40px 0px'});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+
+/* ---------- 背景粒子 ---------- */
+(function(){
+  const cv=document.getElementById('bgfx'), ctx=cv.getContext('2d');
+  let W,H,pts=[],mouse={x:-999,y:-999};
+  function resize(){
+    W=cv.width=innerWidth*devicePixelRatio;
+    H=cv.height=innerHeight*devicePixelRatio;
+    cv.style.width=innerWidth+'px'; cv.style.height=innerHeight+'px';
+    const n=Math.min(70,Math.floor(innerWidth/16));
+    pts=[];
+    for(let i=0;i<n;i++) pts.push({
+      x:Math.random()*W, y:Math.random()*H,
+      vx:(Math.random()-.5)*.28*devicePixelRatio,
+      vy:(Math.random()-.5)*.28*devicePixelRatio,
+      r:(Math.random()*1.5+.6)*devicePixelRatio
+    });
+  }
+  addEventListener('resize',resize); resize();
+  addEventListener('mousemove',e=>{ mouse.x=e.clientX*devicePixelRatio; mouse.y=e.clientY*devicePixelRatio; });
+  addEventListener('mouseleave',()=>{ mouse.x=mouse.y=-999; });
+
+  const DPR=devicePixelRatio||1;
+  function loop(){
+    ctx.clearRect(0,0,W,H);
+    /* 连线 */
+    for(let i=0;i<pts.length;i++){
+      for(let j=i+1;j<pts.length;j++){
+        const a=pts[i],b=pts[j];
+        const dx=a.x-b.x, dy=a.y-b.y, d2=dx*dx+dy*dy;
+        const max=140*DPR;
+        if(d2<max*max){
+          const o=(1-Math.sqrt(d2)/max)*.30;
+          ctx.strokeStyle='rgba(0,229,160,'+o+')';
+          ctx.lineWidth=.7*DPR;
+          ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+        }
+      }
+    }
+    /* 点 */
+    pts.forEach(p=>{
+      p.x+=p.vx; p.y+=p.vy;
+      if(p.x<0||p.x>W) p.vx*=-1;
+      if(p.y<0||p.y>H) p.vy*=-1;
+      /* 鼠标吸引 */
+      const dx=mouse.x-p.x, dy=mouse.y-p.y, d=Math.hypot(dx,dy);
+      if(d<170*DPR && d>1){ p.x+=dx/d*.5; p.y+=dy/d*.5; }
+      ctx.fillStyle='rgba(0,229,160,.55)';
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.2832); ctx.fill();
+    });
+    requestAnimationFrame(loop);
+  }
+  loop();
+})();
+</script>
+</body>
+</html>

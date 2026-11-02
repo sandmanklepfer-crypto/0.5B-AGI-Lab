@@ -1,0 +1,35 @@
+============================================================
+ 完整链路打通记录
+============================================================
+[1] fakesock.so 加载
+    [fakesock] *** .so 已加载 pid=11759 ***
+
+[2] 抽象 socket 建立
+    @TLWL:dffa372e
+    @TLWL:ffc89242
+
+[3] wlroots SHM 补丁生效
+    EGL driver name: zink
+    GL renderer: zink Vulkan 1.4(Adreno (TM) 825 (MESA_TURNIP))
+    Created SHM GL FBO for buffer 1440x696 (stride 5760)
+    Running compositor on wayland display 'wayland-2'
+    错误数 (Failed to commit / capabilities don't match): 0
+
+[4] 像素级验证（swaybg #1a1626 -> grim 截图）
+    1002240/1002240 pixels match (26,22,38)
+
+[5] grabber 常驻抓帧
+    grabber: fps=28.8  total=144
+    grabber: fps=28.2  total=283
+    grabber: fps=28.8  total=434
+    (对照 grim 单次: 175ms/帧 = 5.7 fps, 提升 4.7x)
+
+[6] Xwayland
+    @/tmp/.X11-unix/X0
+
+[7] Cinnamon 6.0.4 起来
+    底部面板 + 时钟 + 3 个窗口按钮 + nemo-desktop 图标层
+
+[8] Firefox 159 加载 bilibili.com
+    与 i1.hdslb.com 的 TLS 握手完成
+    249,092 色

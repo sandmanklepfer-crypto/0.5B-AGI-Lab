@@ -1,5 +1,18 @@
 # 在 Android 上把 Wayland 跑起来：三个 LD_PRELOAD 劫持点
 
+---
+
+<h3 align="center">
+  <a href="index.html"><b>▶ 打开完整图文展示页（带实拍 + 动效）</b></a>
+</h3>
+
+<p align="center">
+  <a href="index.html"><img src="img/desktop.png" width="820" alt="Cinnamon 桌面实拍"></a>
+</p>
+
+---
+
+
 > **没 Root、没解锁 BL、没改内核、没刷 Magisk。**
 > 一台普通国行红米，Android 15，`untrusted_app` 域，`CapEff: 0000000000000000`。
 > Wayland 合成器跑起来了，28.8 fps。
