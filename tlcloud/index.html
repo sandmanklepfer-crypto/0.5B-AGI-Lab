@@ -2,306 +2,512 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
+<meta name="theme-color" content="#05060a">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TL Cloud · 极速抓取 API</title>
+<title>TL Cloud · 弹性算力云</title>
 <style>
+:root{
+  --neon:#c084fc; --cy:#22d3ee; --ok:#4ade80; --am:#ffd166;
+  --bad:#f87171;
+  --bg:#05060a; --panel:rgba(12,9,24,.78); --line:rgba(168,85,247,.34);
+  --line2:rgba(34,211,238,.28);
+  --txt:#e8e0f0; --dim:#9f8fd0; --dim2:#6b5f8a;
+}
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#0a0e1a;color:#e6e9f0;
-     font:16px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
-     padding:24px 16px;min-height:100vh}
-.wrap{max-width:840px;margin:0 auto}
-h1{font-size:32px;margin-bottom:6px;font-weight:800;
-   background:linear-gradient(90deg,#4ade80,#38bdf8);
-   -webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.sub{color:#94a3b8;margin-bottom:24px;font-size:15px}
-.card{background:#121828;border:1px solid #1f2a44;border-radius:16px;
-      padding:22px;margin-bottom:18px}
-.card h2{font-size:17px;color:#7dd3fc;margin-bottom:14px;font-weight:600}
+html,body{background:var(--bg);color:var(--txt);min-height:100%;
+  font-family:"Noto Sans SC","Noto Serif SC",system-ui,-apple-system,sans-serif;
+  -webkit-font-smoothing:antialiased}
+body{padding:0 0 60px;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(900px 500px at 12% -8%, rgba(168,85,247,.16), transparent 70%),
+    radial-gradient(800px 460px at 92% 8%, rgba(34,211,238,.12), transparent 72%),
+    radial-gradient(700px 500px at 50% 110%, rgba(168,85,247,.10), transparent 70%)}
+.wrap{position:relative;z-index:1;max-width:1120px;margin:0 auto;padding:0 18px}
+
+.topbar{position:sticky;top:0;z-index:20;backdrop-filter:blur(14px);
+  background:rgba(5,6,10,.82);border-bottom:1px solid var(--line);
+  margin:0 -18px 26px;padding:12px 18px}
+.tbin{max-width:1120px;margin:0 auto;display:flex;align-items:center;
+  justify-content:space-between;gap:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:11px}
+.logo{width:34px;height:34px;border-radius:9px;flex:none;
+  background:linear-gradient(135deg,#a855f7,#22d3ee);
+  box-shadow:0 0 20px rgba(168,85,247,.55);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:17px;color:#0a0616}
+.brand h1{font-size:18px;font-weight:700;letter-spacing:.5px}
+.brand .sub{font-size:11.5px;color:var(--dim2);letter-spacing:2px}
+.status{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:9px;
+  padding:5px 11px;display:flex;gap:8px;align-items:center;color:var(--dim)}
+.chip b{color:var(--txt);font-weight:600}
+.dot{width:8px;height:8px;border-radius:50%;background:#555;flex:none;
+  box-shadow:0 0 6px #555;transition:.3s}
+.dot.on{background:var(--ok);box-shadow:0 0 9px var(--ok)}
+.dot.warn{background:var(--am);box-shadow:0 0 9px var(--am)}
+.dot.off{background:var(--bad);box-shadow:0 0 9px var(--bad)}
+
+.card{position:relative;background:var(--panel);border:1px solid var(--line);
+  border-radius:16px;padding:22px;margin-bottom:18px;
+  box-shadow:0 10px 40px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.03)}
+.card::after{content:"";position:absolute;left:22px;right:22px;top:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(192,132,252,.5),transparent)}
+.card h2{font-size:15px;font-weight:600;color:var(--cy);letter-spacing:1.2px;
+  margin-bottom:16px;display:flex;align-items:center;gap:9px}
+.card h2::before{content:"";width:3px;height:15px;border-radius:2px;
+  background:linear-gradient(180deg,var(--neon),var(--cy));box-shadow:0 0 8px var(--neon)}
+
+button{font-family:inherit;cursor:pointer;transition:.16s;border:0}
+.btn{background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;
+  padding:11px 20px;border-radius:10px;font-size:14px;font-weight:600;
+  box-shadow:0 4px 18px rgba(124,58,237,.4)}
+.btn:hover{transform:translateY(-1px);box-shadow:0 7px 24px rgba(124,58,237,.55)}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+.btn.ghost{background:rgba(168,85,247,.12);border:1px solid var(--line);
+  color:var(--txt);box-shadow:none}
+.btn.ghost:hover{background:rgba(168,85,247,.22)}
+.btn.cy{background:linear-gradient(135deg,#0891b2,#22d3ee);color:#04161b;
+  box-shadow:0 4px 18px rgba(34,211,238,.35)}
+
+input,select{background:rgba(5,6,12,.85);border:1px solid var(--line);
+  color:var(--txt);padding:11px 13px;border-radius:10px;font-size:14px;
+  font-family:inherit;outline:none;transition:.16s;width:100%}
+input:focus,select:focus{border-color:var(--neon);
+  box-shadow:0 0 0 3px rgba(168,85,247,.14)}
+input::placeholder{color:var(--dim2)}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-input,select{background:#0a0e1a;border:1px solid #24304d;color:#e6e9f0;
-      padding:12px 14px;border-radius:10px;font-size:15px;outline:none;
-      font-family:inherit}
-input:focus,select:focus{border-color:#38bdf8}
-input.grow{flex:1;min-width:220px}
-button{background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:0;
-       padding:12px 22px;border-radius:10px;font-size:15px;font-weight:600;
-       cursor:pointer;transition:.15s;font-family:inherit}
-button:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(37,99,235,.4)}
-button:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
-.price{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
-       gap:12px;margin-top:6px}
-.p{background:#0a0e1a;border:1px solid #24304d;border-radius:12px;
-   padding:16px;text-align:center}
-.p .amt{font-size:25px;font-weight:800;color:#4ade80}
-.p .desc{font-size:13px;color:#94a3b8;margin-top:4px}
-pre{background:#0a0e1a;border:1px solid #1f2a44;border-radius:10px;padding:14px;
-    overflow:auto;font-size:13px;line-height:1.65;max-height:360px;
-    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#a5f3fc;
-    white-space:pre-wrap;word-break:break-all}
-.bal{font-size:34px;font-weight:800;color:#4ade80}
-.bal small{font-size:15px;color:#94a3b8;font-weight:400}
-.hint{font-size:13px;color:#64748b;margin-top:10px}
-.tag{display:inline-block;padding:3px 10px;border-radius:6px;font-size:12px;
-     background:#14532d;color:#86efac;margin-left:8px;vertical-align:middle}
-.tag.bad{background:#7f1d1d;color:#fca5a5}
-.tag.wait{background:#78350f;color:#fcd34d}
-table{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}
-td,th{padding:8px 6px;text-align:left;border-bottom:1px solid #1f2a44}
-th{color:#94a3b8;font-weight:500}
-a{color:#38bdf8;text-decoration:none}
-a:hover{text-decoration:underline}
-.dot{display:inline-block;width:8px;height:8px;border-radius:50%;
-     background:#4ade80;margin-right:6px}
-.dot.off{background:#ef4444}
-.dot.wait{background:#eab308}
+.row>input{flex:1;min-width:180px}
+.row>select{flex:none;width:auto}
+.row>button{flex:none}
+
+.tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(212px,1fr));gap:13px}
+.tier{position:relative;background:rgba(5,6,12,.72);border:1px solid var(--line);
+  border-radius:13px;padding:17px;cursor:pointer;transition:.18s;overflow:hidden}
+.tier:hover{border-color:rgba(192,132,252,.6);transform:translateY(-2px);
+  box-shadow:0 8px 28px rgba(124,58,237,.22)}
+.tier.sel{border-color:var(--neon);background:rgba(124,58,237,.13);
+  box-shadow:0 0 0 1px var(--neon),0 8px 30px rgba(168,85,247,.3)}
+.tier.lock{opacity:.48;cursor:not-allowed}
+.tier.lock:hover{transform:none;border-color:var(--line);box-shadow:none}
+.tier .ico{font-size:20px;margin-bottom:9px;filter:drop-shadow(0 0 8px rgba(192,132,252,.65))}
+.tier .nm{font-size:15px;font-weight:700;letter-spacing:.6px;margin-bottom:3px}
+.tier .en{font-size:10.5px;color:var(--dim2);letter-spacing:2px;
+  text-transform:uppercase;margin-bottom:11px}
+.tier .spec{font-size:12px;color:var(--dim);line-height:1.85}
+.tier .spec b{color:var(--cy);font-weight:600}
+.badge{position:absolute;top:12px;right:12px;font-size:10px;
+  padding:2.5px 8px;border-radius:6px;letter-spacing:.6px}
+.b-ok{background:rgba(74,222,128,.15);color:var(--ok);border:1px solid rgba(74,222,128,.35)}
+.b-no{background:rgba(248,113,113,.13);color:var(--bad);border:1px solid rgba(248,113,113,.32)}
+.b-free{background:rgba(34,211,238,.13);color:var(--cy);border:1px solid rgba(34,211,238,.32)}
+.b-paid{background:rgba(255,209,102,.13);color:var(--am);border:1px solid rgba(255,209,102,.32)}
+
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:12px}
+.metric{background:rgba(5,6,12,.6);border:1px solid var(--line2);border-radius:11px;
+  padding:14px;text-align:center}
+.metric .v{font-size:22px;font-weight:800;color:var(--ok);
+  font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+.metric .v.cy{color:var(--cy)} .metric .v.am{color:var(--am)}
+.metric .v.ne{color:var(--neon)} .metric .v.bd{color:var(--bad)}
+.metric .k{font-size:11.5px;color:var(--dim2);margin-top:4px;letter-spacing:.6px}
+
+.bar{height:8px;border-radius:5px;background:rgba(0,0,0,.6);
+  border:1px solid var(--line2);overflow:hidden;margin:9px 0}
+.bar .f{height:100%;width:0;transition:width .4s;
+  background:linear-gradient(90deg,var(--ok),var(--am),var(--bad));
+  box-shadow:0 0 10px rgba(74,222,128,.5)}
+
+pre{background:rgba(3,4,9,.92);border:1px solid var(--line);border-radius:11px;
+  padding:14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:12.5px;line-height:1.72;color:#a5f3fc;overflow:auto;
+  max-height:340px;white-space:pre-wrap;word-break:break-all;margin-top:14px}
+pre:empty::before{content:"等待执行…";color:var(--dim2)}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:9px 10px;text-align:left;border-bottom:1px solid rgba(168,85,247,.15)}
+th{color:var(--dim2);font-weight:500;font-size:11.5px;letter-spacing:1px}
+td code{background:rgba(34,211,238,.1);color:var(--cy);padding:2px 7px;
+  border-radius:5px;font-size:12px}
+
+.hint{font-size:12.5px;color:var(--dim2);line-height:1.75;margin-top:11px}
+.tag{display:inline-block;padding:2px 9px;border-radius:6px;font-size:11.5px;
+  margin-left:7px;vertical-align:middle}
+.t-free{background:rgba(34,211,238,.13);color:var(--cy)}
+.t-paid{background:rgba(255,209,102,.13);color:var(--am)}
+.t-bad{background:rgba(248,113,113,.13);color:var(--bad)}
+footer{text-align:center;color:var(--dim2);font-size:12px;padding:30px 0 10px;
+  letter-spacing:.8px}
 </style>
 </head>
 <body>
+
+<div class="topbar">
+  <div class="tbin">
+    <div class="brand">
+      <div class="logo">TL</div>
+      <div>
+        <h1>TL Cloud</h1>
+        <div class="sub">ELASTIC COMPUTE</div>
+      </div>
+    </div>
+    <div class="status">
+      <div class="chip"><span class="dot" id="dApi"></span>API <b id="apiTxt">连接中</b></div>
+      <div class="chip"><span class="dot" id="dMem"></span>内存 <b id="memTxt">—</b></div>
+      <div class="chip"><span class="dot" id="dBrk"></span>熔断 <b id="brkTxt">—</b></div>
+    </div>
+  </div>
+</div>
+
 <div class="wrap">
 
-  <h1>TL Cloud</h1>
-  <p class="sub">按量计费的高并发抓取 API · 用多少扣多少 · 1 元起充</p>
-
   <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-      <div><span class="dot" id="dot"></span>
-        <span id="regmsg" style="font-size:14px;color:#94a3b8">正在连接后端…</span></div>
-      <div style="font-size:13px;color:#64748b" id="regver"></div>
+    <h2>资源档位</h2>
+    <div class="tiers" id="tiers">
+      <div class="tier" data-p="jelly">
+        <div class="ico">◈</div>
+        <div class="nm">GPU 桌面</div>
+        <div class="en">jelly</div>
+        <div class="spec"><b>800 MB</b> / 实例<br>Wayfire + GPU 直通<br>果冻特效 · 真图形桌面</div>
+      </div>
+      <div class="tier" data-p="gui">
+        <div class="ico">▣</div>
+        <div class="nm">图形会话</div>
+        <div class="en">gui</div>
+        <div class="spec"><b>400 MB</b> / 实例<br>图形框架（CPU 渲染）<br>无 GPU 加速</div>
+      </div>
+      <div class="tier" data-p="headless">
+        <div class="ico">▤</div>
+        <div class="nm">无头 Linux</div>
+        <div class="en">headless</div>
+        <div class="spec"><b>40 MB</b> / 实例<br>完整 Ubuntu 环境<br>跑脚本 · 读写文件</div>
+      </div>
+      <div class="tier sel" data-p="http">
+        <div class="ico">⚡</div>
+        <div class="nm">极速网络</div>
+        <div class="en">http</div>
+        <div class="spec"><b>2 MB</b> / 实例<br>C 引擎直通<br>高并发 HTTP / HTTPS</div>
+      </div>
     </div>
+    <p class="hint" id="tierHint">选择档位后申请资源。系统按当前可用内存自动准入，不足时自动降级。</p>
+    <div class="row" style="margin-top:14px">
+      <input id="wantN" type="number" value="1" min="1" max="200" style="max-width:110px">
+      <button class="btn ghost" onclick="doAdmit()">申请实例</button>
+    </div>
+    <pre id="admitOut"></pre>
   </div>
 
-  <!-- 价格 -->
   <div class="card">
-    <h2>计价规则</h2>
-    <div class="price">
-      <div class="p"><div class="amt">¥0.0001</div><div class="desc">每次抓取</div></div>
-      <div class="p"><div class="amt">10,000</div><div class="desc">1 元可跑（次）</div></div>
-      <div class="p"><div class="amt">5 次/秒</div><div class="desc">付费限流</div></div>
-      <div class="p"><div class="amt">1000/天</div><div class="desc">免费额度</div></div>
+    <h2>集群状态</h2>
+    <div class="metrics">
+      <div class="metric"><div class="v" id="mActive">—</div><div class="k">活跃任务</div></div>
+      <div class="metric"><div class="v cy" id="mDone">—</div><div class="k">累计完成</div></div>
+      <div class="metric"><div class="v ne" id="mSlots">—</div><div class="k">逻辑槽位</div></div>
+      <div class="metric"><div class="v am" id="mQueue">—</div><div class="k">排队中</div></div>
+      <div class="metric"><div class="v bd" id="m429">—</div><div class="k">限流拒绝</div></div>
     </div>
-    <p class="hint">支持抓取任意 URL 的状态码、耗时、字节数和页面标题。余额扣到 0 立即停止，不产生欠费。</p>
+    <div class="bar"><div class="f" id="memBar"></div></div>
+    <p class="hint" id="memDetail">—</p>
+    <div id="instList"></div>
   </div>
 
-  <!-- 额度 -->
   <div class="card">
-    <h2>我的额度</h2>
+    <h2>访问凭证</h2>
     <div class="row">
-      <input id="mykey" class="grow" placeholder="输入 API Key（tl_ 开头）">
-      <button onclick="queryMe()">查询</button>
+      <input id="apiKey" placeholder="tl_...  （粘贴你的 API Key）">
+      <button class="btn cy" onclick="queryMe()">查询额度</button>
     </div>
-    <div id="meout" style="margin-top:16px"></div>
+    <div id="meBox" style="margin-top:16px"></div>
   </div>
 
-  <!-- 试跑 -->
   <div class="card">
-    <h2>在线试跑</h2>
+    <h2>执行任务</h2>
     <div class="row">
-      <input id="testurl" class="grow" value="https://example.com/"
-             placeholder="要抓取的 URL">
-      <button id="btn" onclick="runTest()">抓取一次</button>
+      <select id="cmdSel" style="max-width:190px">
+        <option value="fetch ">fetch — 抓取网页</option>
+        <option value="check ">check — 只测可达</option>
+        <option value="json ">json — 取 JSON 字段</option>
+        <option value="ping">ping — 连通测试</option>
+        <option value="date">date — 服务器时间</option>
+        <option value="mem">mem — 内存状态</option>
+        <option value="ls ">ls — 列目录</option>
+      </select>
+      <input id="cmdArg" placeholder="https://example.com/" value="https://example.com/">
+      <button class="btn" id="btnRun" onclick="runTask()">执行</button>
     </div>
-    <pre id="testout" style="margin-top:14px">（结果会显示在这里）</pre>
-    <p class="hint">每次执行扣 1 次额度（免费用户优先扣每日免费额度）。</p>
+    <pre id="taskOut"></pre>
+    <p class="hint">每次执行扣 1 次额度。免费用户优先扣每日免费额度，每 IP 每分钟 10 次。</p>
   </div>
 
-  <!-- 充值 -->
   <div class="card">
-    <h2>充值</h2>
+    <h2>批量扇出</h2>
     <div class="row">
-      <input id="amt" type="number" value="10" min="1" max="20000" style="width:130px">
-      <span style="color:#94a3b8">元</span>
-      <button onclick="showPay()">生成订单</button>
+      <input id="waveUrl" placeholder="https://example.com/" value="https://example.com/">
+      <input id="waveN" type="number" value="50" min="1" max="10000" style="max-width:110px">
+      <button class="btn" onclick="runWave()">扇出</button>
     </div>
-    <div id="paybox" style="margin-top:14px"></div>
-    <p class="hint">
-      付款后把 <b>订单号 + API Key</b> 发给管理员即可到账。<br>
-      首次试用：找管理员领免费额度，无需付款。
-    </p>
+    <pre id="waveOut"></pre>
+    <p class="hint">按实际接受量扣费，被拒绝的部分自动退还。</p>
   </div>
 
-  <!-- 文档 -->
   <div class="card">
     <h2>接口文档</h2>
     <table>
       <tr><th>方法</th><th>路径</th><th>说明</th></tr>
-      <tr><td>GET</td><td>/me</td><td>查余额和剩余次数</td></tr>
-      <tr><td>POST</td><td>/exec?w=1&amp;cmd=fetch+URL</td><td>抓取单任务（扣 1 次）</td></tr>
-      <tr><td>POST</td><td>/exec?w=1&amp;cmd=check+URL</td><td>只测可达性（同样扣 1 次）</td></tr>
-      <tr><td>POST</td><td>/wave?from=1&amp;to=100&amp;cmd=check+URL</td><td>批量扇出（按实际接受量扣费）</td></tr>
-      <tr><td>GET</td><td>/out?w=1</td><td>取某槽位最近一次输出</td></tr>
-      <tr><td>GET</td><td>/health</td><td>健康检查（免鉴权）</td></tr>
+      <tr><td>GET</td><td><code>/catalog</code></td><td>资源目录（四档 + 可用量）</td></tr>
+      <tr><td>GET</td><td><code>/instances</code></td><td>各档已分配槽位数</td></tr>
+      <tr><td>POST</td><td><code>/admit?profile=jelly&amp;n=1</code></td><td>申请资源（自动降级）</td></tr>
+      <tr><td>POST</td><td><code>/exec?w=1&amp;cmd=fetch+URL</code></td><td>派发单任务</td></tr>
+      <tr><td>POST</td><td><code>/wave?from=1&amp;to=100&amp;cmd=check+URL</code></td><td>批量扇出</td></tr>
+      <tr><td>GET</td><td><code>/out?w=1</code></td><td>取槽位输出</td></tr>
+      <tr><td>GET</td><td><code>/me</code> &nbsp; <code>/health</code></td><td>额度 / 健康检查</td></tr>
     </table>
-    <pre style="margin-top:14px"># 1. 抓取
-curl -X POST "https://你的后端/exec?w=1&amp;cmd=fetch+https://example.com/" \
-  -H "Authorization: Bearer tl_你的key"
+    <pre>curl -X POST "https://后端/exec?w=1&amp;cmd=fetch+https://example.com/" \
+  -H "Authorization: Bearer tl_xxxxx"
 
-# 2. 取结果
-curl "https://你的后端/out?w=1" \
-  -H "Authorization: Bearer tl_你的key"
+curl "https://后端/out?w=1" -H "Authorization: Bearer tl_xxxxx"
 # → HTTP 200 211ms bytes=577</pre>
   </div>
 
-  <p class="hint" style="text-align:center;margin:30px 0">
-    TL Cloud · 不记录客户数据 · 只抓公开页面
-  </p>
+  <footer>TL Cloud · 弹性算力调度 · 按量计费</footer>
 </div>
 
 <script>
 // ============================================================================
 //  后端地址解析
-//  GitHub Pages 是静态托管，无法运行后端。
-//  所以隧道地址放在同目录的 registry.json 里，
-//  手机端看门狗检测到地址变化就自动 push 更新这个文件。
+//  GitHub Pages 只能托管静态文件，无法运行后端。
+//  隧道地址写在与本页同目录的 registry.json，由手机看门狗自动更新。
+//  这样隧道重启换地址时，前端不用改代码。
 // ============================================================================
 const REG_URL = 'registry.json';
 let BASE = null;
+let selProfile = 'http';
 
-function $(id){ return document.getElementById(id); }
+const $ = id => document.getElementById(id);
 
-function setStatus(kind, msg, ver){
-  const d = $('dot');
-  d.className = 'dot' + (kind === 'ok' ? '' : kind === 'wait' ? ' wait' : ' off');
-  $('regmsg').textContent = msg;
-  if (ver) $('regver').textContent = ver;
-}
+function setDot(el, cls){ el.className = 'dot ' + cls; }
 
 async function loadRegistry(){
-  setStatus('wait', '正在获取后端地址…');
-  // 1) 优先读 registry.json
-  try{
-    const r = await fetch(REG_URL + '?t=' + Date.now(), { cache:'no-store' });
-    if(r.ok){
-      const d = await r.json();
-      if(d.url){
-        BASE = d.url.replace(/\/$/, '');
-        // 探活
-        try{
-          const h = await fetch(BASE + '/health', { cache:'no-store' });
-          const hj = await h.json();
-          if(hj.ok){
-            setStatus('ok', '后端在线 · ' + BASE.replace(/^https?:\/\//,''),
-                      '更新于 ' + (d.updated || '未知'));
-            return;
-          }
-          setStatus('wait', '后端繁忙（熔断中）· ' + BASE.replace(/^https?:\/\//,''),
-                    '更新于 ' + (d.updated || ''));
-          return;
-        }catch(e){
-          setStatus('off', '后端暂时连不上（隧道可能已更换地址）');
-          return;
-        }
-      }
-    }
-  }catch(e){ /* registry.json 不存在，继续 */ }
+  setDot($('dApi'), 'warn');
+  $('apiTxt').textContent = '连接中';
 
-  // 2) 兜底：URL 参数 ?api=
-  const p = new URLSearchParams(location.search).get('api');
-  if(p){
-    BASE = p.replace(/\/$/, '');
-    setStatus('ok', '后端（手动指定）· ' + BASE.replace(/^https?:\/\//,''));
+  let reg = null;
+  try{
+    const r = await fetch(REG_URL + '?t=' + Date.now(), {cache:'no-store'});
+    if(r.ok) reg = await r.json();
+  }catch(e){}
+
+  if(reg && reg.url){
+    BASE = reg.url.replace(/\/$/,'');
+  } else {
+    const p = new URLSearchParams(location.search).get('api');
+    if(p) BASE = p.replace(/\/$/,'');
+  }
+  if(!BASE){
+    setDot($('dApi'),'off');
+    $('apiTxt').textContent = '未配置';
     return;
   }
 
-  setStatus('off', '未配置后端地址（registry.json 缺失）');
+  try{
+    const h = await fetch(BASE + '/health', {cache:'no-store'});
+    const j = await h.json();
+    setDot($('dApi'), j.ok ? 'on' : 'warn');
+    $('apiTxt').textContent = j.ok ? '在线' : (j.breaker ? '熔断中' : '异常');
+    setDot($('dMem'), j.mem_mb > 1500 ? 'on' : 'warn');
+    $('memTxt').textContent = j.mem_mb + ' MB';
+    setDot($('dBrk'), j.breaker ? 'off' : 'on');
+    $('brkTxt').textContent = j.breaker ? '开启' : '正常';
+  }catch(e){
+    setDot($('dApi'),'off');
+    $('apiTxt').textContent = '离线';
+  }
+}
+
+async function loadCatalog(){
+  if(!BASE) return;
+  try{
+    const r = await fetch(BASE + '/catalog', {cache:'no-store'});
+    const d = await r.json();
+    document.querySelectorAll('.tier').forEach(el=>{
+      const p = el.dataset.p;
+      const info = (d.profiles || []).find(x => x.name === p);
+      if(!info) return;
+      el.classList.toggle('lock', !info.available);
+      let b = el.querySelector('.badge');
+      if(!b){ b = document.createElement('div'); b.className = 'badge'; el.appendChild(b); }
+      if(!info.available){
+        b.className = 'badge b-no'; b.textContent = '不可用';
+      } else if(info.free_allowed){
+        b.className = 'badge b-free'; b.textContent = '可开 ' + info.can_alloc_now;
+      } else {
+        b.className = 'badge b-paid'; b.textContent = '付费 · 可开 ' + info.can_alloc_now;
+      }
+    });
+    $('tierHint').textContent =
+      '可用内存 ' + d.mem_available_mb + ' MB（保留 ' + d.safety_mb +
+      ' MB 安全垫，实际可用 ' + d.usable_mb + ' MB）。选择档位后申请，不足时自动降级。';
+  }catch(e){}
+}
+
+async function loadStatus(){
+  if(!BASE) return;
+  try{
+    const r = await fetch(BASE + '/status', {cache:'no-store'});
+    if(!r.ok) return;
+    const d = await r.json();
+    $('mActive').textContent = d.active;
+    $('mDone').textContent = d.done;
+    $('mSlots').textContent = d.slots;
+    $('mQueue').textContent = d.queued;
+    $('m429').textContent = d.rejected_429 + d.rejected_insufficient;
+
+    const avail = d.mem_available_mb;
+    $('memBar').style.width = Math.min(100, Math.max(0, (1 - avail/7800)*100)) + '%';
+    $('memDetail').textContent =
+      '内存 ' + avail + ' MB 可用 · 线程 ' + d.threads +
+      ' · C 引擎 ' + (d.engine ? '在线' : '离线') +
+      ' · 降级 ' + (d.degraded||0) + ' 次 · 运行 ' + Math.floor(d.uptime) + ' 秒';
+
+    try{
+      const r2 = await fetch(BASE + '/instances', {cache:'no-store'});
+      const i2 = await r2.json();
+      let h = '';
+      (i2.detailed || []).forEach(x=>{
+        if(x.allocated === 0) return;
+        h += '<div style="display:flex;justify-content:space-between;align-items:center;' +
+             'padding:8px 0;border-bottom:1px solid rgba(168,85,247,.12);font-size:13px">' +
+             '<span style="color:#9f8fd0">' + x.name + ' · ' + x.cost_mb + ' MB</span>' +
+             '<span style="color:#22d3ee">' + x.allocated + ' 槽位' +
+             (x.busy ? ' <span style="color:#ffd166">(' + x.busy + ' 忙)</span>' : '') +
+             '</span></div>';
+      });
+      $('instList').innerHTML = h;
+    }catch(e){}
+  }catch(e){}
+}
+
+document.querySelectorAll('.tier').forEach(el=>{
+  el.addEventListener('click', ()=>{
+    if(el.classList.contains('lock')) return;
+    document.querySelectorAll('.tier').forEach(x=>x.classList.remove('sel'));
+    el.classList.add('sel');
+    selProfile = el.dataset.p;
+  });
+});
+
+async function doAdmit(){
+  if(!BASE) return alert('后端未连接');
+  const n = parseInt($('wantN').value) || 1;
+  $('admitOut').textContent = '申请中…';
+  try{
+    const r = await fetch(BASE + '/admit?profile=' + selProfile + '&n=' + n,
+      {method:'POST'});
+    const d = await r.json();
+    let out = 'HTTP ' + r.status + '\n' + JSON.stringify(d, null, 2);
+    if(d.note) out += '\n\n⚠ ' + d.note;
+    else if(d.granted) out += '\n\n✓ 按申请档位批准';
+    $('admitOut').textContent = out;
+    loadCatalog(); loadStatus();
+  }catch(e){ $('admitOut').textContent = '错误: ' + e.message; }
 }
 
 async function queryMe(){
-  const k = $('mykey').value.trim();
-  if(!k){ $('meout').innerHTML = '<span style="color:#fca5a5">请先输入 API Key</span>'; return; }
-  if(!BASE){ $('meout').innerHTML = '<span style="color:#fca5a5">后端未就绪</span>'; return; }
-  $('meout').textContent = '查询中…';
+  const k = $('apiKey').value.trim();
+  if(!k) return alert('请先输入 API Key');
+  if(!BASE) return alert('后端未连接');
+  $('meBox').textContent = '查询中…';
   try{
-    const r = await fetch(BASE + '/me', { headers:{ 'Authorization':'Bearer ' + k } });
+    const r = await fetch(BASE + '/me', {headers:{'Authorization':'Bearer ' + k}});
     if(r.status === 401){
-      $('meout').innerHTML = '<span style="color:#fca5a5">Key 无效</span>';
+      $('meBox').innerHTML = '<span class="tag t-bad">Key 无效</span>';
       return;
     }
     const d = await r.json();
-    const tier = d.tier === 'paid'
-      ? '<span class="tag">付费</span>'
-      : '<span class="tag wait">免费</span>';
-    let h = '<div class="bal">¥' + (d.balance_yuan || 0).toFixed(4) +
-      '<small> 余额 · 可跑 ' + (d.tasks_left || 0).toLocaleString() + ' 次</small>' +
-      tier + '</div>';
-    h += '<p class="hint">已用 ' + (d.tasks_used || 0).toLocaleString() +
-      ' 次 · 单价 ¥' + ((d.cost_per_task_micro || 0) / 1000000).toFixed(6) + '/次</p>';
+    const tierTag = d.tier === 'paid'
+      ? '<span class="tag t-paid">付费</span>'
+      : '<span class="tag t-free">免费</span>';
+    let h = '<div class="metrics">';
+    h += '<div class="metric"><div class="v">¥' + (d.balance_yuan||0).toFixed(4) +
+         '</div><div class="k">余额</div></div>';
+    h += '<div class="metric"><div class="v cy">' + (d.tasks_left||0) +
+         '</div><div class="k">可跑次数</div></div>';
+    h += '<div class="metric"><div class="v ne">' + (d.tasks_used||0) +
+         '</div><div class="k">已用次数</div></div>';
     if(d.tier === 'free'){
-      h += '<p class="hint">今日免费额度：' + (d.free_used_today || 0) + ' / ' +
-        (d.free_daily || 0) + ' 次（剩余 ' + (d.free_left_today || 0) + '）' +
-        ' · QPS 上限 ' + (d.qps_limit || 1) + '</p>';
-      h += '<p class="hint">可用资源：' + (d.profiles_allowed || []).join(' / ') + '</p>';
+      h += '<div class="metric"><div class="v am">' + (d.free_left_today||0) +
+           '</div><div class="k">今日免费剩余</div></div>';
     }
-    $('meout').innerHTML = h;
-  }catch(e){
-    $('meout').innerHTML = '<span style="color:#fca5a5">网络错误：' + e.message + '</span>';
-  }
+    h += '</div>';
+    h += '<p class="hint">等级 ' + tierTag + ' · 单价 ¥' +
+      ((d.cost_per_task_micro||0)/1000000).toFixed(6) + '/次 · QPS 上限 ' +
+      (d.qps_limit||1) + ' · 可用档位 ' + (d.profiles_allowed||[]).join(' / ') + '</p>';
+    $('meBox').innerHTML = h;
+  }catch(e){ $('meBox').textContent = '错误: ' + e.message; }
 }
 
-async function runTest(){
-  const k = $('mykey').value.trim();
-  if(!k){ $('testout').textContent = '请先在上方输入 API Key'; return; }
-  if(!BASE){ $('testout').textContent = '后端未就绪'; return; }
-  const u = $('testurl').value.trim();
-  const btn = $('btn');
+async function runTask(){
+  const k = $('apiKey').value.trim();
+  if(!k) return alert('请先输入 API Key');
+  if(!BASE) return alert('后端未连接');
+  const sel = $('cmdSel').value;
+  const cmd = sel.endsWith(' ') ? sel + $('cmdArg').value : sel;
+  const btn = $('btnRun');
   btn.disabled = true;
-  $('testout').textContent = '执行中…';
+  $('taskOut').textContent = '执行中…';
   try{
-    const r1 = await fetch(BASE + '/exec?w=1&cmd=' + encodeURIComponent('fetch ' + u),
-      { method:'POST', headers:{ 'Authorization':'Bearer ' + k } });
-    const d1 = await r1.json();
-    if(r1.status === 401){ $('testout').textContent = 'Key 无效'; return; }
-    if(r1.status === 402){ $('testout').textContent = '余额/额度不足，请充值'; return; }
-    if(r1.status === 429){ $('testout').textContent = '请求过快（限流），请稍后'; return; }
-    if(r1.status === 503){ $('testout').textContent = '系统繁忙（免费池熔断），请稍后或升级付费'; return; }
-    if(r1.status === 403){ $('testout').textContent = '命令不被允许'; return; }
-
-    // 轮询取结果（最多 8 秒）
-    let txt = '(超时，未取到结果)';
-    for(let i = 0; i < 16; i++){
-      await new Promise(res => setTimeout(res, 500));
+    const r = await fetch(BASE + '/exec?w=1&cmd=' + encodeURIComponent(cmd),
+      {method:'POST', headers:{'Authorization':'Bearer ' + k}});
+    const d = await r.json();
+    if(!r.ok){
+      $('taskOut').textContent = '✗ HTTP ' + r.status + '\n' + JSON.stringify(d, null, 2);
+      return;
+    }
+    let res = null;
+    for(let i=0;i<20;i++){
+      await new Promise(x=>setTimeout(x,400));
       const r2 = await fetch(BASE + '/out?w=1',
-        { headers:{ 'Authorization':'Bearer ' + k }, cache:'no-store' });
-      if(r2.ok){
-        const t = await r2.text();
-        if(t && t !== '(empty)' && !t.startsWith('ERR:')){
-          txt = t;
-          if(!t.startsWith('HTTP ')){ continue; }  // 还在等
-          break;
-        }
-        if(t && (t.startsWith('HTTP ') || t.startsWith('ERR:'))){ txt = t; break; }
+        {headers:{'Authorization':'Bearer ' + k}, cache:'no-store'});
+      if(!r2.ok) continue;
+      const t = await r2.text();
+      if(t && t !== '(empty)'){
+        res = t;
+        if(t.startsWith('HTTP ') || t.startsWith('ERR:')) break;
       }
     }
-    let out = '派发: ' + JSON.stringify(d1) + '\n\n结果: ' + txt;
-    if(d1.free_left_today !== null && d1.free_left_today !== undefined){
-      out += '\n\n今日免费剩余: ' + d1.free_left_today + ' 次';
-    } else {
-      out += '\n\n余额: ¥' + ((d1.balance_micro || 0) / 1000000).toFixed(4) +
-             ' · 剩余 ' + (d1.tasks_left || 0) + ' 次';
-    }
-    $('testout').textContent = out;
-  }catch(e){
-    $('testout').textContent = '错误：' + e.message;
-  }finally{
-    btn.disabled = false;
-  }
+    let out = 'HTTP 200 OK\n' + JSON.stringify(d) + '\n\n';
+    out += '$ ' + cmd + '\n' + (res || '(超时，未取到结果)');
+    $('taskOut').textContent = out;
+  }catch(e){ $('taskOut').textContent = '错误: ' + e.message; }
+  finally{ btn.disabled = false; }
 }
 
-function showPay(){
-  const a = $('amt').value;
-  const order = 'TL' + Date.now().toString(36).toUpperCase();
-  $('paybox').innerHTML =
-    '<div style="background:#0a0e1a;border:1px solid #24304d;border-radius:12px;' +
-    'padding:18px;margin-top:6px">' +
-    '<p>订单号 <b style="color:#4ade80">' + order + '</b></p>' +
-    '<p style="margin-top:6px">金额 <b>¥' + a + '</b></p>' +
-    '<p class="hint" style="margin-top:12px">' +
-    '把订单号和你的 API Key 发给管理员，到账后自动充值。<br>' +
-    '（管理员用 <code>/admin/topup?key=...&amp;yuan=' + a + '</code> 即可到账）</p>' +
-    '</div>';
+async function runWave(){
+  const k = $('apiKey').value.trim();
+  if(!k) return alert('请先输入 API Key');
+  if(!BASE) return alert('后端未连接');
+  const u = $('waveUrl').value.trim();
+  const n = parseInt($('waveN').value) || 10;
+  $('waveOut').textContent = '扇出 ' + n + ' 个任务…';
+  try{
+    const r = await fetch(BASE + '/wave?from=1&to=' + n +
+      '&cmd=' + encodeURIComponent('check ' + u),
+      {method:'POST', headers:{'Authorization':'Bearer ' + k}});
+    const d = await r.json();
+    $('waveOut').textContent = 'HTTP ' + r.status + '\n' + JSON.stringify(d, null, 2);
+    loadStatus();
+  }catch(e){ $('waveOut').textContent = '错误: ' + e.message; }
 }
 
-loadRegistry();
-setInterval(loadRegistry, 60000);
+(function init(){
+  loadRegistry().then(()=>{
+    loadCatalog();
+    loadStatus();
+  });
+  setInterval(loadRegistry, 60000);
+  setInterval(loadCatalog, 20000);
+  setInterval(loadStatus, 5000);
+})();
 </script>
 </body>
 </html>
