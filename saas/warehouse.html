@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>仓库管理 · 跨境货盘 SaaS</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<script src="_shell.js"></script>
+<script>renderShell({ title: '仓库管理' });</script>
+<script type="text/template" id="tpl">
+
+<div class="card"><div class="card-hd"><h2>仓库列表</h2><div class="r"><a class="btn sm" href="#">+ 新增仓库</a></div></div>
+<table class="tb">
+<tr><th>仓库</th><th>所在地</th><th>类型</th><th>SKU 数</th><th>库存</th><th>状态</th></tr>
+<tr><td>深圳总仓</td><td>广东 深圳</td><td><span class="tag t-info">国内仓</span></td><td>1,246</td><td>32,480</td><td><span class="tag t-ok">正常</span></td></tr>
+<tr><td>义乌分仓</td><td>浙江 义乌</td><td><span class="tag t-info">国内仓</span></td><td>486</td><td>12,860</td><td><span class="tag t-ok">正常</span></td></tr>
+<tr><td>香港保税仓</td><td>香港</td><td><span class="tag t-warn">跨境仓</span></td><td>110</td><td>2,920</td><td><span class="tag t-ok">正常</span></td></tr>
+</table></div>
+<div class="card"><div class="card-hd"><h2>仓储配置</h2></div><div class="card-bd" style="font-size:13px;line-height:2.2;color:#4a5568">
+体积重系数：<b>6000</b>（长×宽×高÷6000）<br>
+首重费用：<b>¥8.00 / 1kg</b>　续重：<b>¥3.00 / kg</b><br>
+仓储费：<b>¥0.5 / 件 / 天</b>（超 30 天起收）
+</div></div>
+</script>
+<script>
+document.getElementById('content').innerHTML = document.getElementById('tpl').innerHTML;
+
+</script>
+</body>
+</html>

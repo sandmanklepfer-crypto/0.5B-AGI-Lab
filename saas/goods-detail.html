@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>商品详情 · 跨境货盘 SaaS</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<script src="_shell.js"></script>
+<script>renderShell({ title: '商品详情' });</script>
+<script type="text/template" id="tpl">
+
+<div class="card"><div class="card-hd"><h2>蓝牙耳机 TWS-Pro</h2><div class="r"><span class="tag t-ok">在售</span></div></div>
+<div class="card-bd">
+<div style="display:flex;gap:18px;flex-wrap:wrap">
+<div style="width:220px;height:220px;border-radius:12px;display:grid;place-items:center;font-size:80px;background:linear-gradient(135deg,#e0e7ff,#c7d2fe)">🎧</div>
+<div style="flex:1;min-width:260px">
+<table class="tb">
+<tr><td style="color:#697386;width:110px">SKU</td><td class="mono">SKU-TWS-001</td></tr>
+<tr><td style="color:#697386">供应商</td><td>深圳华强北电子</td></tr>
+<tr><td style="color:#697386">供货价</td><td><b style="font-size:16px;color:#0f70fd">¥128.00</b></td></tr>
+<tr><td style="color:#697386">建议零售价</td><td>¥299.00</td></tr>
+<tr><td style="color:#697386">利润空间</td><td><span class="tag t-ok">¥171.00 (57%)</span></td></tr>
+<tr><td style="color:#697386">起订量 MOQ</td><td>10 件</td></tr>
+<tr><td style="color:#697386">库存</td><td>2,480 件</td></tr>
+<tr><td style="color:#697386">重量/体积</td><td>0.12kg / 0.0008m³</td></tr>
+</table></div></div>
+<div style="margin-top:18px"><h3 style="font-size:13px;margin-bottom:9px">阶梯价</h3>
+<div class="lad"><div class="q">10-49 件</div><div class="q">50-199 件</div><div class="q">200+ 件</div>
+<div><b>¥128.00</b></div><div><b>¥118.00</b></div><div><b>¥108.00</b></div></div></div>
+<div style="margin-top:18px;display:flex;gap:9px"><a class="btn" href="publish.html">刊登到店铺</a><a class="btn g" href="dist.html">加入分销</a></div>
+</div></div>
+</script>
+<script>
+document.getElementById('content').innerHTML = document.getElementById('tpl').innerHTML;
+
+</script>
+</body>
+</html>

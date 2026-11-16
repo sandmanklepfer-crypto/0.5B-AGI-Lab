@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>购物车 · 跨境货盘 SaaS</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<script src="_shell.js"></script>
+<script>renderShell({ title: '购物车' });</script>
+<script type="text/template" id="tpl">
+
+<div class="card"><div class="card-hd"><h2>购物车（3 件）</h2></div>
+<table class="tb">
+<tr><th>商品</th><th>单价</th><th>数量</th><th>小计</th></tr>
+<tr><td>蓝牙耳机 TWS-Pro</td><td>¥128.00</td><td>10</td><td>¥1,280.00</td></tr>
+<tr><td>充电宝 20000mAh</td><td>¥99.00</td><td>20</td><td>¥1,980.00</td></tr>
+<tr><td>手机支架 磁吸款</td><td>¥18.50</td><td>20</td><td>¥370.00</td></tr>
+</table>
+<div class="card-bd" style="border-top:1px solid #e6e9f0;text-align:right">
+<div style="font-size:13px;color:#697386;margin-bottom:6px">合计</div>
+<div style="font-size:24px;font-weight:800;color:#0f70fd;margin-bottom:12px">¥3,630.00</div>
+<a class="btn" href="#">提交订单</a>
+</div></div>
+</script>
+<script>
+document.getElementById('content').innerHTML = document.getElementById('tpl').innerHTML;
+
+</script>
+</body>
+</html>

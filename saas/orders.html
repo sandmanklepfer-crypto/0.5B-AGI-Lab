@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>订单管理 · 跨境货盘 SaaS</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<script src="_shell.js"></script>
+<script>renderShell({ title: '订单管理' });</script>
+<script type="text/template" id="tpl">
+
+<div class="tools"><input class="inp" placeholder="订单号 / 分销商" style="width:200px">
+<select class="inp"><option>全部状态</option><option>待付款</option><option>待发货</option><option>已发货</option><option>已完成</option></select>
+<a class="btn" href="#">导出 Excel</a></div>
+<div class="stats">
+<div class="st"><div class="k">今日订单</div><div class="v">126</div></div>
+<div class="st"><div class="k">待发货</div><div class="v" style="color:#f59e0b">18</div></div>
+<div class="st"><div class="k">已发货</div><div class="v" style="color:#0f70fd">96</div></div>
+<div class="st"><div class="k">已完成</div><div class="v" style="color:#16a34a">12</div></div>
+</div>
+<div class="card"><div class="card-hd"><h2>订单列表</h2></div>
+<table class="tb">
+<tr><th>订单号</th><th>商品</th><th>数量</th><th>分销商</th><th>金额</th><th>利润</th><th>状态</th></tr>
+<tr><td class="mono">GS241116001</td><td>蓝牙耳机 TWS-Pro</td><td>10</td><td>深圳华强北</td><td>¥1,280</td><td><span class="tag t-ok">+¥321</span></td><td><span class="tag t-ok">已发货</span></td></tr>
+<tr><td class="mono">GS241116002</td><td>手机支架 磁吸款</td><td>20</td><td>广州天河</td><td>¥486</td><td><span class="tag t-ok">+¥116</span></td><td><span class="tag t-warn">待发货</span></td></tr>
+<tr><td class="mono">GS241116003</td><td>数据线 三合一</td><td>50</td><td>义乌小商品</td><td>¥920</td><td><span class="tag t-ok">+¥445</span></td><td><span class="tag t-info">待付款</span></td></tr>
+<tr><td class="mono">GS241116004</td><td>充电宝 20000mAh</td><td>20</td><td>东莞制造</td><td>¥2,340</td><td><span class="tag t-ok">+¥360</span></td><td><span class="tag t-ok">已完成</span></td></tr>
+</table></div>
+</script>
+<script>
+document.getElementById('content').innerHTML = document.getElementById('tpl').innerHTML;
+
+</script>
+</body>
+</html>

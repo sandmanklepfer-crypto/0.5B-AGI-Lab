@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>商品刊登 · 跨境货盘 SaaS</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<script src="_shell.js"></script>
+<script>renderShell({ title: '商品刊登' });</script>
+<script type="text/template" id="tpl">
+
+<div class="card"><div class="card-hd"><h2>刊登到店铺</h2></div><div class="card-bd">
+<div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:15px">
+<select class="inp"><option>选择店铺</option><option>深圳华强北 · 主店</option><option>广州天河 · 二店</option></select>
+<select class="inp"><option>选择商品</option><option>蓝牙耳机 TWS-Pro</option><option>充电宝 20000mAh</option></select>
+<button class="btn" onclick="alert('演示环境')">批量刊登</button>
+</div>
+<div class="stats">
+<div class="st"><div class="k">已刊登</div><div class="v">1,706</div></div>
+<div class="st"><div class="k">待刊登</div><div class="v">136</div></div>
+<div class="st"><div class="k">刊登失败</div><div class="v" style="color:#dc2626">4</div></div>
+</div>
+<table class="tb">
+<tr><th>商品</th><th>目标店铺</th><th>售价</th><th>状态</th></tr>
+<tr><td>蓝牙耳机 TWS-Pro</td><td>深圳华强北</td><td>¥299.00</td><td><span class="tag t-ok">已刊登</span></td></tr>
+<tr><td>充电宝 20000mAh</td><td>广州天河</td><td>¥189.00</td><td><span class="tag t-ok">已刊登</span></td></tr>
+<tr><td>手机支架 磁吸款</td><td>深圳华强北</td><td>¥39.90</td><td><span class="tag t-warn">审核中</span></td></tr>
+<tr><td>数据线 三合一</td><td>义乌小商品</td><td>¥25.90</td><td><span class="tag t-err">刊登失败</span></td></tr>
+</table></div></div>
+</script>
+<script>
+document.getElementById('content').innerHTML = document.getElementById('tpl').innerHTML;
+
+</script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>供应商分账 · 跨境货盘 SaaS</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<script src="_shell.js"></script>
+<script>renderShell({ title: '供应商分账' });</script>
+<script type="text/template" id="tpl">
+
+<div class="stats">
+<div class="st"><div class="k">本月应付</div><div class="v">¥862,400</div></div>
+<div class="st"><div class="k">已结算</div><div class="v" style="color:#16a34a">¥634,200</div></div>
+<div class="st"><div class="k">待结算</div><div class="v" style="color:#f59e0b">¥228,200</div></div>
+<div class="st"><div class="k">结算单数</div><div class="v">18</div></div>
+</div>
+<div class="card"><div class="card-hd"><h2>分账明细</h2></div>
+<table class="tb">
+<tr><th>供应商</th><th>周期</th><th>订单数</th><th>应付金额</th><th>状态</th><th>操作</th></tr>
+<tr><td>深圳华强北电子</td><td>11-01 ~ 11-15</td><td>128</td><td>¥428,600</td><td><span class="tag t-ok">已结算</span></td><td>-</td></tr>
+<tr><td>东莞制造</td><td>11-01 ~ 11-15</td><td>96</td><td>¥296,200</td><td><span class="tag t-ok">已结算</span></td><td>-</td></tr>
+<tr><td>义乌小商品</td><td>11-01 ~ 11-15</td><td>142</td><td>¥184,800</td><td><span class="tag t-warn">待结算</span></td><td><a class="btn sm" href="#">结算</a></td></tr>
+<tr><td>广州天河数码</td><td>11-01 ~ 11-15</td><td>54</td><td>¥92,400</td><td><span class="tag t-warn">待结算</span></td><td><a class="btn sm" href="#">结算</a></td></tr>
+</table></div>
+</script>
+<script>
+document.getElementById('content').innerHTML = document.getElementById('tpl').innerHTML;
+
+</script>
+</body>
+</html>

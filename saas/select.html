@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>选品采集 · 跨境货盘 SaaS</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<script src="_shell.js"></script>
+<script>renderShell({ title: '选品采集' });</script>
+<script type="text/template" id="tpl">
+
+<div class="card"><div class="card-hd"><h2>从 1688 / 速卖通 采集商品</h2></div><div class="card-bd">
+<div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:14px">
+<input class="inp" placeholder="粘贴商品链接，支持 1688 / 淘宝 / 速卖通" style="flex:1;min-width:240px">
+<button class="btn" onclick="alert('演示环境：采集功能需后端对接')">开始采集</button>
+</div>
+<div style="font-size:12.5px;color:#697386;line-height:1.9">
+支持的平台：<span class="tag t-info">1688</span> <span class="tag t-info">淘宝</span> <span class="tag t-info">天猫</span> <span class="tag t-info">速卖通</span> <span class="tag t-info">拼多多</span><br>
+采集内容：标题、主图（自动去水印）、SKU 规格、阶梯价、库存、重量体积
+</div></div></div>
+<div class="card"><div class="card-hd"><h2>采集任务</h2><div class="r"><span class="tag t-warn">2 进行中</span></div></div>
+<table class="tb">
+<tr><th>任务</th><th>来源</th><th>已采集</th><th>状态</th><th>时间</th></tr>
+<tr><td>无线耳机专场</td><td>1688</td><td>128 件</td><td><span class="tag t-ok">完成</span></td><td>14:02</td></tr>
+<tr><td>手机配件批量</td><td>速卖通</td><td>56/200 件</td><td><span class="tag t-warn">进行中 28%</span></td><td>13:45</td></tr>
+<tr><td>家居百货选品</td><td>淘宝</td><td>34/150 件</td><td><span class="tag t-warn">进行中 23%</span></td><td>13:20</td></tr>
+</table></div>
+</script>
+<script>
+document.getElementById('content').innerHTML = document.getElementById('tpl').innerHTML;
+
+</script>
+</body>
+</html>

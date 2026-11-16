@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>角色权限 · 跨境货盘 SaaS</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<script src="_shell.js"></script>
+<script>renderShell({ title: '角色权限' });</script>
+<script type="text/template" id="tpl">
+
+<div class="card"><div class="card-hd"><h2>角色列表</h2><div class="r"><a class="btn sm" href="#">+ 新增角色</a></div></div>
+<table class="tb">
+<tr><th>角色</th><th>说明</th><th>成员数</th><th>权限范围</th></tr>
+<tr><td><b>超级管理员</b></td><td>全部权限</td><td>1</td><td><span class="tag t-err">全部</span></td></tr>
+<tr><td><b>运营</b></td><td>商品、订单、分销</td><td>3</td><td><span class="tag t-warn">业务模块</span></td></tr>
+<tr><td><b>财务</b></td><td>钱包、分账、提现</td><td>2</td><td><span class="tag t-warn">财务模块</span></td></tr>
+<tr><td><b>客服</b></td><td>订单查询、售后</td><td>4</td><td><span class="tag t-info">只读+售后</span></td></tr>
+<tr><td><b>供应商</b></td><td>自己商品、自己订单</td><td>64</td><td><span class="tag t-info">仅本租户</span></td></tr>
+<tr><td><b>分销商</b></td><td>自己店铺、自己订单</td><td>312</td><td><span class="tag t-info">仅本租户</span></td></tr>
+</table></div>
+<div class="card"><div class="card-hd"><h2>数据隔离说明</h2></div><div class="card-bd" style="font-size:13px;line-height:2.1;color:#4a5568">
+<span class="tag t-ok">✓</span> 每个租户数据强制隔离（`shop_id` 复合主键）<br>
+<span class="tag t-ok">✓</span> 跨租户访问返回 403，不会泄露存在性<br>
+<span class="tag t-ok">✓</span> Token 只存 SHA256 哈希，不存明文<br>
+<span class="tag t-ok">✓</span> 所有写操作记录审计日志
+</div></div>
+</script>
+<script>
+document.getElementById('content').innerHTML = document.getElementById('tpl').innerHTML;
+
+</script>
+</body>
+</html>

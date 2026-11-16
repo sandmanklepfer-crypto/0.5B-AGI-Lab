@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>操作日志 · 跨境货盘 SaaS</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<script src="_shell.js"></script>
+<script>renderShell({ title: '操作日志' });</script>
+<script type="text/template" id="tpl">
+
+<div class="tools"><input class="inp" placeholder="搜索操作人 / 动作" style="width:200px">
+<select class="inp"><option>全部类型</option><option>登录</option><option>商品</option><option>订单</option><option>财务</option></select></div>
+<div class="card"><div class="card-hd"><h2>审计日志（不可篡改）</h2><div class="r"><span class="tag t-ok">链式哈希校验通过</span></div></div>
+<table class="tb">
+<tr><th>时间</th><th>操作人</th><th>动作</th><th>对象</th><th>IP</th></tr>
+<tr><td>14:22:06</td><td>admin</td><td><span class="tag t-info">登录</span></td><td>-</td><td class="mono">116.24.**.**</td></tr>
+<tr><td>14:20:18</td><td>运营-小李</td><td><span class="tag t-ok">修改商品</span></td><td>SKU-TWS-001</td><td class="mono">116.24.**.**</td></tr>
+<tr><td>14:15:42</td><td>财务-小王</td><td><span class="tag t-warn">审核提现</span></td><td>¥12,000</td><td class="mono">116.24.**.**</td></tr>
+<tr><td>13:58:03</td><td>运营-小李</td><td><span class="tag t-ok">刊登商品</span></td><td>SKU-PWB-002</td><td class="mono">116.24.**.**</td></tr>
+<tr><td>13:45:27</td><td>admin</td><td><span class="tag t-err">修改权限</span></td><td>角色-客服</td><td class="mono">116.24.**.**</td></tr>
+</table></div>
+</script>
+<script>
+document.getElementById('content').innerHTML = document.getElementById('tpl').innerHTML;
+
+</script>
+</body>
+</html>

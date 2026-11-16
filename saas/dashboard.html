@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>数据大屏 · 跨境货盘 SaaS</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<script src="_shell.js"></script>
+<script>renderShell({ title: '数据大屏' });</script>
+<script type="text/template" id="tpl">
+
+<div class="stats">
+  <div class="st"><div class="k">总成交额 GMV</div><div class="v">¥1,284,600</div><div class="d">↑ 23.4%</div></div>
+  <div class="st"><div class="k">总订单数</div><div class="v">4,827</div><div class="d">↑ 15.2%</div></div>
+  <div class="st"><div class="k">分销商总数</div><div class="v">312</div><div class="d">↑ 8.6%</div></div>
+  <div class="st"><div class="k">供应商总数</div><div class="v">64</div><div class="d">↑ 2 本月</div></div>
+</div>
+<div class="card"><div class="card-hd"><h2>近 7 日成交趋势</h2></div><div class="card-bd">
+<div style="display:flex;align-items:flex-end;gap:10px;height:170px;padding:0 4px">
+<div style="flex:1;text-align:center"><div style="background:linear-gradient(180deg,#409eff,#0f70fd);height:96px;border-radius:5px 5px 0 0"></div><div style="font-size:10.5px;color:#697386;margin-top:5px">11-10</div></div>
+<div style="flex:1;text-align:center"><div style="background:linear-gradient(180deg,#409eff,#0f70fd);height:128px;border-radius:5px 5px 0 0"></div><div style="font-size:10.5px;color:#697386;margin-top:5px">11-11</div></div>
+<div style="flex:1;text-align:center"><div style="background:linear-gradient(180deg,#409eff,#0f70fd);height:74px;border-radius:5px 5px 0 0"></div><div style="font-size:10.5px;color:#697386;margin-top:5px">11-12</div></div>
+<div style="flex:1;text-align:center"><div style="background:linear-gradient(180deg,#409eff,#0f70fd);height:142px;border-radius:5px 5px 0 0"></div><div style="font-size:10.5px;color:#697386;margin-top:5px">11-13</div></div>
+<div style="flex:1;text-align:center"><div style="background:linear-gradient(180deg,#409eff,#0f70fd);height:118px;border-radius:5px 5px 0 0"></div><div style="font-size:10.5px;color:#697386;margin-top:5px">11-14</div></div>
+<div style="flex:1;text-align:center"><div style="background:linear-gradient(180deg,#409eff,#0f70fd);height:155px;border-radius:5px 5px 0 0"></div><div style="font-size:10.5px;color:#697386;margin-top:5px">11-15</div></div>
+<div style="flex:1;text-align:center"><div style="background:linear-gradient(180deg,#66b1ff,#409eff);height:168px;border-radius:5px 5px 0 0"></div><div style="font-size:10.5px;color:#0f70fd;margin-top:5px;font-weight:700">今日</div></div>
+</div></div></div>
+<div class="card"><div class="card-hd"><h2>热销商品 TOP5</h2></div>
+<table class="tb">
+<tr><th>排名</th><th>商品</th><th>销量</th><th>销售额</th><th>利润</th></tr>
+<tr><td><b>1</b></td><td>蓝牙耳机 TWS-Pro</td><td>1,284</td><td>¥128,400</td><td><span class="tag t-ok">¥32,100</span></td></tr>
+<tr><td><b>2</b></td><td>充电宝 20000mAh</td><td>962</td><td>¥96,200</td><td><span class="tag t-ok">¥24,050</span></td></tr>
+<tr><td><b>3</b></td><td>手机支架 磁吸款</td><td>748</td><td>¥37,400</td><td><span class="tag t-ok">¥11,220</span></td></tr>
+<tr><td><b>4</b></td><td>数据线 三合一</td><td>615</td><td>¥30,750</td><td><span class="tag t-ok">¥9,225</span></td></tr>
+<tr><td><b>5</b></td><td>车载充电器 快充</td><td>482</td><td>¥24,100</td><td><span class="tag t-ok">¥7,230</span></td></tr>
+</table></div>
+</script>
+<script>
+document.getElementById('content').innerHTML = document.getElementById('tpl').innerHTML;
+
+</script>
+</body>
+</html>

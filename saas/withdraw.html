@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>提现审核 · 跨境货盘 SaaS</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<script src="_shell.js"></script>
+<script>renderShell({ title: '提现审核' });</script>
+<script type="text/template" id="tpl">
+
+<div class="card"><div class="card-hd"><h2>待审核提现（4）</h2></div>
+<table class="tb">
+<tr><th>申请时间</th><th>会员</th><th>金额</th><th>收款账户</th><th>操作</th></tr>
+<tr><td>14:02</td><td>深圳华强北</td><td>¥12,000</td><td>招商银行 ****8862</td><td><a class="btn sm" href="#">通过</a> <a class="btn sm g" href="#">驳回</a></td></tr>
+<tr><td>13:45</td><td>东莞制造</td><td>¥8,600</td><td>工商银行 ****3241</td><td><a class="btn sm" href="#">通过</a> <a class="btn sm g" href="#">驳回</a></td></tr>
+<tr><td>13:20</td><td>义乌小商品</td><td>¥5,200</td><td>建设银行 ****7788</td><td><a class="btn sm" href="#">通过</a> <a class="btn sm g" href="#">驳回</a></td></tr>
+<tr><td>12:58</td><td>广州天河</td><td>¥3,800</td><td>农业银行 ****1206</td><td><a class="btn sm" href="#">通过</a> <a class="btn sm g" href="#">驳回</a></td></tr>
+</table></div>
+</script>
+<script>
+document.getElementById('content').innerHTML = document.getElementById('tpl').innerHTML;
+
+</script>
+</body>
+</html>

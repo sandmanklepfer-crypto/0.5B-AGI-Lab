@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>采购单 · 跨境货盘 SaaS</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<script src="_shell.js"></script>
+<script>renderShell({ title: '采购单' });</script>
+<script type="text/template" id="tpl">
+
+<div class="card"><div class="card-hd"><h2>采购单列表</h2><div class="r"><a class="btn sm" href="#">+ 新建采购单</a></div></div>
+<table class="tb">
+<tr><th>采购单号</th><th>供应商</th><th>商品数</th><th>金额</th><th>状态</th><th>时间</th></tr>
+<tr><td class="mono">PO241116001</td><td>深圳华强北电子</td><td>3</td><td>¥12,800</td><td><span class="tag t-warn">待确认</span></td><td>14:10</td></tr>
+<tr><td class="mono">PO241115008</td><td>东莞制造</td><td>5</td><td>¥23,400</td><td><span class="tag t-ok">已入库</span></td><td>昨日</td></tr>
+<tr><td class="mono">PO241115003</td><td>义乌小商品</td><td>8</td><td>¥4,860</td><td><span class="tag t-ok">已入库</span></td><td>昨日</td></tr>
+</table></div>
+</script>
+<script>
+document.getElementById('content').innerHTML = document.getElementById('tpl').innerHTML;
+
+</script>
+</body>
+</html>

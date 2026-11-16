@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>系统设置 · 跨境货盘 SaaS</title>
+<link rel="stylesheet" href="_style.css">
+</head>
+<body>
+<script src="_shell.js"></script>
+<script>renderShell({ title: '系统设置' });</script>
+<script type="text/template" id="tpl">
+
+<div class="card"><div class="card-hd"><h2>基础设置</h2></div><div class="card-bd" style="font-size:13.5px;line-height:2.4">
+<div>平台名称：<b>GlobalSDS 跨境货盘</b></div>
+<div>默认币种：<b>USD</b>　结算币种：<b>CNY</b></div>
+<div>默认语言：<b>简体中文</b>　支持：中文 / English / Español</div>
+<div>体积重系数：<b>6000</b></div>
+</div></div>
+<div class="card"><div class="card-hd"><h2>多语言</h2></div>
+<table class="tb">
+<tr><th>语言</th><th>代码</th><th>已翻译</th><th>状态</th></tr>
+<tr><td>简体中文</td><td class="mono">zh-CN</td><td>100%</td><td><span class="tag t-ok">启用</span></td></tr>
+<tr><td>English</td><td class="mono">en-US</td><td>100%</td><td><span class="tag t-ok">启用</span></td></tr>
+<tr><td>Español</td><td class="mono">es-ES</td><td>86%</td><td><span class="tag t-ok">启用</span></td></tr>
+</table></div>
+</script>
+<script>
+document.getElementById('content').innerHTML = document.getElementById('tpl').innerHTML;
+
+</script>
+</body>
+</html>
