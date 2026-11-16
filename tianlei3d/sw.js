@@ -21,8 +21,8 @@
 'use strict';
 
 /* ★ 改版本号 = 强制清空旧缓存。每次发版如果改了资源结构，把这个 +1 */
-var CACHE = 'tianlei-v2';
-var CACHE_STATIC = 'tianlei-static-v2';
+var CACHE = 'tianlei-v3';
+var CACHE_STATIC = 'tianlei-static-v3';
 
 /* 预缓存：只放"启动必需 + 很小"的东西。
    ⚠️ 千万不要把 40MB 的 APK 或大图放进来，否则首次安装会卡很久 */
@@ -31,8 +31,31 @@ var PRECACHE = [
   './index.html',
   './manifest.webmanifest',
   './pwa-192.png',
-  './pwa-512.png'
+  './pwa-512.png',
+  './pwa.js',
+  './js/tiles.js',
+  './js/vendor/three.min.js',
+  './js/vendor/GLTFLoader.js',
+  './js/bake.js',
+  './js/arena3d.js',
+  './js/vendor/qrcode.js',
+  './js/mqtt.js',
+  './js/fp.js',
+  './js/hd2d_arena.js',
+  './js/shooter.js',
+  './js/racestrip.js',
+  './js/kernel.js',
+  './assets3d/tree_green.js',
+  './assets3d/tree_sakura.js'
 ];
+
+/* ★ 这些路径一律 cache-first（文件名带 ?v= 版本号，更新时 URL 变，不会读到旧版）*/
+var CACHE_FIRST_EXT = /\.(js|css|png|jpg|jpeg|webp|gif|svg|woff2?|ttf|otf|mp3|ogg|wav|glb|gltf|bin)(\?|$)/i;
+
+/* ★ 这些都是"版本化"资源，命中缓存直接返回 */
+function isStaticAsset(url) {
+  return CACHE_FIRST_EXT.test(url.pathname);
+}
 
 /* ---------------- 安装：预缓存核心文件 ---------------- */
 self.addEventListener('install', function (e) {
@@ -72,8 +95,29 @@ self.addEventListener('fetch', function (e) {
   /* 下载的安装包、压缩包：直接走网络，不缓存（太大了） */
   if (/\.(apk|zip|mp4|webm)$/i.test(url.pathname)) return;
 
+  /* ★ 版本化静态资源（带 ?v= 的 js/css、图片、模型、字体）→ cache-first
+     因为文件名里带版本号，更新时 URL 会变，天然不会读到旧版 */
+  var versioned = url.search.indexOf('v=') >= 0;
+  if (isStaticAsset(url) && (versioned || /\.(png|jpg|jpeg|webp|gif|svg|woff2?|ttf|otf|mp3|ogg|wav|glb|gltf|bin)$/i.test(url.pathname))) {
+    e.respondWith(
+      caches.match(req).then(function (hit) {
+        if (hit) return hit;                       /* 命中：0 网络，瞬时 */
+        return fetch(req).then(function (res) {
+          if (res && res.ok) {
+            var copy = res.clone();
+            caches.open(CACHE_STATIC).then(function (c) { c.put(req, copy); }).catch(function () { });
+          }
+          return res;
+        }).catch(function () {
+          return caches.match(req).then(function (h2) { return h2 || new Response('', { status: 504 }); });
+        });
+      })
+    );
+    return;
+  }
+
   var isDoc = req.mode === 'navigate' ||
-    /\.(html|js|css|json|webmanifest)$/i.test(url.pathname) ||
+    /\.(html|json|webmanifest)$/i.test(url.pathname) ||
     url.pathname.slice(-1) === '/';
 
   if (isDoc) {
