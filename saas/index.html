@@ -3,47 +3,84 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>工作台 · 跨境货盘 SaaS</title>
+<title>工作台 · GlobalSDS 跨境货盘</title>
 <link rel="stylesheet" href="_style.css">
 </head>
 <body>
 <script>
-(function(){
-  try{
-    if(!localStorage.getItem('sds_user')){ location.replace('login.html'); }
-  }catch(e){}
-})();
+(function(){try{if(!localStorage.getItem('sds_user')){location.replace('login.html');}}catch(e){}})();
 </script>
+<script src="mqtt.js"></script>
+<script src="_data.js"></script>
+<script src="_render.js"></script>
 <script src="_shell.js"></script>
 <script>renderShell({ title: '工作台' });</script>
 <script type="text/template" id="tpl">
 
 <div class="stats">
-  <div class="st"><div class="k">今日订单</div><div class="v">126</div><div class="d">↑ 18% 较昨日</div></div>
-  <div class="st"><div class="k">今日销售额</div><div class="v">¥48,260</div><div class="d">↑ 12% 较昨日</div></div>
-  <div class="st"><div class="k">在售商品</div><div class="v">1,842</div><div class="d">本月新增 96</div></div>
-  <div class="st"><div class="k">活跃分销商</div><div class="v">87</div><div class="d dn">↓ 3 较昨日</div></div>
+  <div class="st"><div class="k">商品总数</div><div class="v" id="s-prod">-</div><div class="d" id="s-onsale">-</div></div>
+  <div class="st"><div class="k">今日订单</div><div class="v" id="s-orders">-</div><div class="d" id="s-pending">-</div></div>
+  <div class="st"><div class="k">累计成交额</div><div class="v" id="s-gmv">-</div><div class="d" id="s-profit">-</div></div>
+  <div class="st"><div class="k">供应商</div><div class="v" id="s-sup">-</div><div class="d">合作中</div></div>
 </div>
-<div class="card"><div class="card-hd"><h2>快捷入口</h2></div>
-<div class="card-bd" style="display:flex;gap:10px;flex-wrap:wrap">
-<a class="btn" href="goods.html">📦 商品库</a>
-<a class="btn g" href="select.html">🔍 选品采集</a>
-<a class="btn g" href="orders.html">📋 订单管理</a>
-<a class="btn g" href="dist.html">🔗 分销商品</a>
-<a class="btn g" href="supplier.html">🏢 供应商</a>
-<a class="btn g" href="wallet.html">💳 钱包</a>
-</div></div>
-<div class="card"><div class="card-hd"><h2>最新订单</h2><div class="r"><a class="btn sm g" href="orders.html">查看全部</a></div></div>
-<table class="tb">
-<tr><th>订单号</th><th>商品</th><th>分销商</th><th>金额</th><th>状态</th><th>时间</th></tr>
-<tr><td class="mono">GS241116001</td><td>蓝牙耳机 TWS-Pro</td><td>深圳华强北</td><td>¥1,280</td><td><span class="tag t-ok">已发货</span></td><td>14:22</td></tr>
-<tr><td class="mono">GS241116002</td><td>手机支架 磁吸款</td><td>广州天河</td><td>¥486</td><td><span class="tag t-warn">待发货</span></td><td>14:08</td></tr>
-<tr><td class="mono">GS241116003</td><td>数据线 三合一</td><td>义乌小商品</td><td>¥920</td><td><span class="tag t-info">待付款</span></td><td>13:51</td></tr>
-<tr><td class="mono">GS241116004</td><td>充电宝 20000mAh</td><td>东莞制造</td><td>¥2,340</td><td><span class="tag t-ok">已完成</span></td><td>13:20</td></tr>
-</table></div>
+
+<div class="card">
+  <div class="card-hd"><h2>快捷入口</h2><div class="r"><span class="tag t-info" id="conn">连接中…</span></div></div>
+  <div class="card-bd" style="display:flex;gap:10px;flex-wrap:wrap">
+    <a class="btn" href="goods.html">商品库</a>
+    <a class="btn g" href="select.html">选品采集</a>
+    <a class="btn g" href="orders.html">订单管理</a>
+    <a class="btn g" href="dist.html">分销商品</a>
+    <a class="btn g" href="supplier.html">供应商</a>
+    <a class="btn g" href="wallet.html">钱包</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-hd"><h2>最新订单</h2><div class="r"><a class="btn sm g" href="orders.html">查看全部</a></div></div>
+  <div id="recent"></div>
+</div>
+
+<div class="card">
+  <div class="card-hd"><h2>库存预警</h2></div>
+  <div id="warn"></div>
+</div>
+
 </script>
 <script>
 document.getElementById('content').innerHTML = document.getElementById('tpl').innerHTML;
+
+function boot(){
+  var st = SDS.stats();
+  document.getElementById('s-prod').textContent = st.products;
+  document.getElementById('s-onsale').textContent = '在售 ' + st.onSale + ' 款';
+  document.getElementById('s-orders').textContent = st.orders;
+  document.getElementById('s-pending').textContent = '待处理 ' + st.pending + ' 单';
+  document.getElementById('s-gmv').textContent = SDSR.money(st.gmv);
+  document.getElementById('s-profit').textContent = '利润 ' + SDSR.money(st.profit);
+  document.getElementById('s-sup').textContent = st.suppliers;
+  document.getElementById('conn').textContent = '数据已同步';
+
+  var o = SDS.orders.slice(0,6);
+  document.getElementById('recent').innerHTML = o.length
+    ? '<table class="tb"><tr><th>订单号</th><th>商品</th><th>分销商</th><th>金额</th><th>利润</th><th>状态</th><th>时间</th></tr>'
+      + o.map(function(x){return '<tr><td class="mono">'+SDSR.h(x.no)+'</td><td>'+SDSR.h(x.items)+'</td>'
+      + '<td>'+SDSR.h(x.buyer)+'</td><td>'+SDSR.money(x.amount)+'</td>'
+      + '<td style="color:#00b42a">+'+SDSR.money(x.profit)+'</td>'
+      + '<td>'+SDSR.tagOf(x.status)+'</td><td>'+SDSR.h(x.at)+'</td></tr>'}).join('')
+      + '</table>'
+    : '<div class="empty"><div class="e">📋</div>暂无订单</div>';
+
+  var low = SDS.products.filter(function(p){return p.stock <= p.moq*2;});
+  document.getElementById('warn').innerHTML = low.length
+    ? '<table class="tb"><tr><th>商品</th><th>SKU</th><th>库存</th><th>MOQ</th><th>状态</th></tr>'
+      + low.map(function(p){return '<tr><td>'+SDSR.h(p.name)+'</td><td class="mono">'+SDSR.h(p.sku)+'</td>'
+      + '<td style="color:'+(p.stock<=0?'#f53f3f':'#ff7d00')+';font-weight:700">'+p.stock+'</td>'
+      + '<td>'+p.moq+'</td><td>'+(p.stock<=0?'<span class="tag t-err">缺货</span>':'<span class="tag t-warn">预警</span>')+'</td></tr>'}).join('')
+      + '</table>'
+    : '<div class="empty"><div class="e">✓</div>库存充足</div>';
+}
+SDS.onReady(boot);
 
 </script>
 </body>

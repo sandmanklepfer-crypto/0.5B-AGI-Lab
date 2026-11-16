@@ -8,106 +8,89 @@
 </head>
 <body>
 <script>
-(function(){
-  try{
-    if(!localStorage.getItem('sds_user')){ location.replace('login.html'); }
-  }catch(e){}
-})();
+(function(){try{if(!localStorage.getItem('sds_user')){location.replace('login.html');}}catch(e){}})();
 </script>
+<script src="mqtt.js"></script>
+<script src="_data.js"></script>
+<script src="_render.js"></script>
 <script src="_shell.js"></script>
 <script>renderShell({ title: '商品库' });</script>
 <script type="text/template" id="tpl">
 
 <div class="tools">
-  <input class="inp" placeholder="搜索商品名称 / SKU" style="width:240px">
-  <select class="inp"><option>全部分类</option><option>数码配件</option><option>家居百货</option><option>美妆个护</option></select>
-  <select class="inp"><option>全部供应商</option><option>深圳华强北电子</option><option>东莞制造</option><option>义乌小商品</option></select>
-  <select class="inp"><option>全部状态</option><option>在售</option><option>缺货</option><option>已下架</option></select>
-  <button class="btn">查询</button>
-  <button class="btn g">重置</button>
+  <input class="inp" id="q" placeholder="搜索商品名称 / SKU" style="width:240px">
+  <select class="inp" id="cat"><option>全部分类</option><option>数码配件</option><option>家居百货</option></select>
+  <select class="inp" id="stockf"><option>全部库存</option><option>有货</option><option>缺货</option><option>预警</option></select>
+  <button class="btn" onclick="doFilter()">查询</button>
+  <button class="btn g" onclick="resetF()">重置</button>
   <div style="margin-left:auto;display:flex;gap:8px">
     <a class="btn" href="select.html">+ 导入商品</a>
-    <button class="btn g">批量导出</button>
+    <button class="btn g" onclick="exportCSV()">导出 CSV</button>
   </div>
 </div>
 
 <div class="stats">
-  <div class="st"><div class="k">商品总数</div><div class="v">1,842</div><div class="d">本月新增 96</div></div>
-  <div class="st"><div class="k">在售商品</div><div class="v">1,706</div><div class="d">占比 92.6%</div></div>
-  <div class="st"><div class="k">缺货商品</div><div class="v" style="color:#f53f3f">36</div><div class="d dn">需补货</div></div>
-  <div class="st"><div class="k">库存总量</div><div class="v">48,260</div><div class="d">充足</div></div>
+  <div class="st"><div class="k">商品总数</div><div class="v" id="k1">-</div></div>
+  <div class="st"><div class="k">在售</div><div class="v" id="k2">-</div></div>
+  <div class="st"><div class="k">缺货</div><div class="v" id="k3" style="color:#f53f3f">-</div></div>
+  <div class="st"><div class="k">库存总量</div><div class="v" id="k4">-</div></div>
 </div>
 
 <div class="card">
-  <div class="card-hd"><h2>商品列表</h2><div class="r"><span class="tag t-info">共 1,842 条</span></div></div>
-  <div class="card-bd"><div class="goods"><div class="gd">
-  <div class="im"><img src="img/earphone.svg" alt="" style="width:74px;height:74px"><span class="moq">MOQ 10</span></div>
-  <div class="bd">
-    <div class="nm">蓝牙耳机 TWS-Pro 降噪版</div>
-    <div class="sn">SKU-TWS-001</div>
-    <div class="pr"><b>¥128.00</b><span>供货价</span></div>
-    <div class="ft"><span class="ladder">10+ ¥118</span><a class="btn sm g" href="goods-detail.html">详情</a></div>
-  </div>
-</div><div class="gd">
-  <div class="im"><img src="img/powerbank.svg" alt="" style="width:74px;height:74px"><span class="moq">MOQ 10</span></div>
-  <div class="bd">
-    <div class="nm">充电宝 20000mAh 双向快充</div>
-    <div class="sn">SKU-PWB-002</div>
-    <div class="pr"><b>¥99.00</b><span>供货价</span></div>
-    <div class="ft"><span class="ladder">20+ ¥89</span><a class="btn sm g" href="goods-detail.html">详情</a></div>
-  </div>
-</div><div class="gd">
-  <div class="im"><img src="img/stand.svg" alt="" style="width:74px;height:74px"><span class="moq">MOQ 10</span></div>
-  <div class="bd">
-    <div class="nm">手机支架 磁吸折叠款</div>
-    <div class="sn">SKU-STD-003</div>
-    <div class="pr"><b>¥18.50</b><span>供货价</span></div>
-    <div class="ft"><span class="ladder">50+ ¥15</span><a class="btn sm g" href="goods-detail.html">详情</a></div>
-  </div>
-</div><div class="gd">
-  <div class="im"><img src="img/cable.svg" alt="" style="width:74px;height:74px"><span class="moq">MOQ 10</span></div>
-  <div class="bd">
-    <div class="nm">数据线 三合一 快充编织</div>
-    <div class="sn">SKU-CBL-004</div>
-    <div class="pr"><b>¥12.00</b><span>供货价</span></div>
-    <div class="ft"><span class="ladder">100+ ¥9.5</span><a class="btn sm g" href="goods-detail.html">详情</a></div>
-  </div>
-</div><div class="gd">
-  <div class="im"><img src="img/car.svg" alt="" style="width:74px;height:74px"><span class="moq">MOQ 10</span></div>
-  <div class="bd">
-    <div class="nm">车载充电器 66W 双口</div>
-    <div class="sn">SKU-CAR-005</div>
-    <div class="pr"><b>¥45.00</b><span>供货价</span></div>
-    <div class="ft"><span class="ladder">30+ ¥39</span><a class="btn sm g" href="goods-detail.html">详情</a></div>
-  </div>
-</div><div class="gd">
-  <div class="im"><img src="img/mouse.svg" alt="" style="width:74px;height:74px"><span class="moq">MOQ 10</span></div>
-  <div class="bd">
-    <div class="nm">无线鼠标 静音办公</div>
-    <div class="sn">SKU-MSE-006</div>
-    <div class="pr"><b>¥38.00</b><span>供货价</span></div>
-    <div class="ft"><span class="ladder">20+ ¥33</span><a class="btn sm g" href="goods-detail.html">详情</a></div>
-  </div>
-</div><div class="gd">
-  <div class="im"><img src="img/speaker.svg" alt="" style="width:74px;height:74px"><span class="moq">MOQ 10</span></div>
-  <div class="bd">
-    <div class="nm">蓝牙音箱 便携防水</div>
-    <div class="sn">SKU-SPK-007</div>
-    <div class="pr"><b>¥76.00</b><span>供货价</span></div>
-    <div class="ft"><span class="ladder">15+ ¥68</span><a class="btn sm g" href="goods-detail.html">详情</a></div>
-  </div>
-</div><div class="gd">
-  <div class="im"><img src="img/hub.svg" alt="" style="width:74px;height:74px"><span class="moq">MOQ 10</span></div>
-  <div class="bd">
-    <div class="nm">USB 集线器 4口 3.0</div>
-    <div class="sn">SKU-HUB-008</div>
-    <div class="pr"><b>¥22.00</b><span>供货价</span></div>
-    <div class="ft"><span class="ladder">50+ ¥18</span><a class="btn sm g" href="goods-detail.html">详情</a></div>
-  </div>
-</div></div></div>
+  <div class="card-hd"><h2>商品列表</h2><div class="r"><span class="tag t-info" id="cnt">-</span></div></div>
+  <div class="card-bd"><div class="goods" id="grid"></div></div>
 </div>
 
 </script>
-<script>document.getElementById('content').innerHTML=document.getElementById('tpl').innerHTML;</script>
+<script>
+document.getElementById('content').innerHTML = document.getElementById('tpl').innerHTML;
+
+var ALL = [];
+function draw(list){
+  document.getElementById('grid').innerHTML = list.length
+    ? list.map(SDSR.gdCard).join('')
+    : '<div class="empty" style="grid-column:1/-1"><div class="e">📦</div>没有符合条件的商品</div>';
+  document.getElementById('cnt').textContent = '共 ' + list.length + ' 条';
+}
+function doFilter(){
+  var q = document.getElementById('q').value.trim().toLowerCase();
+  var c = document.getElementById('cat').value;
+  var sf = document.getElementById('stockf').value;
+  var out = ALL.filter(function(p){
+    if (q && (p.name||'').toLowerCase().indexOf(q)<0 && (p.sku||'').toLowerCase().indexOf(q)<0) return false;
+    if (c!=='全部分类' && p.cat!==c) return false;
+    if (sf==='有货' && p.stock<=0) return false;
+    if (sf==='缺货' && p.stock>0) return false;
+    if (sf==='预警' && !(p.stock>0 && p.stock<=p.moq*2)) return false;
+    return true;
+  });
+  draw(out);
+}
+function resetF(){
+  document.getElementById('q').value='';
+  document.getElementById('cat').selectedIndex=0;
+  document.getElementById('stockf').selectedIndex=0;
+  draw(ALL);
+}
+function exportCSV(){
+  var rows=[['SKU','名称','分类','供货价','零售价','库存','MOQ']];
+  ALL.forEach(function(p){rows.push([p.sku,p.name,p.cat,p.price,p.retail,p.stock,p.moq])});
+  var csv='\ufeff'+rows.map(function(r){return r.join(',')}).join('\n');
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='商品列表.csv'; a.click();
+}
+function boot(){
+  ALL = SDS.products;
+  var st = SDS.stats();
+  document.getElementById('k1').textContent = st.products;
+  document.getElementById('k2').textContent = st.onSale;
+  document.getElementById('k3').textContent = st.outOfStock;
+  document.getElementById('k4').textContent = st.stock.toLocaleString('zh-CN');
+  draw(ALL);
+}
+SDS.onReady(boot);
+
+</script>
 </body>
 </html>

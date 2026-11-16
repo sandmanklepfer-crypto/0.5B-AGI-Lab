@@ -3,41 +3,80 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>订单管理 · 跨境货盘 SaaS</title>
+<title>订单管理 · GlobalSDS 跨境货盘</title>
 <link rel="stylesheet" href="_style.css">
 </head>
 <body>
 <script>
-(function(){
-  try{
-    if(!localStorage.getItem('sds_user')){ location.replace('login.html'); }
-  }catch(e){}
-})();
+(function(){try{if(!localStorage.getItem('sds_user')){location.replace('login.html');}}catch(e){}})();
 </script>
+<script src="mqtt.js"></script>
+<script src="_data.js"></script>
+<script src="_render.js"></script>
 <script src="_shell.js"></script>
 <script>renderShell({ title: '订单管理' });</script>
 <script type="text/template" id="tpl">
 
-<div class="tools"><input class="inp" placeholder="订单号 / 分销商" style="width:200px">
-<select class="inp"><option>全部状态</option><option>待付款</option><option>待发货</option><option>已发货</option><option>已完成</option></select>
-<a class="btn" href="#">导出 Excel</a></div>
-<div class="stats">
-<div class="st"><div class="k">今日订单</div><div class="v">126</div></div>
-<div class="st"><div class="k">待发货</div><div class="v" style="color:#f59e0b">18</div></div>
-<div class="st"><div class="k">已发货</div><div class="v" style="color:#0f70fd">96</div></div>
-<div class="st"><div class="k">已完成</div><div class="v" style="color:#16a34a">12</div></div>
+<div class="tools">
+  <input class="inp" id="q" placeholder="订单号 / 分销商" style="width:220px">
+  <select class="inp" id="st"><option>全部状态</option><option value="pending">待处理</option>
+    <option value="delivering">已发货</option><option value="done">已完成</option></select>
+  <button class="btn" onclick="doFilter()">查询</button>
+  <button class="btn g" onclick="exportCSV()">导出 CSV</button>
 </div>
-<div class="card"><div class="card-hd"><h2>订单列表</h2></div>
-<table class="tb">
-<tr><th>订单号</th><th>商品</th><th>数量</th><th>分销商</th><th>金额</th><th>利润</th><th>状态</th></tr>
-<tr><td class="mono">GS241116001</td><td>蓝牙耳机 TWS-Pro</td><td>10</td><td>深圳华强北</td><td>¥1,280</td><td><span class="tag t-ok">+¥321</span></td><td><span class="tag t-ok">已发货</span></td></tr>
-<tr><td class="mono">GS241116002</td><td>手机支架 磁吸款</td><td>20</td><td>广州天河</td><td>¥486</td><td><span class="tag t-ok">+¥116</span></td><td><span class="tag t-warn">待发货</span></td></tr>
-<tr><td class="mono">GS241116003</td><td>数据线 三合一</td><td>50</td><td>义乌小商品</td><td>¥920</td><td><span class="tag t-ok">+¥445</span></td><td><span class="tag t-info">待付款</span></td></tr>
-<tr><td class="mono">GS241116004</td><td>充电宝 20000mAh</td><td>20</td><td>东莞制造</td><td>¥2,340</td><td><span class="tag t-ok">+¥360</span></td><td><span class="tag t-ok">已完成</span></td></tr>
-</table></div>
+<div class="stats">
+  <div class="st"><div class="k">订单总数</div><div class="v" id="o1">-</div></div>
+  <div class="st"><div class="k">待处理</div><div class="v" id="o2" style="color:#ff7d00">-</div></div>
+  <div class="st"><div class="k">已发货</div><div class="v" id="o3" style="color:#0f70fd">-</div></div>
+  <div class="st"><div class="k">已完成</div><div class="v" id="o4" style="color:#00b42a">-</div></div>
+</div>
+<div class="card">
+  <div class="card-hd"><h2>订单列表</h2><div class="r"><span class="tag t-info" id="cnt">-</span></div></div>
+  <div id="tb"></div>
+</div>
+
 </script>
 <script>
 document.getElementById('content').innerHTML = document.getElementById('tpl').innerHTML;
+
+var ALL=[];
+function draw(list){
+  document.getElementById('tb').innerHTML = list.length
+    ? '<table class="tb"><tr><th>订单号</th><th>商品</th><th>分销商</th><th>金额</th><th>利润</th><th>状态</th><th>时间</th></tr>'
+      + list.map(function(x){return '<tr><td class="mono">'+SDSR.h(x.no)+'</td><td>'+SDSR.h(x.items)+'</td>'
+      + '<td>'+SDSR.h(x.buyer)+'</td><td>'+SDSR.money(x.amount)+'</td>'
+      + '<td style="color:#00b42a;font-weight:600">+'+SDSR.money(x.profit)+'</td>'
+      + '<td>'+SDSR.tagOf(x.status)+'</td><td>'+SDSR.h(x.at)+'</td></tr>'}).join('')+'</table>'
+    : '<div class="empty"><div class="e">📋</div>没有符合条件的订单</div>';
+  document.getElementById('cnt').textContent = '共 '+list.length+' 条';
+}
+function doFilter(){
+  var q=document.getElementById('q').value.trim().toLowerCase();
+  var st=document.getElementById('st').value;
+  draw(ALL.filter(function(x){
+    if (q && (x.no||'').toLowerCase().indexOf(q)<0 && (x.buyer||'').toLowerCase().indexOf(q)<0) return false;
+    if (st && st!=='全部状态' && x.status!==st) return false;
+    return true;
+  }));
+}
+function exportCSV(){
+  var rows=[['订单号','商品','分销商','金额','利润','状态','时间']];
+  ALL.forEach(function(x){rows.push([x.no,x.items,x.buyer,x.amount,x.profit,x.status,x.at])});
+  var csv='\ufeff'+rows.map(function(r){return r.join(',')}).join('\n');
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download='订单列表.csv'; a.click();
+}
+function boot(){
+  ALL = SDS.orders;
+  var st = SDS.stats();
+  document.getElementById('o1').textContent=st.orders;
+  document.getElementById('o2').textContent=st.pending;
+  document.getElementById('o3').textContent=st.delivering;
+  document.getElementById('o4').textContent=st.done;
+  draw(ALL);
+}
+SDS.onReady(boot);
 
 </script>
 </body>

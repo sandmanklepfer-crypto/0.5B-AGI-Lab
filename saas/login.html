@@ -161,13 +161,43 @@ function doLogin(e){
   err.classList.remove('on');
   if(!u){ err.textContent='请输入账号'; err.classList.add('on'); return false; }
   if(!p){ err.textContent='请输入密码'; err.classList.add('on'); return false; }
-  if(u==='admin' && p==='admin123'){
-    try{ localStorage.setItem('sds_user',u); }catch(x){}
-    location.href='index.html';
-  } else {
-    err.textContent='账号或密码错误，请检查后重试';
-    err.classList.add('on');
+
+  var btn=document.querySelector('.btn-lg');
+  btn.disabled=true; btn.textContent='登录中…';
+
+  // 先尝试真实后端，失败则本地校验（演示模式）
+  var API=(location.hostname==='localhost'||location.protocol==='http:')
+        ? location.origin : (window.SDS_API||'');
+
+  function localOk(){
+    if(u==='admin' && p==='admin123'){
+      try{ localStorage.setItem('sds_user',u);
+           localStorage.setItem('sds_token','demo'); }catch(x){}
+      location.href='index.html';
+    } else {
+      btn.disabled=false; btn.textContent='登 录';
+      err.textContent='账号或密码错误，请检查后重试';
+      err.classList.add('on');
+    }
   }
+
+  if(!API){ localOk(); return false; }
+
+  fetch(API+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({username:u,password:p})})
+    .then(function(r){return r.json()})
+    .then(function(d){
+      if(d.ok && d.token){
+        try{ localStorage.setItem('sds_user',u);
+             localStorage.setItem('sds_token',d.token); }catch(x){}
+        location.href='index.html';
+      } else {
+        btn.disabled=false; btn.textContent='登 录';
+        err.textContent=d.error||'账号或密码错误';
+        err.classList.add('on');
+      }
+    })
+    .catch(function(){ localOk(); });
   return false;
 }
 ['u','p'].forEach(function(id){
