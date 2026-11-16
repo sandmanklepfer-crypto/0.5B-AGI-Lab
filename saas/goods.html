@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>商品库 · 跨境货盘 SaaS</title>
+<title>商品库 · GlobalSDS 跨境货盘</title>
 <link rel="stylesheet" href="_style.css">
 </head>
 <body>
@@ -12,22 +12,95 @@
 <script type="text/template" id="tpl">
 
 <div class="tools">
-<input class="inp" placeholder="搜索商品名 / SKU" style="width:220px">
-<select class="inp"><option>全部分类</option><option>数码配件</option><option>家居百货</option></select>
-<select class="inp"><option>全部供应商</option><option>深圳华强北</option><option>东莞制造</option></select>
-<a class="btn" href="select.html">+ 导入商品</a>
+  <input class="inp" placeholder="搜索商品名称 / SKU" style="width:240px">
+  <select class="inp"><option>全部分类</option><option>数码配件</option><option>家居百货</option><option>美妆个护</option></select>
+  <select class="inp"><option>全部供应商</option><option>深圳华强北电子</option><option>东莞制造</option><option>义乌小商品</option></select>
+  <select class="inp"><option>全部状态</option><option>在售</option><option>缺货</option><option>已下架</option></select>
+  <button class="btn">查询</button>
+  <button class="btn g">重置</button>
+  <div style="margin-left:auto;display:flex;gap:8px">
+    <a class="btn" href="select.html">+ 导入商品</a>
+    <button class="btn g">批量导出</button>
+  </div>
 </div>
+
 <div class="stats">
-<div class="st"><div class="k">商品总数</div><div class="v">1,842</div></div>
-<div class="st"><div class="k">在售</div><div class="v">1,706</div></div>
-<div class="st"><div class="k">缺货</div><div class="v" style="color:#dc2626">36</div></div>
-<div class="st"><div class="k">今日新增</div><div class="v">12</div></div>
+  <div class="st"><div class="k">商品总数</div><div class="v">1,842</div><div class="d">本月新增 96</div></div>
+  <div class="st"><div class="k">在售商品</div><div class="v">1,706</div><div class="d">占比 92.6%</div></div>
+  <div class="st"><div class="k">缺货商品</div><div class="v" style="color:#f53f3f">36</div><div class="d dn">需补货</div></div>
+  <div class="st"><div class="k">库存总量</div><div class="v">48,260</div><div class="d">充足</div></div>
 </div>
-<div class="goods"><div class="gd"><div class="im g1">🎧<span class="moq">MOQ 10</span></div><div class="bd"><div class="nm">蓝牙耳机 TWS-Pro</div><div class="sn">SKU-TWS-001</div><div class="pr"><b>¥128.00</b><span>供货价</span></div><div class="ft"><span class="ladder">10+ ¥118</span><a class="btn sm g" href="goods-detail.html">详情</a></div></div></div><div class="gd"><div class="im g2">🔋<span class="moq">MOQ 10</span></div><div class="bd"><div class="nm">充电宝 20000mAh</div><div class="sn">SKU-PWB-002</div><div class="pr"><b>¥99.00</b><span>供货价</span></div><div class="ft"><span class="ladder">20+ ¥89</span><a class="btn sm g" href="goods-detail.html">详情</a></div></div></div><div class="gd"><div class="im g3">📱<span class="moq">MOQ 10</span></div><div class="bd"><div class="nm">手机支架 磁吸款</div><div class="sn">SKU-STD-003</div><div class="pr"><b>¥18.50</b><span>供货价</span></div><div class="ft"><span class="ladder">50+ ¥15</span><a class="btn sm g" href="goods-detail.html">详情</a></div></div></div><div class="gd"><div class="im g4">🔌<span class="moq">MOQ 10</span></div><div class="bd"><div class="nm">数据线 三合一</div><div class="sn">SKU-CBL-004</div><div class="pr"><b>¥12.00</b><span>供货价</span></div><div class="ft"><span class="ladder">100+ ¥9.5</span><a class="btn sm g" href="goods-detail.html">详情</a></div></div></div><div class="gd"><div class="im g5">🚗<span class="moq">MOQ 10</span></div><div class="bd"><div class="nm">车载充电器 快充</div><div class="sn">SKU-CAR-005</div><div class="pr"><b>¥45.00</b><span>供货价</span></div><div class="ft"><span class="ladder">30+ ¥39</span><a class="btn sm g" href="goods-detail.html">详情</a></div></div></div><div class="gd"><div class="im g1">🖱️<span class="moq">MOQ 10</span></div><div class="bd"><div class="nm">无线鼠标 静音</div><div class="sn">SKU-MSE-006</div><div class="pr"><b>¥38.00</b><span>供货价</span></div><div class="ft"><span class="ladder">20+ ¥33</span><a class="btn sm g" href="goods-detail.html">详情</a></div></div></div><div class="gd"><div class="im g2">🔊<span class="moq">MOQ 10</span></div><div class="bd"><div class="nm">蓝牙音箱 便携</div><div class="sn">SKU-SPK-007</div><div class="pr"><b>¥76.00</b><span>供货价</span></div><div class="ft"><span class="ladder">15+ ¥68</span><a class="btn sm g" href="goods-detail.html">详情</a></div></div></div><div class="gd"><div class="im g3">🔗<span class="moq">MOQ 10</span></div><div class="bd"><div class="nm">USB 集线器 4口</div><div class="sn">SKU-HUB-008</div><div class="pr"><b>¥22.00</b><span>供货价</span></div><div class="ft"><span class="ladder">50+ ¥18</span><a class="btn sm g" href="goods-detail.html">详情</a></div></div></div></div>
-</script>
-<script>
-document.getElementById('content').innerHTML = document.getElementById('tpl').innerHTML;
+
+<div class="card">
+  <div class="card-hd"><h2>商品列表</h2><div class="r"><span class="tag t-info">共 1,842 条</span></div></div>
+  <div class="card-bd"><div class="goods"><div class="gd">
+  <div class="im"><img src="img/earphone.svg" alt="" style="width:74px;height:74px"><span class="moq">MOQ 10</span></div>
+  <div class="bd">
+    <div class="nm">蓝牙耳机 TWS-Pro 降噪版</div>
+    <div class="sn">SKU-TWS-001</div>
+    <div class="pr"><b>¥128.00</b><span>供货价</span></div>
+    <div class="ft"><span class="ladder">10+ ¥118</span><a class="btn sm g" href="goods-detail.html">详情</a></div>
+  </div>
+</div><div class="gd">
+  <div class="im"><img src="img/powerbank.svg" alt="" style="width:74px;height:74px"><span class="moq">MOQ 10</span></div>
+  <div class="bd">
+    <div class="nm">充电宝 20000mAh 双向快充</div>
+    <div class="sn">SKU-PWB-002</div>
+    <div class="pr"><b>¥99.00</b><span>供货价</span></div>
+    <div class="ft"><span class="ladder">20+ ¥89</span><a class="btn sm g" href="goods-detail.html">详情</a></div>
+  </div>
+</div><div class="gd">
+  <div class="im"><img src="img/stand.svg" alt="" style="width:74px;height:74px"><span class="moq">MOQ 10</span></div>
+  <div class="bd">
+    <div class="nm">手机支架 磁吸折叠款</div>
+    <div class="sn">SKU-STD-003</div>
+    <div class="pr"><b>¥18.50</b><span>供货价</span></div>
+    <div class="ft"><span class="ladder">50+ ¥15</span><a class="btn sm g" href="goods-detail.html">详情</a></div>
+  </div>
+</div><div class="gd">
+  <div class="im"><img src="img/cable.svg" alt="" style="width:74px;height:74px"><span class="moq">MOQ 10</span></div>
+  <div class="bd">
+    <div class="nm">数据线 三合一 快充编织</div>
+    <div class="sn">SKU-CBL-004</div>
+    <div class="pr"><b>¥12.00</b><span>供货价</span></div>
+    <div class="ft"><span class="ladder">100+ ¥9.5</span><a class="btn sm g" href="goods-detail.html">详情</a></div>
+  </div>
+</div><div class="gd">
+  <div class="im"><img src="img/car.svg" alt="" style="width:74px;height:74px"><span class="moq">MOQ 10</span></div>
+  <div class="bd">
+    <div class="nm">车载充电器 66W 双口</div>
+    <div class="sn">SKU-CAR-005</div>
+    <div class="pr"><b>¥45.00</b><span>供货价</span></div>
+    <div class="ft"><span class="ladder">30+ ¥39</span><a class="btn sm g" href="goods-detail.html">详情</a></div>
+  </div>
+</div><div class="gd">
+  <div class="im"><img src="img/mouse.svg" alt="" style="width:74px;height:74px"><span class="moq">MOQ 10</span></div>
+  <div class="bd">
+    <div class="nm">无线鼠标 静音办公</div>
+    <div class="sn">SKU-MSE-006</div>
+    <div class="pr"><b>¥38.00</b><span>供货价</span></div>
+    <div class="ft"><span class="ladder">20+ ¥33</span><a class="btn sm g" href="goods-detail.html">详情</a></div>
+  </div>
+</div><div class="gd">
+  <div class="im"><img src="img/speaker.svg" alt="" style="width:74px;height:74px"><span class="moq">MOQ 10</span></div>
+  <div class="bd">
+    <div class="nm">蓝牙音箱 便携防水</div>
+    <div class="sn">SKU-SPK-007</div>
+    <div class="pr"><b>¥76.00</b><span>供货价</span></div>
+    <div class="ft"><span class="ladder">15+ ¥68</span><a class="btn sm g" href="goods-detail.html">详情</a></div>
+  </div>
+</div><div class="gd">
+  <div class="im"><img src="img/hub.svg" alt="" style="width:74px;height:74px"><span class="moq">MOQ 10</span></div>
+  <div class="bd">
+    <div class="nm">USB 集线器 4口 3.0</div>
+    <div class="sn">SKU-HUB-008</div>
+    <div class="pr"><b>¥22.00</b><span>供货价</span></div>
+    <div class="ft"><span class="ladder">50+ ¥18</span><a class="btn sm g" href="goods-detail.html">详情</a></div>
+  </div>
+</div></div></div>
+</div>
 
 </script>
+<script>document.getElementById('content').innerHTML=document.getElementById('tpl').innerHTML;</script>
 </body>
 </html>
