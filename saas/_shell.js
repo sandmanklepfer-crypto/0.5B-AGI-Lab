@@ -51,7 +51,7 @@
           '<div class="brand"><span class="bl">G</span>' +
             '<div><b>GlobalSDS</b><i>跨境货盘系统</i></div></div>' +
           '<nav class="nv">' + menu + '</nav>' +
-          '<div class="side-ft"><a href="../index.html">← 返回主站</a></div>' +
+          '<div class="side-ft"><a href="login.html" onclick="try{localStorage.removeItem(\'sds_user\')}catch(e){}">退出登录</a> · <a href="../index.html">主站</a></div>' +
         '</aside>' +
         '<div class="mask" id="mask" onclick="closeSide()"></div>' +
         '<main class="main">' +

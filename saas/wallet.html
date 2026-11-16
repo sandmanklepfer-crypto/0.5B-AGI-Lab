@@ -7,6 +7,13 @@
 <link rel="stylesheet" href="_style.css">
 </head>
 <body>
+<script>
+(function(){
+  try{
+    if(!localStorage.getItem('sds_user')){ location.replace('login.html'); }
+  }catch(e){}
+})();
+</script>
 <script src="_shell.js"></script>
 <script>renderShell({ title: '钱包管理' });</script>
 <script type="text/template" id="tpl">
