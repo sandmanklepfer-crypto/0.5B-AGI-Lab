@@ -3,122 +3,178 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>登录 · GlobalSDS 跨境货盘系统</title>
+<title>登录 · GlobalSDS 全球供应链分销系统</title>
 <link rel="stylesheet" href="_style.css">
 <style>
-body{background:#f2f3f5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
-.lg{width:100%;max-width:920px;background:#fff;border-radius:8px;overflow:hidden;
-  box-shadow:0 4px 24px rgba(0,0,0,.08);display:flex;min-height:480px}
-.lg-l{flex:1;background:linear-gradient(135deg,#0f70fd 0%,#409eff 55%,#764ba2 100%);
-  padding:48px 44px;color:#fff;display:flex;flex-direction:column;position:relative;overflow:hidden}
-.lg-l::after{content:"";position:absolute;right:-60px;bottom:-60px;width:240px;height:240px;
-  background:rgba(255,255,255,.08);border-radius:50%}
-.lg-l::before{content:"";position:absolute;left:-40px;top:-50px;width:180px;height:180px;
-  background:rgba(255,255,255,.06);border-radius:50%}
-.lg-logo{display:flex;align-items:center;gap:11px;margin-bottom:auto;position:relative;z-index:1}
-.lg-logo .b{width:38px;height:38px;border-radius:9px;background:rgba(255,255,255,.2);
-  display:grid;place-items:center;font-size:19px;font-weight:700;backdrop-filter:blur(6px)}
-.lg-logo b{font-size:17px;font-weight:600;letter-spacing:-.2px;display:block;line-height:1.2}
-.lg-logo i{font-size:11px;opacity:.8;font-style:normal;display:block}
-.lg-l h2{font-size:25px;font-weight:600;line-height:1.45;margin-bottom:12px;position:relative;z-index:1;letter-spacing:-.3px}
-.lg-l p{font-size:13.5px;opacity:.85;line-height:1.8;position:relative;z-index:1}
-.lg-l ul{list-style:none;margin-top:22px;position:relative;z-index:1}
-.lg-l li{font-size:13px;opacity:.9;padding:5px 0;display:flex;align-items:center;gap:8px}
-.lg-l li::before{content:"✓";width:16px;height:16px;border-radius:50%;
+*{margin:0;padding:0;box-sizing:border-box}
+body{min-height:100vh;display:flex;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  background:#f2f5fa;color:#1d2129}
+
+/* ===== 左：品牌区（真实素材 + 渐变蒙版）===== */
+.lf{flex:1;position:relative;min-width:0;display:flex;flex-direction:column;
+  padding:46px 52px;color:#fff;overflow:hidden;
+  background:#0f70fd url('img/login.022938c4.png') center/cover no-repeat}
+.lf::before{content:"";position:absolute;inset:0;
+  background:linear-gradient(148deg,rgba(11,80,190,.95) 0%,rgba(15,112,253,.86) 38%,rgba(76,52,160,.82) 100%)}
+.lf>*{position:relative;z-index:1}
+
+.lf-top{display:flex;align-items:center;gap:11px}
+.lf-top img{width:36px;height:36px;border-radius:8px;background:#fff;padding:3px;flex:0 0 auto}
+.lf-top b{font-size:17px;font-weight:700;display:block;line-height:1.25;letter-spacing:-.2px}
+.lf-top i{font-size:10.5px;opacity:.8;font-style:normal;display:block;letter-spacing:.5px}
+
+.lf-mid{margin-top:auto}
+.lf-mid h1{font-size:34px;font-weight:800;line-height:1.35;letter-spacing:-1px;margin-bottom:15px}
+.lf-mid p{font-size:14px;opacity:.87;line-height:1.9;max-width:400px}
+.lf-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px 22px;margin-top:30px;max-width:420px}
+.lf-grid span{font-size:13px;opacity:.92;display:flex;align-items:center;gap:8px}
+.lf-grid span::before{content:"✓";width:17px;height:17px;border-radius:50%;
   background:rgba(255,255,255,.22);display:grid;place-items:center;font-size:10px;flex:0 0 auto}
 
-.lg-r{width:400px;flex:0 0 auto;padding:48px 44px;display:flex;flex-direction:column;justify-content:center}
-.lg-r h3{font-size:21px;font-weight:600;margin-bottom:6px;letter-spacing:-.3px}
-.lg-r .sub{font-size:13px;color:#86909c;margin-bottom:26px}
-.fld{margin-bottom:17px}
-.fld label{display:block;font-size:13px;color:#4e5969;margin-bottom:7px;font-weight:500}
-.fld input{width:100%;height:40px;padding:0 13px;border:1px solid #e5e6eb;border-radius:4px;
-  font-size:14px;outline:none;transition:.15s;background:#fff}
-.fld input:hover{border-color:#c9cdd4}
-.fld input:focus{border-color:#0f70fd;box-shadow:0 0 0 2px rgba(15,112,253,.1)}
-.row{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;font-size:13px}
-.row label{display:flex;align-items:center;gap:6px;color:#4e5969;cursor:pointer}
+.lf-bot{margin-top:36px;font-size:11.5px;opacity:.6;letter-spacing:.3px}
+
+/* ===== 右：表单 ===== */
+.rt{width:462px;flex:0 0 auto;background:#fff;display:flex;flex-direction:column;
+  justify-content:center;padding:0 56px;box-shadow:-6px 0 40px rgba(20,40,90,.07)}
+.rt h2{font-size:25px;font-weight:700;letter-spacing:-.6px;margin-bottom:7px}
+.rt .sb{font-size:13.5px;color:#86909c;margin-bottom:30px}
+
+.tabs{display:flex;gap:26px;border-bottom:1px solid #ebedf2;margin-bottom:26px}
+.tabs button{font-size:14.5px;color:#86909c;padding:0 0 12px;position:relative;
+  font-weight:500;transition:.15s;background:none;border:0;cursor:pointer}
+.tabs button.on{color:#0f70fd;font-weight:700}
+.tabs button.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2.5px;
+  background:#0f70fd;border-radius:2px}
+
+.fld{margin-bottom:19px;position:relative}
+.fld label{display:block;font-size:13px;color:#4e5969;margin-bottom:8px;font-weight:500}
+.fld .ic{position:absolute;left:13px;bottom:13px;font-size:15px;color:#b6bcc8;pointer-events:none}
+.fld input{width:100%;height:44px;padding:0 13px 0 40px;border:1px solid #dcdfe6;border-radius:5px;
+  font-size:14.5px;outline:none;transition:.18s;color:#1d2129;background:#fff}
+.fld input::placeholder{color:#b6bcc8}
+.fld input:hover{border-color:#c0c4cc}
+.fld input:focus{border-color:#0f70fd;box-shadow:0 0 0 3px rgba(15,112,253,.1)}
+
+.row{display:flex;align-items:center;justify-content:space-between;margin-bottom:26px;font-size:13px}
+.row label{display:flex;align-items:center;gap:7px;color:#4e5969;cursor:pointer;user-select:none}
+.row input[type=checkbox]{width:15px;height:15px;accent-color:#0f70fd;cursor:pointer}
 .row a{color:#0f70fd}
-.btn-lg{width:100%;height:42px;border-radius:4px;background:#0f70fd;color:#fff;
-  font-size:15px;font-weight:500;transition:.15s;border:0;cursor:pointer}
-.btn-lg:hover{background:#0b5fd6}
-.btn-lg:active{transform:scale(.99)}
-.err{background:#ffece8;color:#f53f3f;font-size:13px;padding:9px 12px;border-radius:4px;
-  margin-bottom:16px;display:none}
+.row a:hover{text-decoration:underline}
+
+.btn-lg{width:100%;height:46px;border-radius:5px;border:0;cursor:pointer;
+  background:linear-gradient(90deg,#0f70fd,#409eff);color:#fff;font-size:15.5px;font-weight:600;
+  box-shadow:0 5px 18px rgba(15,112,253,.32);transition:.18s;letter-spacing:3px}
+.btn-lg:hover{box-shadow:0 8px 26px rgba(15,112,253,.42);transform:translateY(-1px)}
+.btn-lg:active{transform:translateY(0)}
+
+.err{background:#ffece8;color:#f53f3f;font-size:13px;padding:11px 14px;border-radius:5px;
+  margin-bottom:19px;display:none;border-left:3px solid #f53f3f;line-height:1.6}
 .err.on{display:block}
-.demo{margin-top:20px;padding:12px 14px;background:#f7f8fa;border-radius:4px;
-  font-size:12.5px;color:#86909c;line-height:1.8}
-.demo b{color:#4e5969}
-@media(max-width:860px){
-  .lg{flex-direction:column;max-width:420px;min-height:auto}
-  .lg-l{display:none}
-  .lg-r{width:100%;padding:34px 26px}
+
+.demo{margin-top:24px;padding:13px 15px;background:#f7f9fc;border:1px solid #eef1f6;
+  border-radius:5px;font-size:12.5px;color:#86909c;line-height:1.9}
+.demo b{color:#0f70fd;font-family:ui-monospace,monospace;font-weight:600}
+
+.rt-ft{margin-top:28px;font-size:11.5px;color:#c0c4cc;text-align:center;line-height:1.85}
+
+@media(max-width:1000px){
+  .lf{display:none}
+  body{background:#f2f5fa;align-items:center;justify-content:center;padding:18px}
+  .rt{width:100%;max-width:430px;padding:38px 30px 32px;border-radius:10px;
+      box-shadow:0 8px 40px rgba(20,40,90,.12);justify-content:flex-start}
+  .rt h2{font-size:22px}
 }
 </style>
 </head>
 <body>
 
-<div class="lg">
-  <div class="lg-l">
-    <div class="lg-logo">
-      <div class="b">G</div>
-      <div><b>GlobalSDS</b><i>跨境货盘系统</i></div>
-    </div>
-    <h2>让跨境分销<br>像转发链接一样简单</h2>
-    <p>货盘管理 · 分销授权 · 一键刊登 · 供应商分账</p>
-    <ul>
-      <li>多租户数据强制隔离</li>
-      <li>两级分销价格体系</li>
-      <li>阶梯价与 MOQ 起订</li>
-      <li>操作审计全链路留痕</li>
-    </ul>
+<!-- 左：品牌区 -->
+<div class="lf">
+  <div class="lf-top">
+    <img src="img/gosol.png" alt="">
+    <div><b>GlobalSDS</b><i>全球供应链分销系统</i></div>
   </div>
 
-  <div class="lg-r">
-    <h3>登录</h3>
-    <div class="sub">请使用管理员分配的账号登录</div>
-
-    <div class="err" id="err"></div>
-
-    <form id="f" onsubmit="return doLogin(event)">
-      <div class="fld">
-        <label>账号</label>
-        <input id="u" placeholder="请输入账号" autocomplete="username" value="admin">
-      </div>
-      <div class="fld">
-        <label>密码</label>
-        <input id="p" type="password" placeholder="请输入密码" autocomplete="current-password" value="admin123">
-      </div>
-      <div class="row">
-        <label><input type="checkbox" checked style="width:14px;height:14px"> 记住登录</label>
-        <a href="#">忘记密码？</a>
-      </div>
-      <button class="btn-lg" type="submit">登 录</button>
-    </form>
-
-    <div class="demo">
-      演示账号：<b>admin</b> / <b>admin123</b><br>
-      当前为静态演示版，点击登录直接进入工作台
+  <div class="lf-mid">
+    <h1>一站式跨境货盘<br>与分销管理平台</h1>
+    <p>从选品采集到多级分销，从库存仓储到供应商分账，一套系统管完全链路。</p>
+    <div class="lf-grid">
+      <span>商品货盘管理</span>
+      <span>两级分销授权</span>
+      <span>阶梯价与 MOQ</span>
+      <span>供应商在线分账</span>
+      <span>多租户数据隔离</span>
+      <span>操作审计留痕</span>
     </div>
+  </div>
+
+  <div class="lf-bot">© 2026 GlobalSDS　全球供应链分销系统</div>
+</div>
+
+<!-- 右：登录表单 -->
+<div class="rt">
+  <h2>欢迎登录</h2>
+  <div class="sb">请使用您的账号登录管理后台</div>
+
+  <div class="tabs">
+    <button class="on">账号登录</button>
+    <button onclick="alert('演示版暂未开放手机登录')">手机登录</button>
+  </div>
+
+  <div class="err" id="err"></div>
+
+  <form id="f" onsubmit="return doLogin(event)">
+    <div class="fld">
+      <label>账号</label>
+      <span class="ic">👤</span>
+      <input id="u" placeholder="请输入账号" autocomplete="username" value="admin">
+    </div>
+    <div class="fld">
+      <label>密码</label>
+      <span class="ic">🔒</span>
+      <input id="p" type="password" placeholder="请输入密码" autocomplete="current-password" value="admin123">
+    </div>
+    <div class="row">
+      <label><input type="checkbox" checked> 记住账号</label>
+      <a href="#">忘记密码？</a>
+    </div>
+    <button class="btn-lg" type="submit">登 录</button>
+  </form>
+
+  <div class="demo">
+    演示账号：<b>admin</b>　密码：<b>admin123</b><br>
+    当前为静态演示版，登录后直接进入工作台
+  </div>
+
+  <div class="rt-ft">
+    © 2026 GlobalSDS　保留所有权利<br>
+    本页面为功能演示
   </div>
 </div>
 
 <script>
 function doLogin(e){
   e.preventDefault();
-  var u = document.getElementById('u').value.trim();
-  var p = document.getElementById('p').value;
-  var err = document.getElementById('err');
-  if(!u || !p){ err.textContent='请输入账号和密码'; err.classList.add('on'); return false; }
-  if(u === 'admin' && p === 'admin123'){
-    try{ localStorage.setItem('sds_user', u); }catch(x){}
-    location.href = 'index.html';
+  var u=document.getElementById('u').value.trim();
+  var p=document.getElementById('p').value;
+  var err=document.getElementById('err');
+  err.classList.remove('on');
+  if(!u){ err.textContent='请输入账号'; err.classList.add('on'); return false; }
+  if(!p){ err.textContent='请输入密码'; err.classList.add('on'); return false; }
+  if(u==='admin' && p==='admin123'){
+    try{ localStorage.setItem('sds_user',u); }catch(x){}
+    location.href='index.html';
   } else {
-    err.textContent='账号或密码错误，演示账号：admin / admin123';
+    err.textContent='账号或密码错误，请检查后重试';
     err.classList.add('on');
   }
   return false;
 }
+['u','p'].forEach(function(id){
+  document.getElementById(id).addEventListener('input',function(){
+    document.getElementById('err').classList.remove('on');
+  });
+});
 </script>
 </body>
 </html>

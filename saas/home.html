@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GlobalSDS · 全球供应链分销系统</title>
+<link rel="stylesheet" href="_style.css">
+<style>
+body{background:#fff;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;color:#1d2129}
+
+/* ===== 顶部导航 ===== */
+.nav{height:64px;background:#fff;border-bottom:1px solid #eef0f4;position:sticky;top:0;z-index:100}
+.nav-in{max-width:1200px;margin:0 auto;height:100%;padding:0 20px;display:flex;align-items:center;gap:14px}
+.nav-logo{display:flex;align-items:center;gap:9px}
+.nav-logo img{width:30px;height:30px;border-radius:6px}
+.nav-logo b{font-size:16px;font-weight:700;letter-spacing:-.2px;color:#1d2129}
+.nav-logo b span{color:#eb3d00}
+.nav-menu{margin-left:auto;display:flex;gap:26px;font-size:14px;color:#4e5969}
+.nav-menu a{transition:.15s;position:relative;padding:4px 0}
+.nav-menu a:hover{color:#0f70fd}
+.nav-menu a.on{color:#0f70fd;font-weight:600}
+.nav-menu a.on::after{content:"";position:absolute;left:0;right:0;bottom:-2px;height:2px;background:#0f70fd;border-radius:1px}
+.nav-btn{background:#0f70fd;color:#fff;padding:8px 20px;border-radius:4px;font-size:14px;
+  font-weight:500;margin-left:8px;transition:.18s;white-space:nowrap}
+.nav-btn:hover{background:#0b5fd6;box-shadow:0 4px 14px rgba(15,112,253,.3)}
+
+/* ===== Hero ===== */
+.hero{position:relative;overflow:hidden;padding:64px 20px 72px;
+  background:linear-gradient(180deg,#f0f6ff 0%,#e8f2ff 55%,#fff 100%)}
+.hero-in{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:50px}
+.hero-l{flex:1;min-width:0}
+.hero-l h1{font-size:42px;font-weight:800;line-height:1.28;letter-spacing:-1.5px;color:#0d1b3e;margin-bottom:16px}
+.hero-l h1 em{font-style:normal;color:#0f70fd;
+  background:linear-gradient(90deg,#0f70fd,#409eff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero-l p{font-size:15px;color:#5a6785;line-height:1.85;margin-bottom:30px;max-width:460px}
+.hero-btns{display:flex;gap:12px;flex-wrap:wrap}
+.btn-h{background:linear-gradient(90deg,#0f70fd,#409eff);color:#fff;padding:13px 34px;
+  border-radius:5px;font-size:15px;font-weight:600;transition:.18s;
+  box-shadow:0 6px 20px rgba(15,112,253,.3)}
+.btn-h:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(15,112,253,.38)}
+.btn-h2{background:#fff;color:#0f70fd;padding:13px 30px;border-radius:5px;font-size:15px;
+  font-weight:600;border:1px solid #c9dcff;transition:.18s}
+.btn-h2:hover{background:#f0f6ff;border-color:#0f70fd}
+.hero-r{flex:0 0 460px;position:relative}
+.hero-r img{width:100%;height:auto;display:block;border-radius:10px;
+  box-shadow:0 20px 60px rgba(15,112,253,.18)}
+
+/* ===== 数据条 ===== */
+.stats-bar{background:#fff;padding:44px 20px;border-bottom:1px solid #f0f2f6}
+.stats-in{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:20px;text-align:center}
+.sb{padding:0 10px;border-right:1px solid #eef0f4}
+.sb:last-child{border-right:0}
+.sb b{display:block;font-size:36px;font-weight:800;letter-spacing:-1.2px;color:#0f70fd;line-height:1.1}
+.sb b small{font-size:19px;font-weight:700}
+.sb span{display:block;font-size:13px;color:#86909c;margin-top:9px;line-height:1.6}
+
+/* ===== 区块标题 ===== */
+.sec{padding:62px 20px}
+.sec-in{max-width:1200px;margin:0 auto}
+.sec-hd{text-align:center;margin-bottom:44px}
+.sec-hd h2{font-size:31px;font-weight:800;letter-spacing:-1px;color:#0d1b3e;margin-bottom:11px}
+.sec-hd h2 em{font-style:normal;color:#0f70fd}
+.sec-hd p{font-size:14.5px;color:#86909c;line-height:1.7}
+
+/* ===== 核心优势卡片 ===== */
+.adv{display:grid;grid-template-columns:repeat(2,1fr);gap:22px}
+.ac{background:#fff;border:1px solid #eef1f6;border-radius:12px;padding:28px 26px 32px;
+  position:relative;overflow:hidden;transition:.22s;
+  box-shadow:0 1px 3px rgba(20,40,90,.04)}
+.ac:hover{transform:translateY(-3px);box-shadow:0 10px 34px rgba(15,112,253,.13);border-color:#d6e4ff}
+.ac::after{content:"";position:absolute;right:-30px;bottom:-38px;width:130px;height:100px;
+  background:url('img/cloud.png') center/contain no-repeat;opacity:.5;pointer-events:none}
+.ac-ic{width:52px;height:52px;border-radius:13px;display:grid;place-items:center;font-size:25px;
+  margin-bottom:16px;background:linear-gradient(135deg,#e8f2ff,#d6e8ff)}
+.ac h3{font-size:18px;font-weight:700;color:#0d1b3e;margin-bottom:9px;letter-spacing:-.3px}
+.ac p{font-size:13.5px;color:#697386;line-height:1.85}
+
+/* ===== 场景卡片 ===== */
+.scenes{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.sc{position:relative;border-radius:10px;overflow:hidden;height:210px;
+  display:flex;align-items:flex-end;transition:.22s;
+  background:linear-gradient(160deg,#1a3a6b,#0e2244)}
+.sc:hover{transform:translateY(-3px);box-shadow:0 10px 30px rgba(15,40,90,.25)}
+.sc::before{content:"";position:absolute;inset:0;
+  background:linear-gradient(180deg,transparent 30%,rgba(5,15,35,.88) 100%)}
+.sc>div{position:relative;z-index:1;padding:18px 17px;color:#fff}
+.sc h4{font-size:16px;font-weight:700;margin-bottom:6px}
+.sc p{font-size:12.5px;opacity:.82;line-height:1.65}
+
+/* ===== 服务条 ===== */
+.svc{background:#0e1a2e;padding:48px 20px}
+.svc-in{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:24px;text-align:center}
+.sv .i{width:46px;height:46px;border-radius:12px;margin:0 auto 13px;display:grid;place-items:center;
+  font-size:21px;background:rgba(15,112,253,.16);border:1px solid rgba(15,112,253,.3)}
+.sv b{display:block;font-size:14.5px;color:#e8eef8;font-weight:600;margin-bottom:5px}
+.sv span{font-size:12.5px;color:#7d8aa3}
+
+/* ===== 页脚 ===== */
+.ft{background:#0a1220;padding:30px 20px;text-align:center;font-size:12.5px;color:#5a6785;line-height:2}
+
+@media(max-width:960px){
+  .hero-in{flex-direction:column;gap:32px}
+  .hero-r{flex:none;width:100%}
+  .hero-l h1{font-size:31px;letter-spacing:-1px}
+  .hero{padding:40px 18px 46px}
+  .stats-in{grid-template-columns:repeat(2,1fr);gap:26px 12px}
+  .sb{border-right:0}
+  .sb b{font-size:28px}
+  .adv{grid-template-columns:1fr}
+  .scenes{grid-template-columns:repeat(2,1fr)}
+  .svc-in{grid-template-columns:repeat(2,1fr)}
+  .nav-menu{display:none}
+  .sec{padding:42px 18px}
+  .sec-hd h2{font-size:24px}
+  .sc{height:170px}
+}
+</style>
+</head>
+<body>
+
+<!-- 导航 -->
+<div class="nav">
+  <div class="nav-in">
+    <div class="nav-logo">
+      <img src="img/gosol.png" alt="">
+      <b>Global<span>SDS</span></b>
+    </div>
+    <nav class="nav-menu">
+      <a href="home.html" class="on">首页</a>
+      <a href="#adv">产品服务</a>
+      <a href="#scene">解决方案</a>
+      <a href="#case">客户案例</a>
+      <a href="#svc">关于我们</a>
+    </nav>
+    <a class="nav-btn" href="login.html">进入系统</a>
+  </div>
+</div>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-in">
+    <div class="hero-l">
+      <h1>全球供应链<br><em>分销管理系统</em></h1>
+      <p>多平台订单自动化与全球分销网络，从选品采集、货盘管理到多级分销与供应商分账，一套系统管完全链路。</p>
+      <div class="hero-btns">
+        <a class="btn-h" href="login.html">免费试用</a>
+        <a class="btn-h2" href="#adv">了解功能</a>
+      </div>
+    </div>
+    <div class="hero-r">
+      <img src="img/banner.png" alt="">
+    </div>
+  </div>
+</section>
+
+<!-- 数据 -->
+<section class="stats-bar">
+  <div class="stats-in">
+    <div class="sb"><b>10<small>万+</small></b><span>海外站点<br>数十万卖家已入驻</span></div>
+    <div class="sb"><b>8<small>个</small></b><span>国家海外仓<br>联通8国电商平台</span></div>
+    <div class="sb"><b>25<small>条</small></b><span>服务产业带<br>云仓融合跨境服务</span></div>
+    <div class="sb"><b>3<small>亿+</small></b><span>供应链分销 GMV<br>智链通全球</span></div>
+  </div>
+</section>
+
+<!-- 核心优势 -->
+<section class="sec" id="adv">
+  <div class="sec-in">
+    <div class="sec-hd">
+      <h2>GlobalSDS <em>核心优势</em></h2>
+      <p>一套系统 = 全球供应链 + 智能分销网 + 跨境资源库</p>
+    </div>
+    <div class="adv">
+      <div class="ac"><div class="ac-ic">📋</div><h3>订单处理高效</h3><p>全平台自动化处理<br>实现 100% 自动化流转</p></div>
+      <div class="ac"><div class="ac-ic">🏭</div><h3>仓储管理全球覆盖</h3><p>海外仓无缝衔接<br>自营仓储面积超 5 万 m²</p></div>
+      <div class="ac"><div class="ac-ic">☁️</div><h3>采购协同双向赋能</h3><p>支持线上线下双擎采购<br>智能分账，资金透明</p></div>
+      <div class="ac"><div class="ac-ic">📊</div><h3>库存管理动态预警</h3><p>实时监控零库存风险<br>保障库存充足</p></div>
+      <div class="ac"><div class="ac-ic">🌐</div><h3>全球渠道智能分销</h3><p>覆盖东南亚、巴西、俄罗斯市场<br>两级分销授权体系</p></div>
+      <div class="ac"><div class="ac-ic">💬</div><h3>售后管理无忧保障</h3><p>提供退换货、物流跟踪<br>商品溯源等售后支持</p></div>
+      <div class="ac"><div class="ac-ic">💰</div><h3>业财一体安全高效</h3><p>智能分账系统<br>保障资金收付安全透明</p></div>
+      <div class="ac"><div class="ac-ic">📈</div><h3>数据分析精准决策</h3><p>聚合全球平台销售数据<br>助力打造行业爆品</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 适用场景 -->
+<section class="sec" id="scene" style="background:#f7f9fc">
+  <div class="sec-in">
+    <div class="sec-hd">
+      <h2>人人跨境 <em>全球供应链分销</em>综合服务平台</h2>
+      <p>不论你是工厂、品牌方，还是有仓库多货源的贸易商</p>
+    </div>
+    <div class="scenes">
+      <div class="sc"><div><h4>内贸转外贸</h4><p>适用于内贸生产企业/电商卖家等，转型升级数字外贸</p></div></div>
+      <div class="sc"><div><h4>传统外贸企业</h4><p>适用于传统外贸企业转型，数字化线上运营</p></div></div>
+      <div class="sc"><div><h4>新手创业</h4><p>适用于初创及个体创业者快速起步</p></div></div>
+      <div class="sc"><div><h4>跨境 ToB 转 ToC</h4><p>适用于外贸企业由 B 端向跨境卖转型，助力 C 端化运营</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 客户案例 -->
+<section class="sec" id="case">
+  <div class="sec-in">
+    <div class="sec-hd">
+      <h2>保持客户价值的<em>可持续生命力</em></h2>
+      <p>查看真实客户案例，了解他们如何用 GlobalSDS 打开海外市场</p>
+    </div>
+    <div class="adv">
+      <div class="ac"><div class="ac-ic">🐸</div><h3>母婴品牌出海东南亚</h3><p>依托海外仓、国际物流及供应链分销服务，快速打通东南亚跨境电商及线下市场，累计销售额超 3500 万美元。</p></div>
+      <div class="ac"><div class="ac-ic">💄</div><h3>美妆日化多平台布局</h3><p>通过多平台订单自动化与智能分账，3 个月完成 6 个东南亚平台铺货，SKU 上架效率提升 4 倍。</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 服务保障 -->
+<section class="svc" id="svc">
+  <div class="svc-in">
+    <div class="sv"><div class="i">🛠</div><b>在线技术支持</b><span>技术问题随时响应</span></div>
+    <div class="sv"><div class="i">📞</div><b>7×24 小时专项服务</b><span>全年无休值守</span></div>
+    <div class="sv"><div class="i">📈</div><b>数据支持优势</b><span>选品数据实时更新</span></div>
+    <div class="sv"><div class="i">🛍</div><b>成本效益优势</b><span>降低跨境试错成本</span></div>
+  </div>
+</section>
+
+<div class="ft">
+  © 2026 GlobalSDS 全球供应链分销系统　保留所有权利<br>
+  <span style="opacity:.6">本页面为功能演示，数据均为示例</span>
+</div>
+
+</body>
+</html>
