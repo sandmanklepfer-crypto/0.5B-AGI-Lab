@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>天泪纪元 · 素材库</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font:15px/1.6 -apple-system,"PingFang SC",sans-serif;background:#0b0a14;color:#e8e6f0;padding:16px 14px 40px}
+h1{font-size:20px;font-weight:800;margin-bottom:3px;
+   background:linear-gradient(135deg,#a78bfa,#7dd3fc);-webkit-background-clip:text;
+   -webkit-text-fill-color:transparent;background-clip:text}
+.sub{color:#7d7a92;font-size:12px;margin-bottom:18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:11px}
+.card{background:#16142499;border:1px solid #2a2640;border-radius:12px;overflow:hidden;
+      transition:.2s;cursor:pointer}
+.card:hover{border-color:#4c3f8f;transform:translateY(-2px)}
+.card img{width:100%;height:112px;object-fit:cover;display:block;background:#0d0b16}
+.card .info{padding:8px 9px}
+.card .dn{font-size:12px;font-weight:600;color:#d4d0e8;line-height:1.35;
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .mt{font-size:10px;color:#6b6880;margin-top:2px;font-family:ui-monospace,monospace}
+.vid{height:112px;display:grid;place-items:center;background:#0d0b16;font-size:30px}
+#lb{position:fixed;inset:0;background:#000000f2;display:none;z-index:99;
+    align-items:center;justify-content:center;padding:20px}
+#lb.on{display:flex}
+#lb img,#lb video{max-width:100%;max-height:82vh;border-radius:8px}
+#lb .x{position:absolute;top:16px;right:18px;font-size:26px;color:#fff;cursor:pointer;
+       width:40px;height:40px;display:grid;place-items:center;background:#ffffff22;border-radius:50%}
+#lb .cap{position:absolute;bottom:20px;left:0;right:0;text-align:center;color:#aaa;font-size:13px}
+</style></head><body>
+<h1>天泪纪元 · 素材库</h1>
+<div class="sub">19 个素材 · 点开看大图</div>
+<div class="grid" id="g"></div>
+<div id="lb"><span class="x" onclick="close_()">✕</span><div id="lbc"></div><div class="cap" id="cap"></div></div>
+<script>
+var ITEMS = [{"n": "bg_academy.jpg", "type": "img", "w": 1920, "h": 1080, "kb": 395, "d": "学院大门 · 背景"}, {"n": "bg_bossroom.jpg", "type": "img", "w": 1920, "h": 1080, "kb": 300, "d": "Boss 房 · 背景"}, {"n": "bg_corridor.jpg", "type": "img", "w": 1920, "h": 1080, "kb": 266, "d": "地下走廊 · 背景"}, {"n": "bg_corridor_dl.jpg", "type": "img", "w": 2730, "h": 1536, "kb": 423, "d": "地下走廊（宽）· 背景"}, {"n": "bg_courtyard.jpg", "type": "img", "w": 2730, "h": 1536, "kb": 567, "d": "学院庭院（宽）· 背景"}, {"n": "boss_book.png", "type": "img", "w": 1100, "h": 618, "kb": 753, "d": "Boss · 书"}, {"n": "boss_element.png", "type": "img", "w": 1100, "h": 618, "kb": 682, "d": "Boss · 元素"}, {"n": "boss_eye.png", "type": "img", "w": 1100, "h": 618, "kb": 1241, "d": "Boss · 眼球"}, {"n": "boss_void.png", "type": "img", "w": 1100, "h": 618, "kb": 858, "d": "Boss · 虚空"}, {"n": "enemy_floater.png", "type": "img", "w": 620, "h": 493, "kb": 263, "d": "小怪 · 浮游"}, {"n": "enemy_golem.png", "type": "img", "w": 620, "h": 493, "kb": 204, "d": "小怪 · 石像"}, {"n": "enemy_wraith.png", "type": "img", "w": 620, "h": 493, "kb": 209, "d": "小怪 · 幽魂"}, {"n": "heyun_fight.png", "type": "img", "w": 760, "h": 1074, "kb": 768, "d": "角色 · 何云（战斗）"}, {"n": "heyun_idle.png", "type": "img", "w": 760, "h": 1074, "kb": 454, "d": "角色 · 何云（待机）"}, {"n": "kv_main.jpg", "type": "img", "w": 1920, "h": 1080, "kb": 421, "d": "主视觉 KV"}, {"n": "menu.mp4", "type": "video", "kb": 636, "d": "主菜单动态视频"}, {"n": "player_sheet.jpg", "type": "img", "w": 3138, "h": 1336, "kb": 319, "d": "角色精灵表"}, {"n": "zhuyang_fight.png", "type": "img", "w": 760, "h": 1074, "kb": 580, "d": "角色 · 朱阳（战斗）"}, {"n": "zhuyang_idle.png", "type": "img", "w": 760, "h": 1074, "kb": 710, "d": "角色 · 朱阳（待机）"}];
+var g = document.getElementById('g');
+ITEMS.forEach(function(it, i){
+  var d = document.createElement('div');
+  d.className = 'card';
+  var base = 'assets/img/' + it.n;
+  if (it.type === 'video') {
+    d.innerHTML = '<div class="vid">🎬</div><div class="info"><div class="dn">' + it.d + '</div><div class="mt">' + it.kb + ' KB</div></div>';
+  } else {
+    d.innerHTML = '<img src="' + base + '" loading="lazy" alt=""><div class="info"><div class="dn">' + it.d + '</div><div class="mt">' + it.w + '×' + it.h + ' · ' + it.kb + 'KB</div></div>';
+  }
+  d.onclick = function(){ open_(it) };
+  g.appendChild(d);
+});
+function open_(it){
+  var lb = document.getElementById('lb'), c = document.getElementById('lbc');
+  var base = 'assets/img/' + it.n;
+  if (it.type === 'video') {
+    c.innerHTML = '<video src="' + base + '" controls autoplay loop></video>';
+  } else {
+    c.innerHTML = '<img src="' + base + '">';
+  }
+  document.getElementById('cap').textContent = it.d + (it.w ? ' · ' + it.w + '×' + it.h : '');
+  lb.classList.add('on');
+}
+function close_(){
+  document.getElementById('lb').classList.remove('on');
+  document.getElementById('lbc').innerHTML = '';
+}
+document.getElementById('lb').onclick = function(e){ if(e.target.id === 'lb') close_() };
+</script></body></html>
