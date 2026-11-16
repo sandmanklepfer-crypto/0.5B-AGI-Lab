@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ea580c">
+<title>阿香卤味 · 进店</title>
+<style>
+:root{--brand:#ea580c;--brand-dk:#c2410c;--ink:#1c1917;--sub:#78716c;--line:#f0efed}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font:16px/1.65 -apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC",sans-serif;
+  background:linear-gradient(165deg,#fff7ed 0%,#ffedd5 55%,#fed7aa 100%);
+  color:var(--ink);min-height:100vh;padding:26px 18px 34px;
+  display:flex;flex-direction:column;align-items:center}
+.wrap{width:100%;max-width:430px}
+.hero{text-align:center;margin-bottom:24px}
+.emoji{font-size:52px;line-height:1;margin-bottom:10px;filter:drop-shadow(0 4px 8px rgba(234,88,12,.22))}
+h1{font-size:26px;font-weight:800;letter-spacing:-.5px;color:#7c2d12}
+.slogan{font-size:13px;color:var(--sub);margin-top:5px;letter-spacing:.4px}
+.card{background:#fff;border-radius:18px;padding:18px;margin-bottom:14px;
+  box-shadow:0 2px 4px rgba(28,25,23,.04),0 8px 26px rgba(28,25,23,.07)}
+.btn{display:flex;align-items:center;justify-content:center;gap:9px;
+  padding:16px;border-radius:14px;text-decoration:none;font-size:17px;font-weight:700;
+  color:#fff;background:linear-gradient(135deg,#ea580c,#c2410c);
+  box-shadow:0 5px 16px rgba(234,88,12,.3);transition:.18s;margin-bottom:11px}
+.btn:active{transform:scale(.975)}
+.btn.g{background:linear-gradient(135deg,#16a34a,#15803d);box-shadow:0 5px 16px rgba(22,163,74,.28)}
+.btn.m{background:#fff;color:var(--brand);border:1.5px solid rgba(234,88,12,.28);box-shadow:none}
+.btn .ic{font-size:19px}
+h2{font-size:14px;font-weight:700;color:#57534e;margin:0 0 10px;display:flex;align-items:center;gap:6px}
+h2::before{content:"";width:3px;height:14px;border-radius:2px;background:var(--brand)}
+ol,ul{padding-left:19px;font-size:13.5px;color:#44403c;line-height:1.85}
+li{margin:3px 0}
+ol li::marker{color:var(--brand);font-weight:700}
+.status{margin-top:16px;text-align:center;font-size:12px;color:var(--sub)}
+.status b{color:var(--green,#16a34a)}
+.status .bad{color:#dc2626}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#a8a29e;margin-right:5px;vertical-align:middle}
+.dot.on{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.18)}
+.dot.off{background:#ef4444}
+.tip{font-size:12px;color:#a8a29e;text-align:center;margin-top:18px;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="emoji">🍖</div>
+    <h1 id="shopName">阿香卤味</h1>
+    <div class="slogan">老卤现捞 · 当天现做</div>
+  </div>
+
+  <div class="card">
+    <a class="btn" id="goShop" href="#"><span class="ic">🛒</span>进店看菜单</a>
+    <a class="btn g" id="goPanel" href="#"><span class="ic">📊</span>商家后台</a>
+    <a class="btn m" id="recheck" href="javascript:void 0"><span class="ic">🔄</span>检测连接</a>
+  </div>
+
+  <div class="card">
+    <h2>怎么下单</h2>
+    <ol>
+      <li>进店选商品，加入购物车</li>
+      <li>填姓名、电话、送哪儿</li>
+      <li>提交后扫商家收款码付款</li>
+      <li>钱直接付给商家，平台不代收</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>说明</h2>
+    <ul>
+      <li>本店不收任何预付款</li>
+      <li>市区当天送达，17:00 前下单</li>
+      <li>有问题群里问，或联系店主</li>
+    </ul>
+  </div>
+
+  <div class="status" id="st"><span class="dot"></span>正在检测服务…</div>
+  <div class="tip">如页面打不开，请刷新或稍后再试</div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var $ = function(i){ return document.getElementById(i); };
+
+  // 候选节点：按优先级
+  var NODES = [
+    "https://freeze-sometimes-exhibitions-signatures.trycloudflare.com",
+    "https://ray-problems-theatre-find.trycloudflare.com"
+  ];
+
+  // 也允许用 ?n= 指定（方便临时切换）
+  var q = new URLSearchParams(location.search);
+  if (q.get("n")) NODES.unshift(q.get("n").replace(/\/$/,""));
+
+  var pick = null;
+
+  function probe(base, ms){
+    return new Promise(function(res){
+      var done = false;
+      var t = setTimeout(function(){ if(!done){done=true;res(false);} }, ms);
+      fetch(base + "/health", {cache:"no-store", mode:"cors"})
+        .then(function(r){ return r.json(); })
+        .then(function(d){ if(!done){done=true;clearTimeout(t);res(!!d.ok);} })
+        .catch(function(){ if(!done){done=true;clearTimeout(t);res(false);} });
+    });
+  }
+
+  function setLinks(base){
+    $("goShop").href  = base + "/index.html";
+    $("goPanel").href = base + "/panel.html";
+  }
+
+  function check(){
+    var st = $("st");
+    st.innerHTML = '<span class="dot"></span>正在检测服务…';
+    var i = 0;
+    (function next(){
+      if (i >= NODES.length){
+        st.innerHTML = '<span class="dot off"></span>服务暂时不可用，请稍后刷新';
+        // 兜底：即使都探测失败，也先给第一个链接，让用户自己试
+        setLinks(NODES[0]);
+        return;
+      }
+      var base = NODES[i++];
+      probe(base, 6000).then(function(ok){
+        if (ok){
+          pick = base;
+          setLinks(base);
+          st.innerHTML = '<span class="dot on"></span>服务正常 · 可以下单';
+        } else {
+          next();
+        }
+      });
+    })();
+  }
+
+  $("recheck").onclick = function(e){ e.preventDefault(); check(); };
+  check();
+
+  // 每 45 秒自动复检（页面放着不动也能自救）
+  setInterval(function(){
+    if (!pick) check();
+  }, 45000);
+})();
+</script>
+</body>
+</html>
